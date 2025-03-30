@@ -27,6 +27,7 @@ import {
   Pin,
   ExternalLink,
   Trash2,
+  RefreshCw,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -463,64 +464,78 @@ export default function NegotiationsPage() {
   }, [refreshTrigger]);
 
   return (
-    <div className="container mx-auto p-4 md:p-6">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold">Transport Negotiations</h1>
-        <p className="text-muted-foreground">Track and manage your transport negotiations</p>
-      </header>
-
-      <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          <div className="relative w-full sm:w-[300px]">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search negotiations..."
-              className="pl-8"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="Accepted">Accepted</SelectItem>
-              <SelectItem value="Rejected">Rejected</SelectItem>
-              <SelectItem value="Completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <Select value={sortOrder} onValueChange={setSortOrder}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="newest">Newest First</SelectItem>
-              <SelectItem value="oldest">Oldest First</SelectItem>
-              <SelectItem value="highest">Highest Price</SelectItem>
-              <SelectItem value="lowest">Lowest Price</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <Link href="/offers">
-          <Button className="w-full md:w-auto">
-            Find Transport Offers
-          </Button>
-        </Link>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight">Transport Negotiations</h1>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={refreshNegotiations}
+          disabled={isLoading}
+          className="gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
+      {/* Search and Filters */}
+      <Card className="overflow-hidden">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row justify-between gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <div className="relative w-full sm:w-[300px]">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search negotiations..."
+                  className="pl-8"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="Accepted">Accepted</SelectItem>
+                  <SelectItem value="Rejected">Rejected</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={sortOrder} onValueChange={setSortOrder}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                  <SelectItem value="oldest">Oldest First</SelectItem>
+                  <SelectItem value="highest">Highest Price</SelectItem>
+                  <SelectItem value="lowest">Lowest Price</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <Link href="/offers">
+              <Button className="w-full sm:w-auto">
+                Find Transport Offers
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-12">
+        <div className="flex flex-col items-center justify-center py-12 border rounded-lg bg-muted/5">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="mt-4 text-muted-foreground">Loading negotiations...</p>
         </div>
       ) : filteredNegotiations.length === 0 ? (
-        <div className="text-center py-12 border rounded-lg bg-muted/20">
+        <div className="text-center py-12 border rounded-lg bg-muted/5">
           <h3 className="text-lg font-medium mb-2">No negotiations found</h3>
           <p className="text-muted-foreground mb-6">Start by requesting transport for an offer</p>
           <Link href="/offers">
@@ -528,38 +543,41 @@ export default function NegotiationsPage() {
           </Link>
         </div>
       ) : (
-        <div className="border rounded-lg overflow-hidden bg-card">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">ID</th>
-                  <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Route</th>
-                  <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Carrier</th>
-                  <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Initial Price</th>
-                  <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Current Price</th>
-                  <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Savings</th>
-                  <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Status</th>
-                  <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Last Activity</th>
-                  <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Messages</th>
-                  <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredNegotiations.map((negotiation) => (
-                  <NegotiationRow 
-                    key={negotiation.id} 
-                    neg={negotiation} 
-                    onDelete={refreshNegotiations}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <Card className="overflow-hidden">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">ID</th>
+                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Route</th>
+                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Carrier</th>
+                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Initial Price</th>
+                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Current Price</th>
+                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Savings</th>
+                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Status</th>
+                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Last Activity</th>
+                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Messages</th>
+                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredNegotiations.map((negotiation) => (
+                    <NegotiationRow 
+                      key={negotiation.id} 
+                      neg={negotiation} 
+                      onDelete={refreshNegotiations}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       )}
-      
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+
+      {/* Analytics Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -571,6 +589,14 @@ export default function NegotiationsPage() {
             <div className="space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm text-muted-foreground">Total Negotiations</span>
+                  <span className="font-medium">{filteredNegotiations.length}</span>
+                </div>
+                <Progress value={100} />
+              </div>
+              
+              <div>
+                <div className="flex items-center justify-between mb-1">
                   <span className="text-sm text-muted-foreground">Active Negotiations</span>
                   <span className="font-medium">{filteredNegotiations.filter(n => n.status === "In Progress" || n.status === "pending").length}</span>
                 </div>
@@ -579,6 +605,7 @@ export default function NegotiationsPage() {
                   filteredNegotiations.length) * 100
                 } />
               </div>
+              
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm text-muted-foreground">Successful Negotiations</span>
@@ -614,37 +641,19 @@ export default function NegotiationsPage() {
             <div className="flex items-center justify-center h-40">
               <div className="text-center">
                 <div className="text-4xl font-bold mb-2">
-                  {
-                    filteredNegotiations.length > 0
-                      ? `${Math.round((filteredNegotiations.filter(n => n.status === "Accepted" || n.status === "Completed").length / filteredNegotiations.length) * 100)}%`
+                  {filteredNegotiations.length > 0 
+                    ? `${Math.round((filteredNegotiations.filter(n => n.status === "Accepted" || n.status === "Completed").length / filteredNegotiations.length) * 100)}%`
+                    : "0%"
+                  }
+                </div>
+                <div className="text-muted-foreground">Of negotiations successfully completed</div>
+                <div className="mt-4 text-sm">
+                  Average savings: {
+                    filteredNegotiations.filter(n => n.savings).length > 0
+                      ? `${Math.round(filteredNegotiations.filter(n => n.savingsPercentage).reduce((acc, n) => acc + parseFloat(n.savingsPercentage?.replace('%', '') || "0"), 0) / filteredNegotiations.filter(n => n.savingsPercentage).length)}%`
                       : "0%"
                   }
                 </div>
-                <p className="text-sm text-muted-foreground">Success Rate</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <ArrowDown className="h-5 w-5 text-primary" />
-              Total Savings
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-center h-40">
-              <div className="text-center">
-                <div className="text-4xl font-bold mb-2">
-                  €{
-                    filteredNegotiations
-                      .filter(n => n.savings)
-                      .reduce((acc, curr) => acc + getNumericPrice(curr.savings || "€0"), 0)
-                      .toFixed(0)
-                  }
-                </div>
-                <p className="text-sm text-muted-foreground">Total Amount Saved</p>
               </div>
             </div>
           </CardContent>
