@@ -19,6 +19,7 @@ export default defineSchema({
             loadType: v.optional(v.string()),
             weight: v.optional(v.string()),
             dimensions: v.optional(v.string()),
+            carrier: v.optional(v.string()),
             notes: v.optional(v.string()),
         }),
         messages: v.array(v.object({

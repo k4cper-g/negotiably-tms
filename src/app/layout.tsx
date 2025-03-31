@@ -28,11 +28,9 @@ export default function RootLayout({
         <ConvexClerkClientProvider>
           <SyncUserWithConvex />
           <NegotiationModalProvider>
-            <MainLayout>
               <div className="relative flex min-h-screen flex-col">
                 <div className="flex-1">{children}</div>
               </div>
-            </MainLayout>
           </NegotiationModalProvider>
         </ConvexClerkClientProvider>
       </body>

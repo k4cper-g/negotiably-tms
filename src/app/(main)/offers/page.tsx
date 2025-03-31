@@ -33,9 +33,9 @@ import { useState, useEffect, useRef, ChangeEvent } from "react";
 import dynamic from 'next/dynamic';
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { api } from "../../../../convex/_generated/api";
 import { useNegotiationModal } from "@/context/NegotiationModalContext";
-import { Id } from "../../../convex/_generated/dataModel";
+import { Id } from "../../../../convex/_generated/dataModel";
 
 // Dynamic import of map components to avoid SSR issues with Leaflet
 const TransportMap = dynamic(() => import('@/components/TransportMap'), {
@@ -256,6 +256,7 @@ function TransportOfferDetails({ offer }: { offer: TransportOffer }) {
           loadType: offer.loadType,
           weight: offer.weight,
           dimensions: offer.dimensions,
+          carrier: offer.carrier,
           notes: `Request for transport from ${offer.origin} to ${offer.destination}`,
         },
       });
@@ -395,6 +396,7 @@ function OfferCard({ offer, onSelect }: { offer: any; onSelect: (id: string) => 
           loadType: offer.loadType,
           weight: offer.weight,
           dimensions: offer.dimensions,
+          carrier: offer.carrier,
           notes: `Request for transport from ${offer.origin} to ${offer.destination}`,
         },
       });
@@ -803,6 +805,7 @@ export default function OffersPage() {
           destination: offer.destination,
           price: offer.price,
           loadType: offer.loadType,
+          carrier: offer.carrier,
           weight: offer.weight,
           dimensions: offer.dimensions,
           notes: `Request for transport from ${offer.origin} to ${offer.destination}`,

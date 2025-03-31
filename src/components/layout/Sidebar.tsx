@@ -1,55 +1,49 @@
 "use client";
 
-import { useState, useEffect, memo } from "react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { UserButton, useClerk, useUser } from "@clerk/nextjs";
+import Link from "next/link";
 import Image from "next/image";
 import { 
-  Truck, 
-  MessageSquare, 
+  Package, 
+  FileText, 
   BarChart2, 
-  Settings, 
   Map,
   LogOut,
   Users,
-  Clock,
   Bell,
-  ShieldCheck,
-  CircleDollarSign
+  Shield,
+  Settings,
+  Truck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { useMediaQuery } from "@/hooks/use-media-query";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import NavItem from "./NavItem";
+import { useClerk, useUser } from "@clerk/nextjs";
+import { clerkClient } from "@clerk/nextjs/server";
 
-interface NavigationItem {
-  icon: React.ReactNode;
-  label: string;
-  href: string;
-  badge?: string | number;
-}
-
-interface SidebarProps {
-  isCollapsed: boolean;
-}
-
-function Sidebar({ isCollapsed }: SidebarProps) {
+export default function Sidebar() {
   const [isMounted, setIsMounted] = useState(false);
   const pathname = usePathname();
-  const { signOut } = useClerk();
+  const { signOut } = useClerk()
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  
+  // Fetch user data
+  const convexUser = useQuery(api.users.getCurrentUser);
   const { user: clerkUser } = useUser();
   
-  // Fetch user data from Convex
-  const convexUser = useQuery(api.users.getCurrentUser);
+  // Reset selectedPath when pathname changes
+  useEffect(() => {
+    setSelectedPath(pathname);
+  }, [pathname]);
   
   // Handle initial render
   useEffect(() => {
     setIsMounted(true);
+    setSelectedPath(pathname);
   }, []);
   
   // Prevent hydration mismatch
@@ -57,167 +51,199 @@ function Sidebar({ isCollapsed }: SidebarProps) {
     return null;
   }
   
-  const handleSignOut = () => {
-    signOut();
+  // Check if a path is active
+  const isActive = (path: string) => {
+    // Check both the current pathname and the selectedPath
+    // This ensures the link appears active immediately on click
+    return selectedPath === path || pathname === path;
   };
   
-  const navigation: NavigationItem[] = [
-    { 
-      icon: <Truck size={18} />, 
-      label: "Transport Offers", 
-      href: "/offers"
-    },
-    { 
-      icon: <MessageSquare size={18} />, 
-      label: "Negotiations", 
-      href: "/negotiations"
-    },
-    { 
-      icon: <Map size={18} />, 
-      label: "Route Planning", 
-      href: "/routes" 
-    },
-    { 
-      icon: <BarChart2 size={18} />, 
-      label: "Analytics", 
-      href: "/analytics" 
-    },
-    { 
-      icon: <Clock size={18} />, 
-      label: "Delivery Tracking", 
-      href: "/tracking" 
-    },
-    { 
-      icon: <CircleDollarSign size={18} />, 
-      label: "Invoices", 
-      href: "/invoices" 
-    },
-    { 
-      icon: <Users size={18} />, 
-      label: "Partners", 
-      href: "/partners" 
-    },
-  ];
+  // Handle link click with immediate feedback
+  const handleLinkClick = (path: string) => {
+    // Update the local state immediately
+    setSelectedPath(path);
+    // No need to wait for the pathname to change via navigation
+  };
   
-  const secondaryNavigation: NavigationItem[] = [
-    { 
-      icon: <Bell size={18} />, 
-      label: "Notifications", 
-      href: "/notifications"
-    },
-    { 
-      icon: <ShieldCheck size={18} />, 
-      label: "Compliance", 
-      href: "/compliance" 
-    },
-    { 
-      icon: <Settings size={18} />, 
-      label: "Settings", 
-      href: "/settings" 
-    },
-  ];
-
   // Extract user info - use Convex data if available, fallback to Clerk
   const userDisplayName = convexUser?.name || clerkUser?.fullName || "User";
+  const userEmail = convexUser?.email || clerkUser?.primaryEmailAddress?.emailAddress || "";
   const userImageUrl = convexUser?.imageUrl || clerkUser?.imageUrl || "";
   const userInitials = userDisplayName.split(' ').map((n: string) => n[0]).join('').toUpperCase();
-
+  
   return (
-    <div 
-      className={cn(
-        "fixed left-0 top-0 z-20 flex h-screen flex-col border-r bg-sidebar transition-width duration-300 ease-in-out",
-        isCollapsed ? "w-[70px]" : "w-[250px]"
-      )}
-    >
+    <div className="fixed left-0 top-0 z-20 flex h-screen w-64 flex-col border-r bg-white">
       {/* Logo section */}
-      <div className="flex h-16 items-center justify-center border-b px-3 py-4">
-        {!isCollapsed && (
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md">
-              <Image src="/alterionlogo-small-dark.png" alt="Alterion Logo" width={32} height={32} />
-            </div>
-            {/* <span className="text-lg font-semibold">lterion</span> */}
-          </div>
-        )}
-        
-        {isCollapsed && (
-          <div className="flex h-9 w-9 items-center justify-center rounded-md">
-            <Image src="/alterionlogo-small-dark.png" alt="Alterion Logo" width={32} height={32} />
-          </div>
-        )}
-      </div>
-      
-      {/* Profile section */}
-      <div className="relative flex items-center border-b p-4">
-        <Avatar className="h-10 w-10 border flex-shrink-0">
-          <AvatarImage src={userImageUrl} alt={userDisplayName} />
-          <AvatarFallback className="bg-sidebar-primary/20 text-sidebar-foreground font-medium">
-            {userInitials}
-          </AvatarFallback>
-        </Avatar>
-        <div className={cn(
-          "ml-3 flex flex-col overflow-hidden transition-width transition-opacity duration-300",
-          isCollapsed ? "w-0 opacity-0" : "flex-1 opacity-100"
-        )}>
-          <span className="truncate text-sm font-medium">{userDisplayName}</span>
-          <span className="truncate text-xs text-sidebar-foreground/70">
-            {convexUser?.email || clerkUser?.primaryEmailAddress?.emailAddress || ""}
-          </span>
+      <div className="p-4 border-b border-gray-100 flex items-center space-x-2 justify-center">
+        <div className="h-8 w-8">
+          <a href="/">
+            <Image src="/alterionlogo-small-dark.png" alt="logo" width={32} height={32} />
+          </a>
         </div>
       </div>
-      
-      {/* Main navigation */}
-      <div className="flex-1 overflow-y-scroll scrollbar-hide p-2">
-        <nav className="flex flex-col gap-1">
-          {navigation.map((item) => (
-            <NavItem
-              key={item.href}
-              icon={item.icon}
-              label={item.label}
-              href={item.href}
-              badge={item.badge}
-              isActive={pathname === item.href}
-              isCollapsed={isCollapsed}
-            />
-          ))}
-          
-          <div className={cn(
-            "relative my-2 border-t border-sidebar-border/50",
-            isCollapsed ? "opacity-30" : "opacity-100"
-          )} />
-          
-          {secondaryNavigation.map((item) => (
-            <NavItem
-              key={item.href}
-              icon={item.icon}
-              label={item.label}
-              href={item.href}
-              badge={item.badge}
-              isActive={pathname === item.href}
-              isCollapsed={isCollapsed}
-            />
-          ))}
-        </nav>
-      </div>
-      
-      {/* Bottom actions */}
-      <div className="border-t p-2 px-4">
-        <Button
-          variant="ghost"
-          className="w-full flex items-center justify-start text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-          onClick={handleSignOut}
-        >
-          <LogOut size={18} className="flex-shrink-0" />
-          <div className={cn(
-            "overflow-hidden transition-width transition-margin duration-300",
-            isCollapsed ? "w-0 ml-0" : "w-auto ml-2"
-          )}>
-            <span className="whitespace-nowrap">Sign Out</span>
+
+      {/* User profile section */}
+      <div className="p-4 border-b border-gray-100">
+        <div className="flex items-center space-x-3">
+          <Avatar>
+            <AvatarImage src={userImageUrl} alt={userDisplayName} />
+            <AvatarFallback className="bg-gray-200 text-gray-500">
+              {userInitials}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <p className="text-sm font-medium">{userDisplayName}</p>
+            <p className="text-xs text-gray-500">{userEmail}</p>
           </div>
+        </div>
+      </div>
+
+      {/* Main navigation */}
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        <Link href="/offers" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/offers")}>
+          <Button 
+            variant={isActive("/offers") ? "secondary" : "ghost"}
+            className={cn(
+              "w-full justify-start",
+              isActive("/offers") ? "font-medium" : "font-normal text-gray-600"
+            )}
+          >
+            <Package className="h-4 w-4 mr-3" />
+            Transport Offers
+          </Button>
+        </Link>
+        
+        <Link href="/negotiations" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/negotiations")}>
+          <Button 
+            variant={isActive("/negotiations") ? "secondary" : "ghost"}
+            className={cn(
+              "w-full justify-start",
+              isActive("/negotiations") ? "font-medium" : "font-normal text-gray-600"
+            )}
+          >
+            <FileText className="h-4 w-4 mr-3" />
+            Negotiations
+          </Button>
+        </Link>
+        
+        <Link href="/routes" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/routes")}>
+          <Button 
+            variant={isActive("/routes") ? "secondary" : "ghost"}
+            className={cn(
+              "w-full justify-start",
+              isActive("/routes") ? "font-medium" : "font-normal text-gray-600"
+            )}
+          >
+            <Map className="h-4 w-4 mr-3" />
+            Route Planning
+          </Button>
+        </Link>
+        
+        <Link href="/analytics" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/analytics")}>
+          <Button 
+            variant={isActive("/analytics") ? "secondary" : "ghost"}
+            className={cn(
+              "w-full justify-start",
+              isActive("/analytics") ? "font-medium" : "font-normal text-gray-600"
+            )}
+          >
+            <BarChart2 className="h-4 w-4 mr-3" />
+            Analytics
+          </Button>
+        </Link>
+        
+        <Link href="/tracking" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/tracking")}>
+          <Button 
+            variant={isActive("/tracking") ? "secondary" : "ghost"}
+            className={cn(
+              "w-full justify-start",
+              isActive("/tracking") ? "font-medium" : "font-normal text-gray-600"
+            )}
+          >
+            <Truck className="h-4 w-4 mr-3" />
+            Delivery Tracking
+          </Button>
+        </Link>
+        
+        <Link href="/invoices" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/invoices")}>
+          <Button 
+            variant={isActive("/invoices") ? "secondary" : "ghost"}
+            className={cn(
+              "w-full justify-start",
+              isActive("/invoices") ? "font-medium" : "font-normal text-gray-600"
+            )}
+          >
+            <FileText className="h-4 w-4 mr-3" />
+            Invoices
+          </Button>
+        </Link>
+        
+        <Link href="/partners" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/partners")}>
+          <Button 
+            variant={isActive("/partners") ? "secondary" : "ghost"}
+            className={cn(
+              "w-full justify-start",
+              isActive("/partners") ? "font-medium" : "font-normal text-gray-600"
+            )}
+          >
+            <Users className="h-4 w-4 mr-3" />
+            Partners
+          </Button>
+        </Link>
+
+        <Separator className="my-3" />
+
+        <Link href="/notifications" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/notifications")}>
+          <Button 
+            variant={isActive("/notifications") ? "secondary" : "ghost"}
+            className={cn(
+              "w-full justify-start",
+              isActive("/notifications") ? "font-medium" : "font-normal text-gray-600"
+            )}
+          >
+            <Bell className="h-4 w-4 mr-3" />
+            Notifications
+          </Button>
+        </Link>
+        
+        <Link href="/compliance" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/compliance")}>
+          <Button 
+            variant={isActive("/compliance") ? "secondary" : "ghost"}
+            className={cn(
+              "w-full justify-start",
+              isActive("/compliance") ? "font-medium" : "font-normal text-gray-600"
+            )}
+          >
+            <Shield className="h-4 w-4 mr-3" />
+            Compliance
+          </Button>
+        </Link>
+        
+        <Link href="/settings" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/settings")}>
+          <Button 
+            variant={isActive("/settings") ? "secondary" : "ghost"}
+            className={cn(
+              "w-full justify-start",
+              isActive("/settings") ? "font-medium" : "font-normal text-gray-600"
+            )}
+          >
+            <Settings className="h-4 w-4 mr-3" />
+            Settings
+          </Button>
+        </Link>
+      </nav>
+
+      {/* Sign out section */}
+      <div className="p-4 border-t border-gray-100">
+        <Button 
+          variant="ghost" 
+          className="w-full justify-start text-gray-600 font-normal"
+          onClick={() => signOut()}
+        >
+          <LogOut className="h-4 w-4 mr-3" />
+          Sign Out
         </Button>
       </div>
     </div>
   );
-}
-
-export default memo(Sidebar); 
+} 

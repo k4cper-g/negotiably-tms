@@ -1,5 +1,5 @@
 // SERVER COMPONENT
-import { Id } from "../../../../convex/_generated/dataModel";
+import { Id } from "../../../../../convex/_generated/dataModel";
 import NegotiationDetailClient from "./NegotiationDetailClient";
 
 export default function NegotiationDetail(props: { params: { id: string } }) {

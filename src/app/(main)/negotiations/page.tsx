@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -12,34 +11,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  BarChart2,
-  Calendar,
-  Filter,
-  Clock,
   Search,
-  ArrowUp,
   ArrowDown,
   MessageSquare,
-  BarChart,
-  CheckCircle,
-  XCircle,
   Loader2,
   Pin,
-  ExternalLink,
   Trash2,
   RefreshCw,
+  ArrowRight,
 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import Link from "next/link";
-import { Progress } from "@/components/ui/progress";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { api } from "../../../../convex/_generated/api";
 import { formatDistanceToNow } from "date-fns";
 import { useNegotiationModal } from "@/context/NegotiationModalContext";
-import { Id } from "../../../convex/_generated/dataModel";
+import { Id } from "../../../../convex/_generated/dataModel";
 import { 
   AlertDialog, 
   AlertDialogAction, 
@@ -239,33 +227,37 @@ function NegotiationRow({ neg, onDelete }: { neg: Negotiation; onDelete?: () => 
   
   return (
     <tr 
-      className="border-b hover:bg-muted/50 cursor-pointer w-full" 
+      className="border-b hover:bg-muted/30 cursor-pointer transition-colors" 
       onClick={handleRowClick}
     >
-      <td className="py-3 px-4 font-medium">{neg.id}</td>
-      <td className="py-3 px-4">
-        {neg.offerRoute || `${neg.origin} → ${neg.destination}`}
+      <td className="py-3 px-4 font-medium text-sm">{neg.id.substring(0, 8)}</td>
+      <td className="py-3 px-4 text-sm">
+        <div className="flex items-center gap-1">
+          <span className="font-medium">{neg.origin}</span>
+          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+          <span className="font-medium">{neg.destination}</span>
+        </div>
       </td>
-      <td className="py-3 px-4">{neg.carrier || "Unknown"}</td>
-      <td className="py-3 px-4">{neg.initialPrice}</td>
-      <td className="py-3 px-4">{neg.currentPrice || neg.initialPrice}</td>
-      <td className="py-3 px-4">
+      <td className="py-3 px-4 text-sm">{neg.carrier || "Unknown"}</td>
+      <td className="py-3 px-4 text-sm">{neg.initialPrice}</td>
+      <td className="py-3 px-4 text-sm">{neg.currentPrice || neg.initialPrice}</td>
+      <td className="py-3 px-4 text-sm">
         <div className="flex items-center">
           {neg.savings ? (
             <>
               <ArrowDown className="h-4 w-4 text-green-500 mr-1" />
-              <span className="text-green-500">{neg.savings}</span>
-              <span className="text-sm text-muted-foreground ml-1">({neg.savingsPercentage})</span>
+              <span className="text-green-600 font-medium">{neg.savings}</span>
+              <span className="text-xs text-green-500 ml-1">({neg.savingsPercentage})</span>
             </>
           ) : (
             <span className="text-muted-foreground">-</span>
           )}
         </div>
       </td>
-      <td className="py-3 px-4">
+      <td className="py-3 px-4 text-sm">
         <Badge 
           variant={
-            neg.status === "In Progress" || neg.status === "pending" ? "outline" :
+            neg.status === "In Progress" || neg.status === "pending" ? "secondary" :
             neg.status === "Accepted" ? "success" :
             neg.status === "Completed" ? "success" :
             neg.status === "Rejected" ? "destructive" :
@@ -276,48 +268,38 @@ function NegotiationRow({ neg, onDelete }: { neg: Negotiation; onDelete?: () => 
           {neg.status === "pending" ? "In Progress" : neg.status}
         </Badge>
       </td>
-      <td className="py-3 px-4 text-muted-foreground">
+      <td className="py-3 px-4 text-xs text-muted-foreground">
         {neg.lastActivity || formatDistanceToNow(new Date(neg.dateCreated), { addSuffix: true })}
       </td>
-      <td className="py-3 px-4">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="h-4 w-4 text-muted-foreground" />
+      <td className="py-3 px-4 text-sm">
+        <div className="flex items-center gap-1">
+          <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
           <span>{neg.messages}</span>
         </div>
       </td>
-      <td className="py-3 px-4">
+      <td className="py-3 px-4 text-sm">
         <div className="flex items-center gap-2">
-          <div 
-            className="cursor-pointer" 
-            title="Open as floating chat"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={handleOpenModal}
+            className="h-7 w-7"
+            title="Open as floating chat"
           >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              width="16" 
-              height="16" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <line x1="12" x2="12" y1="17" y2="22" />
-              <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
-            </svg>
-          </div>
+            <Pin className="h-3.5 w-3.5 text-muted-foreground" />
+          </Button>
           
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <div 
-                className="cursor-pointer"
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
                 title="Delete negotiation"
                 onClick={(e) => e.stopPropagation()}
               >
-                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-              </div>
+                <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+              </Button>
             </AlertDialogTrigger>
             <AlertDialogContent onClick={(e) => e.stopPropagation()}>
               <AlertDialogHeader>
@@ -349,6 +331,7 @@ export default function NegotiationsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState("newest");
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Fetch negotiations from Convex
   const convexNegotiations = useQuery(api.negotiations.getUserNegotiations);
@@ -389,6 +372,7 @@ export default function NegotiationsPage() {
         offerId: neg.offerId,
         origin: neg.initialRequest.origin,
         destination: neg.initialRequest.destination,
+        carrier: neg.initialRequest.carrier,
         initialPrice: neg.initialRequest.price,
         currentPrice: latestOffer ? latestOffer.price : undefined,
         savings: savings,
@@ -448,86 +432,95 @@ export default function NegotiationsPage() {
   
   const filteredNegotiations = getFilteredNegotiations();
   
-  // Loading state
-  const isLoading = convexNegotiations === undefined;
-
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  
-  // Add a refresh function to trigger refetching data
+  // Simple refresh function that adds a loading indicator
   const refreshNegotiations = () => {
-    setRefreshTrigger(prev => prev + 1);
+    setIsRefreshing(true);
+    // The actual refresh happens automatically via Convex's reactive queries
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 1000);
   };
   
-  // Use the refreshTrigger in your useEffect to reload data
-  useEffect(() => {
-    // This will run whenever refreshTrigger changes, forcing a re-fetch
-  }, [refreshTrigger]);
-
+  const isLoading = convexNegotiations === undefined;
+  
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Transport Negotiations</h1>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={refreshNegotiations}
-          disabled={isLoading}
-          className="gap-2"
-        >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+    <div className="w-full px-4 py-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight mb-1">Transport Negotiations</h1>
+          <p className="text-muted-foreground">Manage and track all your freight price negotiations</p>
+        </div>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="gap-1"
+            onClick={refreshNegotiations}
+            disabled={isRefreshing}
+          >
+            {isRefreshing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+            <span>Refresh</span>
+          </Button>
+          
+          <Link href="/offers">
+            <Button size="sm" className="gap-1">
+              <span>New Negotiation</span>
+            </Button>
+          </Link>
+        </div>
       </div>
-
-      {/* Search and Filters */}
-      <Card className="overflow-hidden">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row justify-between gap-4">
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <div className="relative w-full sm:w-[300px]">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search negotiations..."
-                  className="pl-8"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="Accepted">Accepted</SelectItem>
-                  <SelectItem value="Rejected">Rejected</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select value={sortOrder} onValueChange={setSortOrder}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">Newest First</SelectItem>
-                  <SelectItem value="oldest">Oldest First</SelectItem>
-                  <SelectItem value="highest">Highest Price</SelectItem>
-                  <SelectItem value="lowest">Lowest Price</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <Link href="/offers">
-              <Button className="w-full sm:w-auto">
-                Find Transport Offers
-              </Button>
-            </Link>
+      
+      <div className="mb-6">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by route, carrier..."
+              className="pl-9"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex gap-3">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="Accepted">Accepted</SelectItem>
+                <SelectItem value="Rejected">Rejected</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={sortOrder} onValueChange={setSortOrder}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">
+                  Newest First
+                </SelectItem>
+                <SelectItem value="oldest">
+                  Oldest First
+                </SelectItem>
+                <SelectItem value="highest">
+                  Highest Price
+                </SelectItem>
+                <SelectItem value="lowest">
+                  Lowest Price
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
 
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-12 border rounded-lg bg-muted/5">
@@ -543,122 +536,45 @@ export default function NegotiationsPage() {
           </Link>
         </div>
       ) : (
-        <Card className="overflow-hidden">
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">ID</th>
-                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Route</th>
-                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Carrier</th>
-                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Initial Price</th>
-                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Current Price</th>
-                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Savings</th>
-                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Status</th>
-                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Last Activity</th>
-                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Messages</th>
-                    <th className="text-left text-sm text-muted-foreground font-medium py-3 px-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredNegotiations.map((negotiation) => (
-                    <NegotiationRow 
-                      key={negotiation.id} 
-                      neg={negotiation} 
-                      onDelete={refreshNegotiations}
-                    />
-                  ))}
-                </tbody>
-              </table>
+        <>
+          <div className="rounded-lg overflow-hidden border">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-muted/30 text-xs text-muted-foreground font-medium">
+                  <th className="text-left py-3 px-4">ID</th>
+                  <th className="text-left py-3 px-4">Route</th>
+                  <th className="text-left py-3 px-4">Carrier</th>
+                  <th className="text-left py-3 px-4">Initial Price</th>
+                  <th className="text-left py-3 px-4">Current Price</th>
+                  <th className="text-left py-3 px-4">Savings</th>
+                  <th className="text-left py-3 px-4">Status</th>
+                  <th className="text-left py-3 px-4">Last Activity</th>
+                  <th className="text-left py-3 px-4">Messages</th>
+                  <th className="text-left py-3 px-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredNegotiations.map((neg) => (
+                  <NegotiationRow 
+                    key={neg.id} 
+                    neg={neg} 
+                    onDelete={refreshNegotiations}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex justify-between items-center mt-4 text-sm text-muted-foreground">
+            <div>
+              Showing {filteredNegotiations.length} of {filteredNegotiations.length} negotiations
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled>Previous</Button>
+              <Button variant="outline" size="sm" disabled>Next</Button>
+            </div>
+          </div>
+        </>
       )}
-
-      {/* Analytics Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <BarChart2 className="h-5 w-5 text-primary" />
-              Negotiation Stats
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm text-muted-foreground">Total Negotiations</span>
-                  <span className="font-medium">{filteredNegotiations.length}</span>
-                </div>
-                <Progress value={100} />
-              </div>
-              
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm text-muted-foreground">Active Negotiations</span>
-                  <span className="font-medium">{filteredNegotiations.filter(n => n.status === "In Progress" || n.status === "pending").length}</span>
-                </div>
-                <Progress value={
-                  (filteredNegotiations.filter(n => n.status === "In Progress" || n.status === "pending").length / 
-                  filteredNegotiations.length) * 100
-                } />
-              </div>
-              
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm text-muted-foreground">Successful Negotiations</span>
-                  <span className="font-medium">{filteredNegotiations.filter(n => n.status === "Accepted" || n.status === "Completed").length}</span>
-                </div>
-                <Progress value={
-                  (filteredNegotiations.filter(n => n.status === "Accepted" || n.status === "Completed").length / 
-                  filteredNegotiations.length) * 100
-                } />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm text-muted-foreground">Failed Negotiations</span>
-                  <span className="font-medium">{filteredNegotiations.filter(n => n.status === "Rejected" || n.status === "Expired").length}</span>
-                </div>
-                <Progress value={
-                  (filteredNegotiations.filter(n => n.status === "Rejected" || n.status === "Expired").length / 
-                  filteredNegotiations.length) * 100
-                } />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <CheckCircle className="h-5 w-5 text-primary" />
-              Success Rate
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-center h-40">
-              <div className="text-center">
-                <div className="text-4xl font-bold mb-2">
-                  {filteredNegotiations.length > 0 
-                    ? `${Math.round((filteredNegotiations.filter(n => n.status === "Accepted" || n.status === "Completed").length / filteredNegotiations.length) * 100)}%`
-                    : "0%"
-                  }
-                </div>
-                <div className="text-muted-foreground">Of negotiations successfully completed</div>
-                <div className="mt-4 text-sm">
-                  Average savings: {
-                    filteredNegotiations.filter(n => n.savings).length > 0
-                      ? `${Math.round(filteredNegotiations.filter(n => n.savingsPercentage).reduce((acc, n) => acc + parseFloat(n.savingsPercentage?.replace('%', '') || "0"), 0) / filteredNegotiations.filter(n => n.savingsPercentage).length)}%`
-                      : "0%"
-                  }
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 } 
