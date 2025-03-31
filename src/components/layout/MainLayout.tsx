@@ -1,9 +1,9 @@
 "use client";
 
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useState, useEffect, useMemo } from "react";
 import { UserButton } from "@clerk/nextjs";
 import Sidebar from "@/components/layout/Sidebar";
-import { ChevronLeft, ChevronRight, Menu } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
@@ -38,14 +38,19 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     }
   }, [isCollapsed, isMounted]);
   
-  // Prevent hydration mismatch
-  if (!isMounted) {
-    return null;
-  }
+  // Memoize content margin style to prevent unnecessary re-renders
+  const contentStyle = useMemo(() => ({
+    marginLeft: isCollapsed ? "70px" : "250px"
+  }), [isCollapsed]);
   
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
   };
+  
+  // Prevent hydration mismatch
+  if (!isMounted) {
+    return null;
+  }
 
   return (
     <div className="relative flex h-screen overflow-hidden bg-background">
@@ -54,10 +59,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 
       {/* Main Content */}
       <div 
-        className="flex flex-col flex-1 overflow-hidden transition-all duration-300 ease-in-out"
-        style={{ 
-          marginLeft: isCollapsed ? "70px" : "250px" 
-        }}
+        className="flex flex-col flex-1 overflow-hidden transition-margin duration-300 ease-in-out"
+        style={contentStyle}
       >
         {/* Top Navigation */}
         <header className="h-16 flex items-center justify-between px-4 border-b bg-card">
