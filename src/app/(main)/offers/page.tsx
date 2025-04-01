@@ -24,6 +24,8 @@ import {
   Loader2,
   Pin,
   MessageSquare,
+  Award,
+  Bot,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -32,10 +34,12 @@ import Link from "next/link";
 import { useState, useEffect, useRef, ChangeEvent } from "react";
 import dynamic from 'next/dynamic';
 import { useRouter } from "next/navigation";
-import { useMutation } from "convex/react";
+import { useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useNegotiationModal } from "@/context/NegotiationModalContext";
 import { Id } from "../../../../convex/_generated/dataModel";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 // Dynamic import of map components to avoid SSR issues with Leaflet
 const TransportMap = dynamic(() => import('@/components/TransportMap'), {
@@ -73,6 +77,11 @@ interface TransportOffer {
 interface ActiveFilter {
   type: string;
   value: string;
+}
+
+interface AiEvaluationResult {
+  rank: number;
+  reason: string;
 }
 
 // Dummy data for demonstration
@@ -371,7 +380,15 @@ function TransportOfferDetails({ offer }: { offer: TransportOffer }) {
 }
 
 // OfferCard component for individual transport offers
-function OfferCard({ offer, onSelect }: { offer: any; onSelect: (id: string) => void }) {
+function OfferCard({ 
+  offer, 
+  onSelect, 
+  aiResult // Add aiResult prop
+}: { 
+  offer: TransportOffer; // Use defined TransportOffer type
+  onSelect: (id: string) => void; 
+  aiResult?: AiEvaluationResult; // Make aiResult optional
+}) {
   const createNegotiation = useMutation(api.negotiations.createNegotiation);
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
@@ -414,12 +431,38 @@ function OfferCard({ offer, onSelect }: { offer: any; onSelect: (id: string) => 
     }
   };
   
+  const getRankColor = (rank: number) => {
+    switch (rank) {
+      case 1: return "border-yellow-400 bg-yellow-50 text-yellow-700"; // Gold
+      case 2: return "border-gray-400 bg-gray-100 text-gray-700"; // Silver
+      case 3: return "border-orange-400 bg-orange-50 text-orange-700"; // Bronze
+      default: return "border-transparent";
+    }
+  };
+
   return (
-    <Card className="h-full flex flex-col overflow-hidden hover:shadow-md transition-shadow duration-200 border-muted/60 hover:border-primary/20">
+    <Card className={`h-full flex flex-col overflow-hidden hover:shadow-md transition-shadow duration-200 border-2 ${getRankColor(aiResult?.rank ?? 0)}`}>
       <div className="bg-gradient-to-r from-primary/10 to-primary/5 px-3 py-2 border-b flex items-center justify-between">
         <Badge variant="outline" className="bg-background/80 font-medium text-xs">
           {offer.id}
         </Badge>
+        {/* AI Rank Badge */} 
+        {aiResult && (
+          <TooltipProvider>
+            <Tooltip delayDuration={100}>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className={`font-bold text-xs ${getRankColor(aiResult.rank)}`}>
+                  <Award className="h-3 w-3 mr-1" />
+                  Rank #{aiResult.rank}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="end" className="max-w-xs text-center">
+                <p className="text-sm font-semibold mb-1">AI Evaluation:</p>
+                <p className="text-xs">{aiResult.reason}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
         <div className="text-xs font-medium text-primary">
           {offer.platform}
         </div>
@@ -516,16 +559,22 @@ export default function OffersPage() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreatingNegotiation, setIsCreatingNegotiation] = useState(false);
+  const [loadingSource, setLoadingSource] = useState<'initial' | 'refresh' | 'ai' | null>(null);
   const createNegotiation = useMutation(api.negotiations.createNegotiation);
   const { openNegotiation } = useNegotiationModal();
   const router = useRouter();
   
-  const [filteredOffers, setFilteredOffers] = useState(transportOffers);
+  const [filteredOffers, setFilteredOffers] = useState<TransportOffer[]>(transportOffers);
   const [negotiationIdMap, setNegotiationIdMap] = useState<Record<string, Id<"negotiations">>>({});
+  const [aiEvaluationResults, setAiEvaluationResults] = useState<Record<string, AiEvaluationResult>>({});
+
+  // Get the Convex action handler
+  const evaluateOffersAction = useAction(api.offers.evaluateOffers);
 
   // Initial load of offers
   useEffect(() => {
-    loadOffers();
+    // Pass 'initial' source on first load
+    loadOffers('initial'); 
   }, []);
 
   // Scroll to map when map view is selected
@@ -581,8 +630,10 @@ export default function OffersPage() {
   };
   
   // Function to load offers with loading state
-  const loadOffers = () => {
+  const loadOffers = (source: 'initial' | 'refresh' = 'refresh') => {
     setIsLoading(true);
+    setLoadingSource(source);
+    setAiEvaluationResults({}); // Clear AI results on refresh
     
     // Keep the current data visible while loading new data
     // Instead of clearing filteredOffers, we'll just show loading indicators
@@ -603,11 +654,13 @@ export default function OffersPage() {
     //   .catch(err => {
     //     console.error('Error loading offers:', err);
     //     setIsLoading(false);
+    //     setLoadingSource(null); // Also clear source on error
     //   });
   };
 
   const applyFilters = () => {
     setIsLoading(true);
+    setAiEvaluationResults({}); // Clear AI results when applying standard filters
     
     // Keep the current data visible while loading new filtered data
     // This prevents layout shifts during filtering
@@ -789,6 +842,213 @@ export default function OffersPage() {
     setSelectedOfferForModal(offerId);
   };
 
+  // Updated function for AI Search - now includes filtering and uses isLoading
+  const handleAiSearchClick = async () => {
+    // Set main loading state to true to show skeletons
+    setIsLoading(true);
+    setLoadingSource('ai');
+    setAiEvaluationResults({}); // Clear previous results
+
+    // --- Filtering Logic (copied from applyFilters, without setTimeout/setIsLoading) ---
+    let offersToEvaluate = [...transportOffers]; // Start with the original full list
+    
+    // Apply search term filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      offersToEvaluate = offersToEvaluate.filter(offer => 
+        offer.id.toLowerCase().includes(term) || 
+        offer.origin.toLowerCase().includes(term) || 
+        offer.destination.toLowerCase().includes(term) || 
+        offer.carrier.toLowerCase().includes(term)
+      );
+    }
+    
+    // Apply origin filter
+    if (originFilter) {
+      offersToEvaluate = offersToEvaluate.filter(offer => 
+        offer.origin.toLowerCase().includes(originFilter.toLowerCase())
+      );
+    }
+    
+    // Apply destination filter
+    if (destinationFilter) {
+      offersToEvaluate = offersToEvaluate.filter(offer => 
+        offer.destination.toLowerCase().includes(destinationFilter.toLowerCase())
+      );
+    }
+    
+    // Apply platform filter
+    if (platformFilter && platformFilter !== "all") {
+      offersToEvaluate = offersToEvaluate.filter(offer => 
+        offer.platform === platformFilter
+      );
+    }
+    
+    // Apply status filter
+    if (statusFilter && statusFilter !== "all") {
+      offersToEvaluate = offersToEvaluate.filter(offer => 
+        offer.status === statusFilter
+      );
+    }
+    
+    // Apply price range filters
+    if (minPrice) {
+      const min = parseInt(minPrice);
+      if (!isNaN(min)) {
+        offersToEvaluate = offersToEvaluate.filter(offer => {
+          const price = parseInt(offer.price.replace(/[^0-9]/g, ''));
+          return !isNaN(price) && price >= min;
+        });
+      }
+    }
+    
+    if (maxPrice) {
+      const max = parseInt(maxPrice);
+      if (!isNaN(max)) {
+        offersToEvaluate = offersToEvaluate.filter(offer => {
+          const price = parseInt(offer.price.replace(/[^0-9]/g, ''));
+          return !isNaN(price) && price <= max;
+        });
+      }
+    }
+    
+    // Apply load type filter
+    if (loadTypeFilter && loadTypeFilter !== "all") {
+      offersToEvaluate = offersToEvaluate.filter(offer => 
+        offer.loadType === loadTypeFilter
+      );
+    }
+    
+    // Apply sorting (important for consistency if AI considers order)
+    if (sortBy) {
+      switch (sortBy) {
+        case "price-low":
+          offersToEvaluate.sort((a, b) => {
+            const priceA = parseInt(a.price.replace(/[^0-9]/g, ''));
+            const priceB = parseInt(b.price.replace(/[^0-9]/g, ''));
+            return (isNaN(priceA) ? Infinity : priceA) - (isNaN(priceB) ? Infinity : priceB);
+          });
+          break;
+        case "price-high":
+          offersToEvaluate.sort((a, b) => {
+            const priceA = parseInt(a.price.replace(/[^0-9]/g, ''));
+            const priceB = parseInt(b.price.replace(/[^0-9]/g, ''));
+            return (isNaN(priceB) ? -Infinity : priceB) - (isNaN(priceA) ? -Infinity : priceA);
+          });
+          break;
+        case "distance-low":
+          offersToEvaluate.sort((a, b) => {
+            const distanceA = parseInt(a.distance.replace(/[^0-9]/g, ''));
+            const distanceB = parseInt(b.distance.replace(/[^0-9]/g, ''));
+            return (isNaN(distanceA) ? Infinity : distanceA) - (isNaN(distanceB) ? Infinity : distanceB);
+          });
+          break;
+        case "date":
+          offersToEvaluate.sort((a, b) => {
+            const dateA = new Date(a.loadingDate).getTime();
+            const dateB = new Date(b.loadingDate).getTime();
+            return (isNaN(dateA) ? Infinity : dateA) - (isNaN(dateB) ? Infinity : dateB);
+          });
+          break;
+        case "recent":
+        default:
+          // Assuming original transportOffers might have some inherent order or rely on ID
+          break;
+      }
+    }
+    
+    // Apply max results limit AFTER filtering and sorting
+    const currentMaxResults = parseInt(maxResults) || 50; // Default to 50 if invalid
+    if (currentMaxResults > 0) {
+      offersToEvaluate = offersToEvaluate.slice(0, currentMaxResults);
+    }
+    
+    // Update the main displayed offers list
+    setFilteredOffers(offersToEvaluate); 
+    
+    // Build active filters array for display (optional, but good for UX)
+    const newActiveFilters = [];
+    if (platformFilter && platformFilter !== "all") newActiveFilters.push({ type: 'platform', value: platformFilter });
+    if (statusFilter && statusFilter !== "all") newActiveFilters.push({ type: 'status', value: statusFilter });
+    if (minPrice || maxPrice) {
+      const priceRange = `€${minPrice || '0'} - €${maxPrice || '∞'}`;
+      newActiveFilters.push({ type: 'price', value: priceRange });
+    }
+    if (loadTypeFilter && loadTypeFilter !== "all") newActiveFilters.push({ type: 'loadType', value: loadTypeFilter });
+    setActiveFilters(newActiveFilters);
+    // --- End of Filtering Logic ---
+
+    // Gather context for AI - use the newly filtered 'offersToEvaluate'
+    const searchContext = {
+      filters: {
+        searchTerm,
+        originFilter,
+        destinationFilter,
+        platformFilter,
+        statusFilter,
+        minPrice,
+        maxPrice,
+        loadTypeFilter,
+        sortBy,
+        // Pass the actual number of offers being sent for evaluation
+        maxResults: offersToEvaluate.length, 
+      },
+      offers: offersToEvaluate, // Send the just-filtered list
+    };
+
+    console.log(`Frontend: Filtered down to ${offersToEvaluate.length} offers. Calling evaluateOffers action.`);
+
+    // Check if there are any offers left after filtering before calling AI
+    if (offersToEvaluate.length === 0) {
+      console.log("Frontend: No offers match criteria, skipping AI evaluation.");
+      setIsLoading(false); // Stop loading state if skipping AI
+      setLoadingSource(null);
+      // Optionally show a message to the user
+      // alert("No offers found matching your current filters.");
+      return; // Exit the function
+    }
+
+    try {
+      // Call the Convex action with the filtered list
+      const results = await evaluateOffersAction(searchContext);
+      console.log("Frontend: Received evaluation results:", results);
+
+      // --- Re-sort based on AI Ranking --- 
+      const rankedResults = results as Record<string, AiEvaluationResult>;
+
+      const finalSortedOffers = [...offersToEvaluate].sort((a, b) => {
+        const rankA = rankedResults[a.id]?.rank;
+        const rankB = rankedResults[b.id]?.rank;
+
+        // Put ranked items before unranked items
+        if (rankA !== undefined && rankB === undefined) return -1;
+        if (rankA === undefined && rankB !== undefined) return 1;
+
+        // Sort by rank ascending if both are ranked
+        if (rankA !== undefined && rankB !== undefined) {
+          return rankA - rankB;
+        }
+
+        // Otherwise, maintain original relative order (stable sort behavior)
+        return 0; 
+      });
+      // --- End of Re-sorting ---
+
+      // Update the displayed offers with the AI-ranked order
+      setFilteredOffers(finalSortedOffers);
+
+      // Now set the evaluation results for UI highlighting
+      setAiEvaluationResults(rankedResults); 
+
+    } catch (error) {
+      console.error("Frontend: AI Search Error:", error);
+      alert("AI evaluation failed. Please ensure the backend is running correctly and try again."); 
+    } finally {
+      setIsLoading(false);
+      setLoadingSource(null);
+    }
+  };
+
   const handleRequestTransport = async (offer: TransportOffer) => {
     // Check if we already have a negotiation for this offer
     if (negotiationIdMap[offer.id]) {
@@ -835,12 +1095,20 @@ export default function OffersPage() {
         <Button 
           variant="outline" 
           size="sm" 
-          onClick={loadOffers}
+          onClick={() => loadOffers()} 
           disabled={isLoading}
-          className="gap-2"
+          className="gap-2 h-9 px-3 min-w-[100px] flex items-center justify-center"
         >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
+          {/* Show spinner only if loading was triggered by Refresh */} 
+          {isLoading && loadingSource === 'refresh' ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            // Show icon and text when not loading
+            <span className="inline-flex items-center"> 
+              <RefreshCw className="h-4 w-4 mr-1.5" />
+              <span>Refresh</span>
+            </span>
+          )}
         </Button>
       </div>
 
@@ -958,9 +1226,21 @@ export default function OffersPage() {
               
               {/* Buttons */}
               <div className="flex items-end justify-between gap-2 md:col-span-12 md:mt-2">
-                <Button size="sm" onClick={() => alert("AI Search coming soon!")} className="h-9 bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700">
-                  <Sparkles className="h-4 w-4" />
-                  AI Search
+                <Button 
+                  size="sm" 
+                  onClick={handleAiSearchClick}
+                  disabled={isLoading}
+                  className="h-9 px-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 relative overflow-hidden min-w-[110px] flex items-center justify-center"
+                >
+                  {/* Show spinner only if loading was triggered by AI Search */}
+                  {isLoading && loadingSource === 'ai' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" /> 
+                  ) : (
+                    <span className="inline-flex items-center"> 
+                      <Sparkles className="h-4 w-4 mr-1.5" /> 
+                      <span>AI Search</span>
+                    </span>
+                  )}
                 </Button>
                 <div className="flex items-end gap-2">
                   <Button variant="outline" size="sm" onClick={resetFilters} className="h-9">
@@ -1106,56 +1386,95 @@ export default function OffersPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredOffers.map((offer) => (
-                      <Dialog key={offer.id}>
-                        <DialogTrigger asChild>
-                          <tr key={offer.id} className="border-b hover:bg-muted/50 cursor-pointer">
-                            <td className="py-3 px-4 font-medium">{offer.id}</td>
-                            <td className="py-3 px-4">
-                              <div className="flex flex-col">
-                                <div className="flex items-center">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500 mr-1.5"></span>
-                                  {offer.origin}
+                    filteredOffers.map((offer) => {
+                      const aiResult = aiEvaluationResults[offer.id]; // Get AI result for this offer
+                      
+                      // Define rank colors for table row
+                      const getRowRankClass = (rank?: number) => {
+                        switch (rank) {
+                          case 1: return "bg-yellow-50 hover:bg-yellow-100/80"; // Gold
+                          case 2: return "bg-gray-100 hover:bg-gray-200/80"; // Silver
+                          case 3: return "bg-orange-50 hover:bg-orange-100/80"; // Bronze
+                          default: return "hover:bg-muted/50";
+                        }
+                      };
+
+                      return (
+                        <Dialog key={offer.id}>
+                          <DialogTrigger asChild>
+                            {/* Add conditional background color and tooltip */} 
+                            <tr key={offer.id} className={`border-b cursor-pointer transition-colors ${getRowRankClass(aiResult?.rank)}`}>
+                              <td className="py-3 px-4 font-medium">
+                                <div className="flex items-center gap-2">
+                                  {offer.id}
+                                  {aiResult && (
+                                    <TooltipProvider>
+                                      <Tooltip delayDuration={100}>
+                                        <TooltipTrigger asChild>
+                                          {/* Simple Award icon indicator */} 
+                                          <Award 
+                                            className={`h-4 w-4 
+                                              ${aiResult.rank === 1 ? 'text-yellow-500' : ''}
+                                              ${aiResult.rank === 2 ? 'text-gray-500' : ''}
+                                              ${aiResult.rank === 3 ? 'text-orange-500' : ''}
+                                            `}
+                                          />
+                                        </TooltipTrigger>
+                                        <TooltipContent side="right" className="max-w-xs">
+                                          <p className="text-sm font-semibold mb-1">AI Rank #{aiResult.rank}</p>
+                                          <p className="text-xs">{aiResult.reason}</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
                                 </div>
-                                <div className="flex items-center mt-1">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-green-500 mr-1.5"></span>
-                                  {offer.destination}
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex flex-col">
+                                  <div className="flex items-center">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500 mr-1.5"></span>
+                                    {offer.origin}
+                                  </div>
+                                  <div className="flex items-center mt-1">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 mr-1.5"></span>
+                                    {offer.destination}
+                                  </div>
                                 </div>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4">{offer.distance}</td>
-                            <td className="py-3 px-4 font-medium">{offer.price}</td>
-                            <td className="py-3 px-4">{offer.vehicle}</td>
-                            <td className="py-3 px-4">
-                              <div className="flex flex-col">
-                                <span className="text-xs text-muted-foreground">Load: {offer.loadingDate}</span>
-                                <span className="text-xs text-muted-foreground mt-1">Delivery: {offer.deliveryDate}</span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
-                                ${
-                                  offer.status === "Available"
-                                    ? "bg-green-100 text-green-800"
-                                    : offer.status === "Pending"
-                                    ? "bg-orange-100 text-orange-800"
-                                    : "bg-neutral-100 text-neutral-800"
-                                }
-                              `}>
-                                {offer.status}
-                              </div>
-                            </td>
-                            <td className="py-3 px-4">{offer.platform}</td>
-                          </tr>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                          <DialogHeader>
-                            <DialogTitle>Transport Offer {offer.id}</DialogTitle>
-                          </DialogHeader>
-                          <TransportOfferDetails offer={offer} />
-                        </DialogContent>
-                      </Dialog>
-                    ))
+                              </td>
+                              <td className="py-3 px-4">{offer.distance}</td>
+                              <td className="py-3 px-4 font-medium">{offer.price}</td>
+                              <td className="py-3 px-4">{offer.vehicle}</td>
+                              <td className="py-3 px-4">
+                                <div className="flex flex-col">
+                                  <span className="text-xs text-muted-foreground">Load: {offer.loadingDate}</span>
+                                  <span className="text-xs text-muted-foreground mt-1">Delivery: {offer.deliveryDate}</span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                                  ${
+                                    offer.status === "Available"
+                                      ? "bg-green-100 text-green-800"
+                                      : offer.status === "Pending"
+                                      ? "bg-orange-100 text-orange-800"
+                                      : "bg-neutral-100 text-neutral-800"
+                                  }
+                                `}>
+                                  {offer.status}
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">{offer.platform}</td>
+                            </tr>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-2xl">
+                            <DialogHeader>
+                              <DialogTitle>Transport Offer {offer.id}</DialogTitle>
+                            </DialogHeader>
+                            <TransportOfferDetails offer={offer} />
+                          </DialogContent>
+                        </Dialog>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -1242,6 +1561,7 @@ export default function OffersPage() {
                     key={offer.id} 
                     offer={offer} 
                     onSelect={(id) => handleOpenOfferDetails(id)} 
+                    aiResult={aiEvaluationResults[offer.id]} // Pass AI result to OfferCard
                   />
                 ))}
               </div>
