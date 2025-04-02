@@ -1,7 +1,7 @@
 export default {
     providers: [
       {
-        domain: "https://fine-mastiff-55.clerk.accounts.dev",
+        domain: "https://clerk.alteriontech.com",
         applicationID: "convex",
       },
     ]

@@ -24,7 +24,7 @@ import Navbar from "@/components/navbar";
 const AuroraHeader = React.memo(({ delayAurora = 0 }: { delayAurora?: number }) => {
   return (
     <h1 className="text-4xl md:text-6xl font-bold tracking-tight max-w-4xl">
-      Smart Transport Management with <AuroraText delayAurora={delayAurora}>AI-Powered</AuroraText> Negotiations
+      Smart Transport Management with <AuroraText>AI-Powered</AuroraText> Negotiations
     </h1>
   );
 });
