@@ -20,16 +20,6 @@ import React from "react";
 import { toast } from "sonner";
 import Navbar from "@/components/navbar";
 
-// Create a separate, stable header component
-const AuroraHeader = React.memo(({ delayAurora = 0 }: { delayAurora?: number }) => {
-  return (
-    <h1 className="text-4xl md:text-6xl font-bold tracking-tight max-w-4xl">
-      Smart Transport Management with <AuroraText>AI-Powered</AuroraText> Negotiations
-    </h1>
-  );
-});
-AuroraHeader.displayName = "AuroraHeader";
-
 // Define types for component props
 interface FeatureCardProps {
   icon: ReactNode;
@@ -317,7 +307,9 @@ export default function Home() {
             - Add a little extra time (0.2s) to ensure text is fully visible
             - Total aurora delay: 0.4 + 0.6 + 0.2 = 1.2s
           */}
-          <AuroraHeader delayAurora={1.2} />
+             <h1 className="text-4xl md:text-6xl font-bold tracking-tight max-w-4xl">
+              Smart Transport Management with <AuroraText>AI-Powered</AuroraText> Negotiations
+            </h1>
         </motion.div>
         
         <motion.p 
