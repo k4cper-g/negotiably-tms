@@ -164,6 +164,27 @@
   .safari-scroll-fix {
     -webkit-overflow-scrolling: touch;
   }
+  
+  /* Fix for Safari sticky positioning and visibility issues */
+  .sticky {
+    position: -webkit-sticky;
+    position: sticky;
+    z-index: 10;
+  }
+
+  /* Fix for z-index stacking context in Safari */
+  .border-b, .border-l, .border-r, .border-t {
+    position: relative;
+    z-index: auto;
+  }
+  
+  /* Safari-specific tweaks for negotiation details */
+  [class*="NegotiationDetail"] header,
+  [class*="NegotiationDetail"] [data-slot="card-header"] {
+    visibility: visible !important;
+    display: flex !important;
+    opacity: 1 !important;
+  }
 }
 
 @theme inline {

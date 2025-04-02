@@ -39,7 +39,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
         {/* Main Content */}
         <div className="flex flex-col flex-1 overflow-hidden ml-64">
           {/* Top Navigation */}
-          <header className="h-16 flex items-center justify-center px-4 border-b bg-card">
+          <header style={{height: "64px"}} className="h-16 flex items-center justify-center px-4 border-b bg-card">
           <span className="text-sm text-muted-foreground">Please keep in mind that this is a demo version of the platform and *most* features may not work as expected.</span>
             {/* <div className="flex items-center gap-4 justify-center">
             
@@ -48,7 +48,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
           </header>
 
           {/* Content Area */}
-          <main className="flex-1 overflow-y-auto relative safari-scroll-fix">
+          <main style={{height: "calc(100vh - 64px)"}} className="flex-1 overflow-y-auto relative safari-scroll-fix">
             <div 
               className={cn(
                 "absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center z-10 transition-opacity duration-300",

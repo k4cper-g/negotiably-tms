@@ -13,7 +13,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Alterion - Empowering Businesses Through AI-Driven Automation and Innovation",
+  title: "Alterion - Smart Transport Management with AI-Powered Solutions",
   description: "Alterion is a TMS platform that automates your supply chain, streamlines operations, and boosts efficiency.",
   metadataBase: new URL('https://alterion.com'),
   icons: {
