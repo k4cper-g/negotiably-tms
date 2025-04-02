@@ -15,6 +15,34 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Alterion - Empowering Businesses Through AI-Driven Automation and Innovation",
   description: "Alterion is a TMS platform that automates your supply chain, streamlines operations, and boosts efficiency.",
+  metadataBase: new URL('https://alterion.com'),
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://alterion.com",
+    title: "Alterion - Smart Transport Management with AI-Powered Solutions",
+    description: "Alterion is a TMS platform that automates your supply chain, streamlines operations, and boosts efficiency.",
+    siteName: "Alterion",
+    images: [
+      {
+        url: "/alterion-meta.png",
+        width: 1000,
+        height: 1000,
+        alt: "Alterion - Smart Transport Management with AI-Powered Solutions"
+      }
+    ]
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Alterion - Smart Transport Management with AI-Powered Solutions",
+    description: "Alterion is a TMS platform that automates your supply chain, streamlines operations, and boosts efficiency.",
+    images: ["/alterion-meta.png"]
+  }
 };
 
 export default function RootLayout({

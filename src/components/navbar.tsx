@@ -157,16 +157,16 @@ export default function Navbar() {
           </SignOutButton>
         </SignedIn>
         <SignedOut>
-          {/* <Link href="/sign-in"> */}
-            <Button variant="ghost" size="sm" onClick={() => toast.success("Coming soon!")}>
+          <Link href="/sign-in">
+            <Button variant="ghost" size="sm">
               Sign In
             </Button>
-          {/* </Link> */}
-          {/* <Link href="/sign-up"> */}
-            <Button variant="default" size="sm" onClick={() => toast.success("Coming soon!")}>
+          </Link>
+          <Link href="/sign-up">
+            <Button variant="default" size="sm">
               Sign Up
             </Button>
-          {/* </Link> */}
+          </Link>
         </SignedOut>
       </div>
     );
@@ -190,12 +190,12 @@ export default function Navbar() {
         <SignedIn>
           <div className="flex flex-col gap-2 pt-2">
             <Link href="/dashboard" className="w-full">
-              <Button variant="default" size="sm" className="justify-start w-full" disabled>
+              <Button variant="default" size="sm" className="justify-start w-full">
                 Dashboard
               </Button>
             </Link>
             <SignOutButton>
-              <Button variant="outline" size="sm" className="justify-start w-full" disabled>
+              <Button variant="outline" size="sm" className="justify-start w-full">
                 Sign Out
               </Button>
             </SignOutButton>
@@ -203,16 +203,16 @@ export default function Navbar() {
         </SignedIn>
         <SignedOut>
           <div className="flex flex-col gap-2 pt-2">
-            {/* <Link href="/sign-in" className="w-full"> */}
-              <Button variant="outline" size="sm" className="justify-start w-full" disabled>
+            <Link href="/sign-in" className="w-full">
+              <Button variant="outline" size="sm" className="justify-start w-full">
                 Sign In
               </Button>
-            {/* </Link> */}
-            {/* <Link href="/sign-up" className="w-full"> */}
-              <Button variant="default" size="sm" className="justify-start w-full" disabled>
+            </Link>
+            <Link href="/sign-up" className="w-full">
+              <Button variant="default" size="sm" className="justify-start w-full">
                 Sign Up
               </Button>
-            {/* </Link> */}
+            </Link>
           </div>
         </SignedOut>
       </div>

@@ -60,6 +60,16 @@ interface DetailedFeature {
   image: string;
 }
 
+const AuroraHeader = React.memo(({ delayAurora = 0 }: { delayAurora?: number }) => {
+  return (
+    <h1 className="text-4xl md:text-6xl font-bold tracking-tight max-w-4xl leading-tight">
+      Smart Transport Management 
+      with <AuroraText delayAurora={delayAurora}>AI-Powered</AuroraText> Solutions
+    </h1>
+  );
+});
+AuroraHeader.displayName = "AuroraHeader";
+
 export default function Home() {
   const [isYearly, setIsYearly] = useState(false);
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
@@ -272,6 +282,8 @@ export default function Home() {
 
   const currentTheme = mounted ? (theme === 'system' ? systemTheme : theme) : 'light';
 
+  
+
   return (
     <div 
       className="flex-auto overflow-auto home-page scroll-smooth"
@@ -290,8 +302,8 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
         >
-          <Badge className="mb-4 text-xs font-medium rounded-full cursor-pointer hover:bg-muted" variant="outline" onClick={() => toast.success("Coming soon!")}>
-            <p className="flex items-center p-1">✨ Introducing AI Negotiations <ChevronRight className="h-4 w-4 text-muted-foreground" /></p>
+          <Badge className="mb-0 text-xs font-medium rounded-full cursor-pointer hover:bg-muted" variant="outline" onClick={() => toast.success("Coming soon!")}>
+            <p className="flex items-center p-1">✨ Introducing AI Forwarder Agent <ChevronRight className="h-4 w-4 text-muted-foreground" /></p>
           </Badge>
         </motion.div>
         
@@ -307,9 +319,7 @@ export default function Home() {
             - Add a little extra time (0.2s) to ensure text is fully visible
             - Total aurora delay: 0.4 + 0.6 + 0.2 = 1.2s
           */}
-             <h1 className="text-4xl md:text-6xl font-bold tracking-tight max-w-4xl">
-              Smart Transport Management with AI-Powered Negotiations
-            </h1>
+            <AuroraHeader delayAurora={1.2} />
         </motion.div>
         
         <motion.p 
@@ -322,13 +332,13 @@ export default function Home() {
         </motion.p>
         
         <motion.div 
-          className="flex flex-col sm:flex-row gap-4 mt-8"
+          className="flex flex-col sm:flex-row gap-4 mt-4"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 1.0 }}
         >
-          <Button size="lg" className="gap-2" disabled>
-            Start Shipping <ArrowRight className="h-4 w-4" />
+          <Button size="lg" className="gap-2" onClick={() => router.push("/sign-in")}>
+            Get Started <ArrowRight className="h-4 w-4" />
           </Button>
           <Button size="lg" variant="outline" onClick={() => router.push("/demo")}>
             Book Demo
@@ -711,11 +721,11 @@ export default function Home() {
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to Reduce Your Transport Costs?</h2>
           <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Join thousands of logistics teams saving time and money with our AI-powered transport management and negotiation platform.
+            Join other logistics teams saving time and money with our AI-powered transport management and negotiation platform.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Button size="lg" className="gap-2" disabled>
-              Find Better Rates <ArrowRight className="h-4 w-4" />
+            <Button size="lg" className="gap-2" onClick={() => router.push("/sign-in")}>
+              Get Started <ArrowRight className="h-4 w-4" />
             </Button>
             <Button size="lg" variant="outline" onClick={() => router.push('/demo')}>
               Schedule a Demo
@@ -739,7 +749,7 @@ export default function Home() {
               suppressHydrationWarning
             />
             <p className="text-sm text-muted-foreground">
-              Transforming freight procurement with AI-powered marketplace comparison and rate negotiation.
+              Smart Transport Management with AI-Powered Solutions
             </p>
             <div className="flex items-center hover:bg-muted rounded-md w-fit border">
             {/* <ModeToggle /> */}

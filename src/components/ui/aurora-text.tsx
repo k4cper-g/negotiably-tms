@@ -43,7 +43,7 @@ export const AuroraText = React.memo(function AuroraTextInner({
   return (
     <MotionComponent
       data-aurora-id={uniqueId}
-      className={cn("relative inline-flex overflow-hidden z-60", className)}
+      className={cn("relative inline-flex overflow-hidden", className)}
       {...props}
     >
       {children}
