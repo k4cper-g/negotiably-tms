@@ -102,23 +102,23 @@ export default function Sidebar() {
       {/* Main navigation */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         <Link href="/dashboard" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/dashboard")}>
-            <Button 
-              variant={isActive("/dashboard") ? "secondary" : "ghost"}
-              className={cn(
-                "w-full justify-start",
-                isActive("/dashboard") ? "font-medium" : "font-normal text-gray-600"
-              )}
-            >
-              <Home className="h-4 w-4 mr-3" />
-              Dashboard
-            </Button>
-          </Link>
+          <Button 
+            variant={isActive("/dashboard") ? "secondary" : "ghost"}
+            className={cn(
+              "w-full justify-start transition-none",
+              isActive("/dashboard") ? "font-medium" : "font-normal text-gray-600"
+            )}
+          >
+            <Home className="h-4 w-4 mr-3" />
+            Dashboard
+          </Button>
+        </Link>
         
         <Link href="/offers" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/offers")}>
           <Button 
             variant={isActive("/offers") ? "secondary" : "ghost"}
             className={cn(
-              "w-full justify-start",
+              "w-full justify-start transition-none",
               isActive("/offers") ? "font-medium" : "font-normal text-gray-600"
             )}
           >
@@ -131,7 +131,7 @@ export default function Sidebar() {
           <Button 
             variant={isActive("/negotiations") ? "secondary" : "ghost"}
             className={cn(
-              "w-full justify-start",
+              "w-full justify-start transition-none",
               isActive("/negotiations") ? "font-medium" : "font-normal text-gray-600"
             )}
           >
@@ -144,7 +144,7 @@ export default function Sidebar() {
           <Button 
             variant={isActive("/routes") ? "secondary" : "ghost"}
             className={cn(
-              "w-full justify-start",
+              "w-full justify-start transition-none",
               isActive("/routes") ? "font-medium" : "font-normal text-gray-600"
             )}
           >
@@ -157,7 +157,7 @@ export default function Sidebar() {
           <Button 
             variant={isActive("/analytics") ? "secondary" : "ghost"}
             className={cn(
-              "w-full justify-start",
+              "w-full justify-start transition-none",
               isActive("/analytics") ? "font-medium" : "font-normal text-gray-600"
             )}
           >
@@ -170,7 +170,7 @@ export default function Sidebar() {
           <Button 
             variant={isActive("/tracking") ? "secondary" : "ghost"}
             className={cn(
-              "w-full justify-start",
+              "w-full justify-start transition-none",
               isActive("/tracking") ? "font-medium" : "font-normal text-gray-600"
             )}
           >
@@ -183,7 +183,7 @@ export default function Sidebar() {
           <Button 
             variant={isActive("/invoices") ? "secondary" : "ghost"}
             className={cn(
-              "w-full justify-start",
+              "w-full justify-start transition-none",
               isActive("/invoices") ? "font-medium" : "font-normal text-gray-600"
             )}
           >
@@ -196,7 +196,7 @@ export default function Sidebar() {
           <Button 
             variant={isActive("/partners") ? "secondary" : "ghost"}
             className={cn(
-              "w-full justify-start",
+              "w-full justify-start transition-none",
               isActive("/partners") ? "font-medium" : "font-normal text-gray-600"
             )}
           >
@@ -211,7 +211,7 @@ export default function Sidebar() {
           <Button 
             variant={isActive("/notifications") ? "secondary" : "ghost"}
             className={cn(
-              "w-full justify-start",
+              "w-full justify-start transition-none",
               isActive("/notifications") ? "font-medium" : "font-normal text-gray-600"
             )}
           >
@@ -224,7 +224,7 @@ export default function Sidebar() {
           <Button 
             variant={isActive("/compliance") ? "secondary" : "ghost"}
             className={cn(
-              "w-full justify-start",
+              "w-full justify-start transition-none",
               isActive("/compliance") ? "font-medium" : "font-normal text-gray-600"
             )}
           >
@@ -237,7 +237,7 @@ export default function Sidebar() {
           <Button 
             variant={isActive("/settings") ? "secondary" : "ghost"}
             className={cn(
-              "w-full justify-start",
+              "w-full justify-start transition-none",
               isActive("/settings") ? "font-medium" : "font-normal text-gray-600"
             )}
           >

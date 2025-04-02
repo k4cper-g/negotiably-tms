@@ -1462,6 +1462,143 @@ export default function OffersPage() {
             </div>
           </div>
         </TabsContent>
+
+        <TabsContent value="grid" className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[400px]">
+            {isLoading ? (
+              Array(6).fill(0).map((_, i) => (
+                <Card key={`loading-grid-${i}`} className="animate-pulse">
+                  <CardContent className="p-0">
+                    <div className="p-6 space-y-4">
+                      <div className="space-y-2">
+                        <div className="h-5 bg-muted rounded w-16"></div>
+                        <div className="h-4 bg-muted rounded w-28"></div>
+                      </div>
+                      <div className="h-5 bg-muted rounded w-24"></div>
+                      <div className="space-y-1">
+                        <div className="h-4 bg-muted rounded w-full"></div>
+                        <div className="h-4 bg-muted rounded w-3/4"></div>
+                      </div>
+                      <div className="flex justify-between">
+                        <div className="h-5 bg-muted rounded w-20"></div>
+                        <div className="h-5 bg-muted rounded w-16"></div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : filteredOffers.length === 0 ? (
+              <div className="col-span-full py-20 text-center text-muted-foreground">
+                No offers found matching your criteria.
+              </div>
+            ) : (
+              filteredOffers.map((offer) => {
+                const aiResult = aiEvaluationResults[offer.id];
+                
+                return (
+                  <Dialog key={`grid-${offer.id}`}>
+                    <DialogTrigger asChild>
+                      <Card className={`cursor-pointer transition-colors hover:shadow-md ${
+                        aiResult?.rank === 1 ? 'border-yellow-200 bg-yellow-50' : 
+                        aiResult?.rank === 2 ? 'border-gray-200 bg-gray-50' : 
+                        aiResult?.rank === 3 ? 'border-orange-200 bg-orange-50' : ''
+                      }`}>
+                        <CardContent className="p-0">
+                          <div className="p-6 space-y-4">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h3 className="font-medium text-lg flex items-center gap-2">
+                                  {offer.id}
+                                  {aiResult && (
+                                    <TooltipProvider>
+                                      <Tooltip delayDuration={100}>
+                                        <TooltipTrigger asChild>
+                                          <Award 
+                                            className={`h-4 w-4 
+                                              ${aiResult.rank === 1 ? 'text-yellow-500' : ''}
+                                              ${aiResult.rank === 2 ? 'text-gray-500' : ''}
+                                              ${aiResult.rank === 3 ? 'text-orange-500' : ''}
+                                            `}
+                                          />
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs">
+                                          <p className="text-sm font-semibold mb-1">AI Rank #{aiResult.rank}</p>
+                                          <p className="text-xs">{aiResult.reason}</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
+                                </h3>
+                                <p className="text-sm text-muted-foreground">{offer.carrier}</p>
+                              </div>
+                              <Badge 
+                                className={`text-xs ${
+                                  offer.status === "Available" 
+                                    ? "bg-green-100 text-green-800 hover:bg-green-100" 
+                                    : offer.status === "Pending" 
+                                    ? "bg-orange-100 text-orange-800 hover:bg-orange-100" 
+                                    : "bg-neutral-100 text-neutral-800 hover:bg-neutral-100"
+                                }`}
+                              >
+                                {offer.status}
+                              </Badge>
+                            </div>
+                            
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                                <span>{offer.origin}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                                <span>{offer.destination}</span>
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <p className="text-sm text-muted-foreground">Distance</p>
+                                <p>{offer.distance}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Price</p>
+                                <p className="font-medium">{offer.price}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Vehicle</p>
+                                <p>{offer.vehicle}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Load</p>
+                                <p>{offer.loadType}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex justify-between items-center text-sm">
+                              <span className="text-muted-foreground">{offer.platform}</span>
+                              <span className="text-muted-foreground">Updated: {offer.lastUpdated}</span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </DialogTrigger>
+                  </Dialog>
+                );
+              })
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="map" className="space-y-4">
+          <div ref={mapContainerRef} className="h-[70vh] rounded-lg overflow-hidden border">
+            <TransportMap 
+              offers={filteredOffers} 
+              selectedOfferId={selectedOffer}
+              onRouteSelect={(id) => setSelectedOffer(id)}
+              onOpenDetails={(id) => setSelectedOfferForModal(id)}
+            />
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   );
