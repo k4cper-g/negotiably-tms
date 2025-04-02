@@ -717,7 +717,7 @@ export default function Home() {
             <Button size="lg" className="gap-2" disabled>
               Find Better Rates <ArrowRight className="h-4 w-4" />
             </Button>
-            <Button size="lg" variant="outline">
+            <Button size="lg" variant="outline" onClick={() => router.push('/demo')}>
               Schedule a Demo
             </Button>
           </div>
