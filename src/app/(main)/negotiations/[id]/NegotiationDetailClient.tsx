@@ -118,9 +118,9 @@ export default function NegotiationDetailClient({
   };
   
   return (
-    <div className="flex flex-col h-full max-h-[calc(100vh-64px)] overflow-hidden bg-gray-50">
+    <div className="flex flex-col h-full max-h-[calc(100vh-var(--header-height))] overflow-hidden bg-gray-50">
       {/* Header with key info and actions */}
-      <div className="border-b bg-white py-3 px-4 sm:px-6 sticky top-0 z-20 flex-shrink-0 !visible">
+      <div className="border-b bg-white py-3 px-4 sm:px-6 sticky top-0 z-10 flex-shrink-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 max-w-full mx-auto">
           {/* Left side: Title and Status */}
           <div className="flex items-center gap-x-3 min-w-0">
@@ -191,7 +191,7 @@ export default function NegotiationDetailClient({
           {/* Main chat section */}
           <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden order-2 md:order-1">
             {/* Chat history */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 safari-scroll-fix">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
               <div className="max-w-[900px] mx-auto space-y-4">
                 {/* Initial negotiation message - System Message Style */}
                 <div className="text-center text-xs text-muted-foreground my-4">
@@ -339,10 +339,10 @@ export default function NegotiationDetailClient({
             <Card className="shadow-none border-0 rounded-none h-full flex flex-col">
                {/* Collapse Toggle Header */}
                <CardHeader
-                 className="flex flex-row items-center justify-between py-2 px-4 border-b cursor-pointer sticky top-0 bg-white z-20 !visible"
+                 className="flex flex-row items-center justify-between py-2 px-4 border-b cursor-pointer sticky top-0 bg-white z-10"
                  onClick={() => setDetailsExpanded(!detailsExpanded)}
                >
-                 <CardTitle className="text-base font-semibold flex items-center gap-2 !visible">
+                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                    <Info className="h-4 w-4 text-muted-foreground" />
                    Negotiation Details
                  </CardTitle>
