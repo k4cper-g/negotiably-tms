@@ -123,62 +123,69 @@ export default function NegotiationDetailClient({
   };
   
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full max-h-[calc(100vh-var(--header-height))] overflow-hidden bg-gray-50">
       {/* Header with key info and actions */}
-      <div className="border-b bg-white py-2 px-3 sm:px-4 sticky top-0 z-10 flex-shrink-0">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 max-w-full mx-auto">
-          <div className="flex flex-col min-w-0">
-            <div className="flex flex-wrap items-center gap-2 mb-1">
-              <h1 className="text-lg font-semibold tracking-tight truncate">
-                {negotiation.initialRequest.origin} <ArrowRight className="inline-block h-4 w-4 mx-1" /> {negotiation.initialRequest.destination}
+      <div className="border-b bg-white py-3 px-4 sm:px-6 sticky top-0 z-10 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 max-w-full mx-auto">
+          {/* Left side: Title and Status */}
+          <div className="flex items-center gap-x-3 min-w-0">
+            <div className="flex flex-col min-w-0">
+              <h1 className="text-lg font-semibold tracking-tight truncate flex items-center" title={`${negotiation.initialRequest.origin} to ${negotiation.initialRequest.destination}`}>
+                {negotiation.initialRequest.origin}
+                <ArrowRight className="inline-block h-4 w-4 mx-1.5 text-muted-foreground flex-shrink-0" />
+                {negotiation.initialRequest.destination}
               </h1>
-            <Badge 
+              <p className="text-xs text-muted-foreground truncate" title={`Negotiation ID: ${negotiationId}`}>
+                ID: {negotiationId.toString().substring(0, 12)}...
+              </p>
+            </div>
+            <Badge
               variant={
                 negotiation.status === "pending" ? "secondary" :
                   negotiation.status === "accepted" ? "default" :
                 negotiation.status === "rejected" ? "destructive" :
                 "outline"
               }
-                className="px-2 py-0.5"
+              className="px-2.5 py-1 text-xs font-medium rounded-full flex-shrink-0"
             >
-                {negotiation.status === "pending" ? "Active" : 
+              {negotiation.status === "pending" ? "Active" :
                negotiation.status.charAt(0).toUpperCase() + negotiation.status.slice(1)}
             </Badge>
           </div>
-            <p className="text-xs text-muted-foreground truncate">
-              Negotiation ID: {negotiationId.toString().substring(0, 12)}
-          </p>
-        </div>
-          <div className="flex items-center gap-2 mt-1 md:mt-0 flex-shrink-0">
-          <Button 
-            variant="outline" 
-            size="sm" 
-              className="gap-1 h-8"
-            onClick={() => openNegotiation(negotiationId)}
-            title="Open as floating chat"
-          >
-            <Pin className="h-4 w-4" />
+
+          {/* Right side: Action Buttons */}
+          <div className="flex items-center gap-2 mt-2 sm:mt-0 flex-shrink-0 justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1 h-8 text-muted-foreground hover:text-foreground"
+              onClick={() => openNegotiation(negotiationId)}
+              title="Open as floating chat"
+            >
+              <Pin className="h-4 w-4" />
               <span className="hidden sm:inline">Detach</span>
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-              className="text-destructive hover:text-destructive-foreground hover:bg-destructive/90 gap-1 h-8"
-            onClick={() => handleUpdateStatus("rejected")}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive border-destructive/50 hover:bg-destructive/5 hover:text-destructive gap-1 h-8"
+              onClick={() => handleUpdateStatus("rejected")}
               disabled={negotiation.status !== "pending"}
-          >
-            <X className="h-4 w-4" />
+              title="Reject Offer"
+            >
+              <X className="h-4 w-4" />
               <span className="hidden sm:inline">Reject</span>
-          </Button>
-          <Button 
-            size="sm" 
+            </Button>
+            <Button
+              size="sm"
               className="gap-1 h-8"
-            onClick={() => handleUpdateStatus("accepted")}
+              onClick={() => handleUpdateStatus("accepted")}
               disabled={negotiation.status !== "pending"}
-          >
+              title="Accept Offer"
+            >
               <Check className="h-4 w-4" />
               <span className="hidden sm:inline">Accept</span>
-          </Button>
+            </Button>
           </div>
         </div>
       </div>
@@ -189,110 +196,130 @@ export default function NegotiationDetailClient({
           {/* Main chat section */}
           <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden order-2 md:order-1">
             {/* Chat history */}
-            <div className="flex-1 overflow-y-auto p-2 sm:p-3">
-              <div className="space-y-3 max-w-[900px] mx-auto">
-                {/* Initial negotiation message */}
-                <div className="bg-muted/20 rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="font-medium text-sm flex items-center gap-2">
-                      <ArrowRightLeft className="h-4 w-4 text-primary" />
-                      Negotiation Started
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {format(new Date(negotiation.createdAt), "PPp")}
-                    </div>
-                  </div>
-                  <p className="text-sm">
-                    Transport negotiation initiated for route: {negotiation.initialRequest.origin} to {negotiation.initialRequest.destination}.
-                    <br />Initial price: <span className="font-medium">{negotiation.initialRequest.price}</span>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="max-w-[900px] mx-auto space-y-4">
+                {/* Initial negotiation message - System Message Style */}
+                <div className="text-center text-xs text-muted-foreground my-4">
+                  <p className="inline-block bg-gray-200 rounded-full px-3 py-1">
+                    Negotiation started on {format(new Date(negotiation.createdAt), "PP")} for{' '}
+                    <span className="font-medium">{negotiation.initialRequest.origin} to {negotiation.initialRequest.destination}</span>
+                    {' '}at <span className="font-medium">{negotiation.initialRequest.price}</span>.
                   </p>
                   {negotiation.initialRequest.notes && (
-                    <div className="mt-1 text-sm">
-                      <strong>Additional Notes:</strong>
-                      <p className="mt-1">{negotiation.initialRequest.notes}</p>
-                    </div>
+                     <p className="mt-2 italic text-gray-600 max-w-md mx-auto">
+                        Initial Notes: {negotiation.initialRequest.notes}
+                     </p>
                   )}
                 </div>
-                
-                {/* Counter offers shown as emails */}
-                {negotiation.counterOffers.map((offer, index) => (
-                  <div 
-                    key={`offer-${index}`}
-                    className={cn(
-                      "rounded-lg p-3 transition-all",
-                      offer.proposedBy === "user" 
-                        ? "bg-blue-50/80 border-l-4 border-blue-400" 
-                        : "bg-amber-50/80 border-l-4 border-amber-400"
-                    )}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="font-medium text-sm flex items-center">
-                        {offer.proposedBy === "user" ? "Your Proposal" : "Carrier Proposal"}
-                        <Badge 
-                          variant={
-                            offer.status === "pending" ? "outline" :
-                            offer.status === "accepted" ? "default" :
-                            "destructive"
-                          }
-                          className="ml-2 text-xs"
+
+                {/* Combine Messages and Offers into a single chronological feed */}
+                {[
+                  ...(negotiation.counterOffers || []),
+                  ...(negotiation.messages || [])
+                ]
+                .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+                .map((item, index) => {
+                  // Determine if the item is a message or an offer
+                  const isMessage = 'content' in item;
+                  const timestamp = new Date(item.timestamp);
+
+                  if (isMessage) {
+                    // --- Message Rendering ---
+                    const messageItem = item as typeof negotiation.messages[0]; // Type assertion
+                    const isUser = messageItem.sender === "user"; // Assuming 'user' represents the current user viewing
+
+                    return (
+                      <div
+                        key={`msg-${index}`}
+                        className={cn("flex", isUser ? "justify-end" : "justify-start")}
+                      >
+                        <div
+                          className={cn(
+                            "max-w-[75%] rounded-lg px-3 py-2 shadow-sm", // Base bubble style
+                            isUser
+                              ? "bg-blue-500 text-white" // User bubble style
+                              : "bg-white border" // Carrier/Other bubble style
+                          )}
                         >
-                          {offer.status}
-                        </Badge>
+                          <p className="text-sm">{messageItem.content}</p>
+                          <p className={cn(
+                              "text-xs mt-1 text-right", // Timestamp style
+                              isUser ? "text-blue-200" : "text-muted-foreground"
+                            )}
+                            title={format(timestamp, "PPpp")} // Show full date on hover
+                          >
+                             {formatDistanceToNow(timestamp, { addSuffix: true })}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {format(new Date(offer.timestamp), "PPp")}
-                      </div>
-                    </div>
-                    <div className="text-sm">
-                      <p>Proposed price: <strong>{offer.price}</strong></p>
-                      {offer.notes && <p className="mt-1">{offer.notes}</p>}
-                    </div>
-                  </div>
-                ))}
-                
-                {/* Regular messages */}
-                {negotiation.messages.map((msg, index) => (
-                  <div
-                    key={`msg-${index}`}
-                    className={cn(
-                      "rounded-lg p-3 transition-all",
-                      msg.sender === "user"
-                        ? "bg-blue-50/80 border-l-4 border-blue-400"
-                        : "bg-amber-50/80 border-l-4 border-amber-400"
-                    )}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="font-medium text-sm">
-                        {msg.sender === "user" ? "You" : "Carrier"}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {format(new Date(msg.timestamp), "PPp")}
-                      </div>
-                    </div>
-                    <p className="text-sm">{msg.content}</p>
-                  </div>
-                ))}
-                
-                {/* Scrolling anchor */}
+                    );
+                  } else {
+                     // --- Counter Offer Rendering ---
+                    const offerItem = item as typeof negotiation.counterOffers[0]; // Type assertion
+                    const isUserProposal = offerItem.proposedBy === "user";
+
+                    return (
+                      <div key={`offer-${index}`} className="text-center text-xs text-muted-foreground my-4">
+                         <div className={cn(
+                           "inline-block border rounded-lg px-4 py-2 text-left max-w-md mx-auto shadow-sm", // Offer block style
+                            isUserProposal ? "border-blue-200 bg-blue-50" : "border-amber-200 bg-amber-50"
+                         )}>
+                          <div className="flex justify-between items-center mb-1">
+                             <span className={cn(
+                                 "font-semibold text-sm",
+                                 isUserProposal ? "text-blue-700" : "text-amber-800"
+                               )}>
+                                {isUserProposal ? "Your Proposal" : "Carrier Proposal"}
+                             </span>
+                             <span className="text-xs text-muted-foreground" title={format(timestamp, "PPpp")}>
+                                {formatDistanceToNow(timestamp, { addSuffix: true })}
+                             </span>
+                          </div>
+                           <p className="text-base font-semibold text-gray-800 mb-1">{offerItem.price}</p>
+                           {offerItem.notes && <p className="text-sm text-gray-600 italic mt-1">{offerItem.notes}</p>}
+                           {offerItem.status !== 'pending' && (
+                             <Badge
+                                variant={
+                                  offerItem.status === "accepted" ? "default" :
+                                  offerItem.status === "rejected" ? "destructive" :
+                                  "outline"
+                                }
+                                className="mt-2 text-xs"
+                              >
+                                {offerItem.status.charAt(0).toUpperCase() + offerItem.status.slice(1)}
+                              </Badge>
+                           )}
+                         </div>
+                       </div>
+                    );
+                  }
+                })}
+                {/* Scroll anchor */}
                 <div ref={messagesEndRef} />
               </div>
             </div>
             
-            {/* Message input */}
-            <div className="p-2 sm:p-3 border-t bg-white flex-shrink-0">
-              <div className="max-w-[900px] mx-auto">
-              <div className="flex items-end gap-2">
+            {/* Message input section */}
+            <div className="border-t bg-gray-100 p-3 sm:p-4 sticky bottom-0 z-10 flex-shrink-0">
+              <div className="flex items-start space-x-3 max-w-[900px] mx-auto">
                 <Textarea
-                  placeholder="Type your message here..."
-                    className="flex-1 min-h-[50px] sm:min-h-[60px] resize-none bg-white"
+                  placeholder="Type your message or offer details..."
+                  className="flex-1 min-h-[40px] max-h-[150px] sm:min-h-[44px] resize-none bg-white border-gray-300 rounded-lg shadow-sm focus:border-primary focus:ring-1 focus:ring-primary"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  disabled={negotiation.status !== "pending"}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
                 />
                 <Button
-                    className="h-[50px] sm:h-[60px] px-2 sm:px-3"
+                  size="icon"
                   onClick={handleSendMessage}
-                  disabled={!message.trim() || isSending || negotiation.status !== "pending"}
+                  disabled={isSending || !message.trim()}
+                  className="h-10 w-10 flex-shrink-0 rounded-lg"
+                  title="Send Message"
                 >
                   {isSending ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -307,113 +334,121 @@ export default function NegotiationDetailClient({
                 </p>
               )}
             </div>
-            </div>
           </div>
           
-          {/* Side details panel - collapsible on mobile */}
-          <div className={`border-l border-t md:border-t-0 bg-white md:w-[250px] lg:w-[280px] overflow-hidden order-1 md:order-2 transition-all ${detailsExpanded ? 'flex flex-col' : 'hidden md:flex md:flex-col'}`}>
-            <div className="flex items-center justify-between p-2 border-b bg-muted/20 md:bg-transparent flex-shrink-0">
-              <h3 className="font-medium text-sm flex items-center gap-2">
-                <Info className="h-4 w-4 text-primary" />
-                <span>Negotiation Details</span>
-              </h3>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="p-1 h-auto md:hidden"
-                onClick={() => setDetailsExpanded(!detailsExpanded)}
-              >
-                {detailsExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </Button>
-            </div>
+          {/* Details section (collapsible) */}
+          <div className={cn(
+            "w-full md:w-[320px] lg:w-[360px] flex-shrink-0 border-l bg-white overflow-y-auto transition-all duration-300 order-1 md:order-2",
+             detailsExpanded ? "max-h-[50vh] md:max-h-full" : "max-h-12 md:max-h-full overflow-hidden"
+          )}>
+            <Card className="shadow-none border-0 rounded-none h-full flex flex-col">
+               {/* Collapse Toggle Header */}
+               <CardHeader
+                 className="flex flex-row items-center justify-between py-2 px-4 border-b cursor-pointer sticky top-0 bg-white z-10"
+                 onClick={() => setDetailsExpanded(!detailsExpanded)}
+               >
+                 <CardTitle className="text-base font-semibold flex items-center gap-2">
+                   <Info className="h-4 w-4 text-muted-foreground" />
+                   Negotiation Details
+                 </CardTitle>
+                 {detailsExpanded ? <ChevronDown className="h-5 w-5 text-muted-foreground" /> : <ChevronUp className="h-5 w-5 text-muted-foreground" />}
+               </CardHeader>
 
-            <div className="flex-1 overflow-y-auto">
-              <div className="p-2 sm:p-3 space-y-3">
-                {/* Price summary */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-primary" />
-                    Price Summary
-                  </h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-muted/20 p-2 rounded-md">
-                      <div className="text-xs text-muted-foreground">Initial</div>
-                      <div className="font-medium text-sm">{initialPrice}</div>
-                    </div>
-                    
-                    <div className="bg-muted/20 p-2 rounded-md">
-                      <div className="text-xs text-muted-foreground">Current</div>
-                      <div className="font-medium text-sm">{currentPrice}</div>
+              {/* Content - Only render if expanded for performance? Or use conditional class */}
+              <CardContent className={cn("p-4 flex-1 overflow-y-auto text-sm", !detailsExpanded && "hidden")}>
+                <div className="space-y-6">
+                  {/* Pricing Section */}
+                  <div>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                        <DollarSign className="h-4 w-4" />
+                        Pricing
+                    </h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Initial Price:</span>
+                        <span className="font-medium">{initialPrice}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Current Price:</span>
+                        <span className="font-medium">{currentPrice}</span>
+                      </div>
+                      {savings > 0 && (
+                        <div className="flex justify-between text-green-700 bg-green-50 px-2 py-1 rounded">
+                          <span className="font-medium">Potential Savings:</span>
+                          <span className="font-medium">
+                            ${savings.toFixed(2)} ({savingsPercentage.toFixed(1)}%)
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  
-                  {savings > 0 && (
-                    <div className="bg-green-50 border border-green-100 p-2 rounded-md">
-                      <div className="text-xs text-green-700">Savings</div>
-                      <div className="font-medium text-sm text-green-800 flex items-center gap-1">
-                        €{savings.toFixed(0)}
-                        <span className="text-xs text-green-600">({savingsPercentage.toFixed(1)}%)</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Transport details */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium flex items-center gap-2">
-                    <Package className="h-4 w-4 text-primary" />
-                    Transport Details
-                  </h4>
-                  <div className="divide-y">
-                    {negotiation.initialRequest.loadType && (
-                      <div className="flex items-center gap-2 py-1.5">
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                        <div className="text-sm">{negotiation.initialRequest.loadType}</div>
-                      </div>
-                    )}
-                    
-                    {negotiation.initialRequest.weight && (
-                      <div className="flex items-center gap-2 py-1.5">
-                        <Weight className="h-4 w-4 text-muted-foreground" />
-                        <div className="text-sm">{negotiation.initialRequest.weight}</div>
-                      </div>
-                    )}
-                    
-                    {negotiation.initialRequest.dimensions && (
-                      <div className="flex items-center gap-2 py-1.5">
-                        <Ruler className="h-4 w-4 text-muted-foreground" />
-                        <div className="text-sm">{negotiation.initialRequest.dimensions}</div>
-                      </div>
-                    )}
+
+                  {/* Status & Timeline Section */}
+                   <div>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                       <Clock className="h-4 w-4" />
+                       Timeline & Status
+                    </h3>
+                     <div className="space-y-2 text-sm">
+                       <div className="flex justify-between">
+                         <span className="text-muted-foreground">Status:</span>
+                         <Badge
+                          variant={
+                            negotiation.status === "pending" ? "secondary" :
+                            negotiation.status === "accepted" ? "default" :
+                            negotiation.status === "rejected" ? "destructive" :
+                            "outline"
+                          }
+                            className="px-1.5 py-0.5 text-xs"
+                         >
+                           {negotiation.status === "pending" ? "Active" :
+                              negotiation.status.charAt(0).toUpperCase() + negotiation.status.slice(1)}
+                         </Badge>
+                       </div>
+                       <div className="flex justify-between">
+                         <span className="text-muted-foreground">Created:</span>
+                         <span title={format(new Date(negotiation.createdAt), "PPpp")}>
+                           {formatDistanceToNow(new Date(negotiation.createdAt), { addSuffix: true })}
+                         </span>
+                       </div>
+                       <div className="flex justify-between">
+                         <span className="text-muted-foreground">Last Update:</span>
+                         <span title={format(new Date(negotiation.updatedAt), "PPpp")}>
+                           {formatDistanceToNow(new Date(negotiation.updatedAt), { addSuffix: true })}
+                         </span>
+                       </div>
+                     </div>
+                   </div>
+
+                  {/* Initial Request Details Section */}
+                  <div>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                       <Package className="h-4 w-4" />
+                       Shipment Details
+                    </h3>
+                     <div className="space-y-2 text-sm">
+                       <div className="flex justify-between">
+                         <span className="text-muted-foreground">Commodity:</span>
+                         <span>{negotiation.initialRequest.loadType}</span>
+                       </div>
+                       {negotiation.initialRequest.dimensions && (
+                          <div className="flex justify-between items-center">
+                             <span className="text-muted-foreground flex items-center gap-1"><Ruler className="h-3.5 w-3.5"/>Dimensions:</span>
+                           <span>{negotiation.initialRequest.dimensions}</span>
+                         </div>
+                       )}
+                       {negotiation.initialRequest.weight && (
+                         <div className="flex justify-between items-center">
+                             <span className="text-muted-foreground flex items-center gap-1"><Weight className="h-3.5 w-3.5"/>Weight:</span>
+                           <span>{negotiation.initialRequest.weight}</span>
+                         </div>
+                       )}
+                     </div>
                   </div>
+
                 </div>
-                
-                {/* Negotiation meta */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-primary" />
-                    Timeline
-                  </h4>
-                  <div className="bg-muted/10 rounded-md p-2 text-sm space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <div className="text-xs text-muted-foreground">Created <span className="font-medium text-foreground">{formatDistanceToNow(new Date(negotiation.createdAt), { addSuffix: true })}</span></div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <div className="text-xs text-muted-foreground">Last update <span className="font-medium text-foreground">{formatDistanceToNow(new Date(negotiation.updatedAt), { addSuffix: true })}</span></div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                      <div className="text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground">{negotiation.messages.length}</span> messages,
-                        <span className="font-medium text-foreground ml-1">{negotiation.counterOffers.length}</span> offers
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>

@@ -257,6 +257,8 @@ export default function TransportMap({
   const [isLoaded, setIsLoaded] = useState(false);
   const [isCalculatingRoutes, setIsCalculatingRoutes] = useState(false);
   const [showRoutes, setShowRoutes] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [processingRoutes, setProcessingRoutes] = useState<string[]>([]);
 
   useEffect(() => {
     // Process the offers to extract coordinates for markers and routes
@@ -427,6 +429,11 @@ export default function TransportMap({
     }
   };
 
+  // Render map only after mount (client-side)
+  if (!isLoaded) {
+    return <div className="h-[60vh] flex items-center justify-center bg-muted">Loading map...</div>;
+  }
+
   return (
     <>
       
@@ -442,16 +449,16 @@ export default function TransportMap({
           )}
           <MapContainer 
             style={{ height: "100%", width: "100%" }}
-            center={[50, 10]} // Center of Europe
-            zoom={4}
+            center={[51.505, -0.09]}
+            zoom={5}
             scrollWheelZoom={true}
             zoomControl={false}
             className="z-0"
           >
-            {/* Use a more visually appealing map style */}
-            <TileLayer
-              attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
-              url="https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png"
+            {/* Add the desired TileLayer */}
+            <TileLayer 
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" 
             />
             
             {/* Routes - only show when all are processed */}
@@ -544,7 +551,7 @@ export default function TransportMap({
             })}
             
             {/* Map controls */}
-            <ZoomControl position="bottomright" />
+            <ZoomControl position="topright" />
             <FullscreenButton />
             
             {/* Adjust bounds to fit all markers */}

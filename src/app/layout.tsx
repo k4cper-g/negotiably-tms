@@ -5,7 +5,7 @@ import { ConvexClerkClientProvider } from "@/providers/ConvexClerkClientProvider
 import { SyncUserWithConvex } from "@/providers/syncuser";
 import { NegotiationModalProvider } from '@/context/NegotiationModalContext';
 import { cn } from "@/lib/utils";
-
+import { Toaster } from "sonner";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
@@ -30,6 +30,7 @@ export default function RootLayout({
               <div className="relative flex min-h-screen flex-col">
                 <div className="flex-1">{children}</div>
               </div>
+              <Toaster />
           </NegotiationModalProvider>
         </ConvexClerkClientProvider>
       </body>

@@ -1,0 +1,376 @@
+/* RoutePlanner.module.css */
+
+/* Overall Page Layout */
+.pageContainer {
+  display: flex;
+  /* Adjust height calculation based on your actual header/navbar height */
+  height: calc(100vh - 64px);
+  overflow: hidden; /* Prevent scrolling on the main container */
+  background-color: #f8f9fa; /* Light background */
+}
+
+/* Left Panel: Controls and List */
+.leftPanel {
+  width: 350px;
+  border-right: 1px solid #dee2e6; /* Slightly softer border */
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff; /* White background for panel */
+  box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+}
+
+.controlsSection {
+  padding: 1rem;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.controlsSection h2,
+.stopListSection h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #495057; /* Darker grey heading */
+}
+
+/* Add Stop Form */
+.addStopForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem; /* Spacing between form elements */
+}
+
+.inputField {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  box-sizing: border-box; /* Include padding and border in element's total width and height */
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.inputField:focus {
+  border-color: #80bdff;
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.latLngContainer {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.latLngContainer .inputField {
+  flex: 1; /* Make lat/lng inputs share space */
+}
+
+/* Buttons */
+.button {
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.buttonPrimary {
+  color: #fff;
+  background-color: #007bff;
+  border-color: #007bff;
+}
+
+.buttonPrimary:hover {
+  background-color: #0056b3;
+  border-color: #004085;
+}
+
+.buttonDanger {
+  background: none;
+  border: none;
+  color: #dc3545;
+  padding: 0.2rem 0.4rem; /* Smaller padding for icon-like button */
+  font-size: 1.2rem; /* Larger icon */
+  line-height: 1;
+}
+
+.buttonDanger:hover {
+  color: #a71d2a;
+}
+
+/* Divider */
+.divider {
+  border: 0;
+  border-top: 1px solid #dee2e6;
+  margin: 1.5rem 0;
+}
+
+/* Stop List */
+.stopListSection {
+  flex-grow: 1; /* Take remaining vertical space */
+  padding: 1rem;
+  overflow-y: auto; /* Enable scrolling for the list only */
+}
+
+.emptyListText {
+  color: #6c757d; /* Muted text color */
+  font-style: italic;
+}
+
+.stopList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.stopListItem {
+  display: flex;
+  /* justify-content: space-between; */ /* Let drag handle push content */
+  align-items: center;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  background-color: #fff;
+  transition: background-color 0.1s ease;
+}
+
+/* Style for when dragging */
+.stopListItem:active {
+  cursor: grabbing;
+}
+
+.stopListItem:hover {
+    background-color: #f8f9fa;
+}
+
+/* Drag Handle Style */
+.dragHandle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem; /* Fixed width for handle area */
+    padding: 0.5rem; /* Click area */
+    margin-right: 0.5rem; /* Space between handle and content */
+    background: none;
+    border: none;
+    cursor: grab;
+    color: #adb5bd; /* Muted color */
+}
+
+.dragHandle:hover {
+    color: #495057;
+}
+
+.dragHandle svg {
+    width: 16px;
+    height: 16px;
+}
+
+.stopInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex-grow: 1; /* Allow stop info to take up remaining space */
+  /* Ensure text doesn't prevent delete button visibility */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stopInfo strong {
+    color: #212529;
+}
+
+.stopAddress {
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+/* Push delete button to the far right */
+.stopListItem .buttonDanger {
+    margin-left: auto; /* Pushes button to the end */
+    flex-shrink: 0; /* Prevent button from shrinking */
+}
+
+/* Style for the item rendered in the DragOverlay */
+.dragOverlayItem {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* Add shadow to make it look lifted */
+    cursor: grabbing;
+    /* Inherit background, border etc. from .stopListItem */
+}
+
+/* Placeholders for layout consistency in overlay item */
+.dragHandlePlaceholder,
+.deleteButtonPlaceholder {
+    display: inline-block;
+    width: 2rem; /* Match drag handle width */
+    padding: 0.5rem; /* Match drag handle padding */
+    margin-right: 0.5rem; /* Match drag handle margin */
+    flex-shrink: 0;
+}
+
+.deleteButtonPlaceholder {
+    margin-left: auto;
+    width: auto; /* Adjust if delete button width differs */
+    padding: 0.2rem 0.4rem;
+    margin-right: 0;
+}
+
+/* Right Panel: Map */
+.mapPanel {
+  flex: 1; /* Take remaining horizontal space */
+  position: relative; /* Needed for map positioning */
+}
+
+.mapContainer {
+  height: 100%;
+  width: 100%;
+}
+
+/* Add loading cursor style */
+.mapLoading .leaflet-container {
+    cursor: wait !important; /* Use wait cursor when reverse geocoding */
+}
+
+/* Override Leaflet routing machine icon size if needed */
+.leaflet-routing-icon {
+    width: 20px !important;
+    height: 20px !important;
+    /* Add other overrides if necessary */
+}
+
+/* Style for the container holding address input and suggestions */
+.addressInputContainer {
+  position: relative; /* Needed for absolute positioning of suggestions */
+}
+
+/* Suggestions List Styles */
+.suggestionsList {
+  position: absolute;
+  top: 100%; /* Position below the input */
+  left: 0;
+  right: 0;
+  background-color: #fff;
+  border: 1px solid #ced4da;
+  border-top: none; /* Avoid double border with input */
+  border-radius: 0 0 4px 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 200px; /* Limit height */
+  overflow-y: auto;
+  z-index: 1000; /* Ensure it appears above other content */
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.suggestionItem,
+.suggestionItemLoading {
+  padding: 0.6rem 0.8rem;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  font-size: 0.9rem;
+}
+
+.suggestionItem:last-child {
+  border-bottom: none;
+}
+
+.suggestionItem:hover {
+  background-color: #f8f9fa; /* Highlight on hover */
+}
+
+.suggestionItemLoading {
+    color: #6c757d;
+    font-style: italic;
+    cursor: default;
+}
+
+/* Error Message Style */
+.errorMessage {
+  color: #dc3545; /* Red color for errors */
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+/* Button with Spinner */
+.buttonWithSpinner {
+    position: relative; /* For spinner positioning */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+/* Style for address display in dialog */
+.dialogAddress {
+    font-style: italic;
+    color: #6c757d; /* Muted text */
+    font-size: 0.9em;
+    display: inline-block; /* Prevent extra spacing issues */
+    margin-top: 0.25rem;
+}
+
+/* Spinner Animation */
+.spinner {
+  animation: rotate 1s linear infinite;
+  width: 1.2em; /* Size relative to button font size */
+  height: 1.2em;
+  flex-shrink: 0;
+}
+
+.spinner .path {
+  stroke: currentColor; /* Use button text color */
+  stroke-linecap: round;
+  animation: dash 1.5s ease-in-out infinite;
+}
+
+@keyframes rotate {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dash {
+  0% {
+    stroke-dasharray: 1, 150;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 90, 150;
+    stroke-dashoffset: -35;
+  }
+  100% {
+    stroke-dasharray: 90, 150;
+    stroke-dashoffset: -124;
+  }
+}
+
+/* --- Overrides for Shadcn Dialog --- */
+
+/* Apply the dialog overlay styles differently */
+.dialogWrapper [data-radix-dialog-overlay] {
+    display: none !important;
+}
+
+/* Ensure Dialog Content is above Leaflet map */
+.dialogContent {
+  z-index: 1100 !important; /* Higher than default Leaflet map panes (often 400-1000) */
+}
+
+/* --- Custom Map Marker --- */
+/* Container for the custom icon (optional, can add base styles) */
+.purpleMarkerIcon {
+    /* No specific styles needed here unless for positioning tweaks */
+}
+
+/* The actual visible marker element */
+.purpleMarkerPin {
+    background-color: #8b5cf6; /* Purple */
+    width: 100%; /* Fill the iconSize defined in L.divIcon */
+    height: 100%;
+    border-radius: 50%;
+    border: 2px solid white; /* White border for contrast */
+    box-shadow: 0 0 5px rgba(0,0,0,0.4); /* Subtle shadow */
+} 

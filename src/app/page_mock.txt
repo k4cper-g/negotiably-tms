@@ -1,0 +1,831 @@
+"use client"
+
+import Image from "next/image";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ArrowRight, Bot, Workflow, Zap, BarChart3, Shield, CheckCircle2, Menu, X, ChevronRight, Plus, Minus, Route, Cog, Rocket, Search, Handshake, Database } from "lucide-react";
+import { ReactNode, useState, useEffect, useRef } from "react";
+
+import { useTheme } from "next-themes";
+import { Switch } from "@/components/ui/switch";
+import { motion, AnimatePresence } from "framer-motion";
+import { InfiniteMovingCards } from "@/components/ui/infinite-moving-cards";
+import { Icon } from "@tabler/icons-react";
+import { ModeToggle } from "@/components/mode-toggle";
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useClerk } from "@clerk/clerk-react";
+import { useRouter } from "next/navigation";
+import { AuroraText } from "@/components/ui/aurora-text";
+import React from "react";
+// import { useAction, useQuery } from "convex/react"; // Commented out
+// import { api } from "../../convex/_generated/api"; // Commented out
+// import { toast } from "sonner"; // Commented out - Re-import if used elsewhere
+// import { Doc } from "../../convex/_generated/dataModel"; // Commented out
+import Navbar from "@/components/navbar";
+
+const AuroraHeader = React.memo(({ delayAurora = 0, children }: { delayAurora?: number, children: ReactNode }) => {
+  return (
+    <h1 className="text-4xl md:text-6xl font-bold tracking-tight max-w-4xl">
+      {children}
+    </h1>
+  );
+});
+AuroraHeader.displayName = "AuroraHeader";
+
+interface FeatureCardProps {
+  icon: ReactNode;
+  title: string;
+  description: string;
+}
+
+interface StepCardProps {
+  number: string;
+  title: string;
+  description: string;
+}
+
+interface TestimonialCardProps {
+  quote: string;
+  author: string;
+  role: string;
+  avatarSrc?: string;
+}
+
+interface PricingPlan {
+  monthly: number;
+  yearly: number;
+  title: string;
+  description: string;
+  features: string[];
+  popular?: boolean;
+}
+
+interface FAQItem {
+  question: string;
+  answer: string;
+}
+
+interface DetailedFeature {
+  title: string;
+  description: string;
+  image: string;
+}
+
+export default function Home() {
+  const [isYearly, setIsYearly] = useState(false);
+  const [openFAQ, setOpenFAQ] = useState<number | null>(null);
+  const answerRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const { theme, systemTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const router = useRouter();
+  const clerk = useClerk();
+  // const createCheckoutSession = useAction(api.stripe.createCheckoutSession); // Commented out
+  // const [processingPlanId, setProcessingPlanId] = useState<string | null>(null); // Commented out
+
+  const pricingPlans: PricingPlan[] = [
+    {
+      title: "Starter Shipper",
+      description: "Ideal for small shippers.",
+      monthly: 29,
+      yearly: 290,
+      features: [
+        "Up to 50 AI Rate Searches/month",
+        "Up to 10 AI Negotiations/month",
+        "Connect 2 Marketplaces",
+        "Basic Reporting",
+        "Email Support"
+      ]
+    },
+    {
+      title: "Growth Broker",
+      description: "For growing brokers and carriers.",
+      monthly: 79,
+      yearly: 790,
+      features: [
+        "Up to 500 AI Rate Searches/month",
+        "Up to 100 AI Negotiations/month",
+        "Connect 10 Marketplaces",
+        "Advanced Reporting",
+        "Priority Support",
+        "Team Collaboration (3 users)"
+      ],
+      popular: true
+    },
+    {
+      title: "Enterprise Logistics",
+      description: "For large operations with complex needs.",
+      monthly: 199,
+      yearly: 1990,
+      features: [
+        "Unlimited AI Rate Searches",
+        "Unlimited AI Negotiations",
+        "Unlimited Marketplaces",
+        "Dedicated Support & Onboarding",
+        "Advanced Security & Compliance",
+        "Custom Integrations",
+        "API Access"
+      ]
+    }
+  ];
+
+  const testimonials = [
+    {
+      quote:
+        "Alterion's AI negotiation saved us an average of 12% on spot freight. It's like having an expert negotiator working 24/7.",
+      name: "Sarah Chen",
+      designation: "Logistics Manager at RapidDeliver",
+      src: "/placeholder.svg",
+    },
+    {
+      quote:
+        "Comparing rates across multiple load boards used to take hours. Alterion does it in seconds and finds options we'd miss.",
+      name: "David Lee",
+      designation: "Freight Broker at TransLink Solutions",
+      src: "/placeholder.svg",
+    },
+    {
+      quote:
+        "The AI assistant handles the back-and-forth negotiation, freeing up our team to focus on building carrier relationships. Game changer.",
+      name: "Maria Garcia",
+      designation: "Operations Lead at Pivot Logistics",
+      src: "/placeholder.svg",
+    },
+  ];
+
+  const faqItems: FAQItem[] = [
+    {
+      question: "What is Alterion?",
+      answer: "Alterion is a Transportation Management System (TMS) that uses AI to help shippers and brokers find the best freight rates across different marketplaces and negotiate prices automatically using an AI assistant, all within one platform."
+    },
+    {
+      question: "How does the AI negotiation work?",
+      answer: "Our AI assistant analyzes market data and your preferences to negotiate rates with carriers or brokers on your behalf. You set the parameters, and the AI handles the communication, aiming to secure the best possible price within your constraints."
+    },
+    {
+      question: "Which marketplaces or load boards do you integrate with?",
+      answer: "We are constantly expanding our integrations. Currently, we support major load boards and are working on direct carrier integrations. Please check our integrations page or contact us for the latest list."
+    },
+    {
+      question: "Is my negotiation and pricing data secure?",
+      answer: "Yes, data security is paramount. We use industry-standard encryption and security protocols to protect your sensitive information. Your negotiation strategies and rate data remain confidential."
+    },
+    {
+      question: "Can I set limits on the AI negotiation?",
+      answer: "Absolutely. You can define target rates, maximum acceptable prices, preferred carriers, and other parameters to guide the AI negotiation process, ensuring it aligns with your business rules."
+    },
+    {
+      question: "Is there a trial available?",
+      answer: "Yes, we offer a 14-day free trial on our Starter and Growth plans so you can experience the benefits of Alterion firsthand."
+    }
+  ];
+
+  const detailedFeatures: DetailedFeature[] = [
+    {
+      title: "AI-Powered Rate Discovery",
+      description: "Instantly search and compare real-time freight rates from multiple connected marketplaces and load boards. Our AI identifies the most competitive options based on your shipment details.",
+      image: "/placeholder.svg"
+    },
+    {
+      title: "Automated AI Negotiation Assistant",
+      description: "Deploy an AI assistant to negotiate rates on your behalf. Set your parameters and let Alterion handle the back-and-forth communication to secure optimal pricing without manual intervention.",
+      image: "/placeholder.svg"
+    },
+    {
+      title: "Centralized Logistics Hub",
+      description: "Manage carriers, track shipments, view offers, and oversee negotiations all from a single, intuitive dashboard. Eliminate the need to juggle multiple platforms.",
+      image: "/placeholder.svg"
+    },
+    {
+      title: "Actionable Performance Analytics",
+      description: "Gain insights into your transportation spend, negotiation success rates, and carrier performance. Make data-driven decisions to continuously optimize your logistics strategy.",
+      image: "/placeholder.svg"
+    }
+  ];
+
+  const [activeFeature, setActiveFeature] = useState(0);
+  const [activeStep, setActiveStep] = useState(0);
+  const intervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const featureIntervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+  useEffect(() => {
+    const nextFeature = () => {
+      setActiveFeature((prev) => (prev + 1) % detailedFeatures.length);
+    };
+    featureIntervalRef.current = setInterval(nextFeature, 5000);
+    return () => {
+      if (featureIntervalRef.current) {
+        clearInterval(featureIntervalRef.current);
+      }
+    };
+  }, [detailedFeatures.length]);
+
+  const handleFeatureClick = (index: number) => {
+    if (featureIntervalRef.current) {
+      clearInterval(featureIntervalRef.current);
+    }
+    setActiveFeature(index);
+    featureIntervalRef.current = setInterval(() => {
+      setActiveFeature((prev) => (prev + 1) % detailedFeatures.length);
+    }, 5000);
+  };
+
+  useEffect(() => {
+    const nextStep = () => {
+      setActiveStep((prev) => (prev + 1) % 3);
+    };
+    intervalRef.current = setInterval(nextStep, 6000);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
+
+  const handleStepClick = (index: number) => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+    setActiveStep(index);
+    intervalRef.current = setInterval(() => {
+      setActiveStep((prev) => (prev + 1) % 3);
+    }, 6000);
+  };
+
+  // --- Commented out Purchase Handler ---
+  /*
+  const handlePurchase = async (plan: PricingPlan) => {
+    try {
+      setProcessingPlanId(plan.title);
+      if (!clerk.user?.id) {
+        clerk.openSignIn({ redirectUrl: `/dashboard` });
+        return;
+      }
+
+      const selectedTier = subscriptionTiers?.find((tier: Doc<"subscriptionTiers">) =>
+        tier.name.toLowerCase() === plan.title.toLowerCase()
+      );
+
+      if (!selectedTier) {
+        toast.error("Selected subscription plan not found in backend data.");
+        setProcessingPlanId(null);
+        return;
+      }
+
+      const result = await createCheckoutSession({
+        tierId: selectedTier._id,
+        userId: clerk.user.id,
+        successUrl: `${window.location.origin}/checkout/success?tier=${selectedTier._id}`,
+        cancelUrl: `${window.location.origin}/checkout/failed?reason=canceled`,
+        email: clerk.user.primaryEmailAddress?.emailAddress || '',
+      });
+
+      if (result?.url) {
+        window.location.href = result.url;
+      } else {
+        throw new Error("Failed to create checkout session URL.");
+      }
+    } catch (error) {
+      console.error("Error creating checkout:", error);
+      toast.error("Failed to start checkout. Please try again.");
+      setProcessingPlanId(null);
+    }
+  };
+  */
+  // --- End Commented out Purchase Handler ---
+
+  // const subscriptionTiers = useQuery(api.subscriptions.getSubscriptionTiers); // Commented out
+
+  // --- Commented out URL Param Handler ---
+  /*
+  useEffect(() => {
+    // This effect needs clerk.user, subscriptionTiers, and handlePurchase
+    // if (!clerk.user?.id || !subscriptionTiers || !Array.isArray(subscriptionTiers)) return; 
+
+    const params = new URLSearchParams(window.location.search);
+    const planParam = params.get('plan');
+    const billingParam = params.get('billing');
+
+    if (planParam) {
+      if (billingParam === 'yearly') {
+        setIsYearly(true);
+      } else if (billingParam === 'monthly') {
+        setIsYearly(false);
+      }
+
+      const selectedPlan = pricingPlans.find(
+        plan => plan.title.toLowerCase() === planParam.toLowerCase()
+      );
+
+      if (selectedPlan) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        // handlePurchase(selectedPlan); // Needs handlePurchase
+      }
+    }
+  // }, [clerk.user?.id, subscriptionTiers]); // Needs clerk.user, subscriptionTiers
+}, []); // Simplified dependencies as the effect is commented out
+*/
+// --- End Commented out URL Param Handler ---
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const currentTheme = mounted ? (theme === 'system' ? systemTheme : theme) : 'light';
+
+  return (
+    <div
+      className="flex-auto overflow-auto home-page scroll-smooth"
+      style={{
+        scrollbarWidth: 'thin',
+        scrollbarColor: 'var(--primary) transparent',
+      }}
+    >
+      <Navbar />
+
+      <section className="relative w-full pt-32 pb-24 px-6 md:px-12 lg:px-24 flex flex-col items-center justify-center text-center space-y-8 overflow-hidden" id="hero">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_center,rgba(var(--chart-1),0.15),transparent_50%)]"></div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <Badge className="mb-4 text-xs font-medium rounded-full cursor-pointer hover:bg-muted" variant="outline">
+            <p className="flex items-center p-1">🚀 Alterion: Your AI Logistics Copilot <ChevronRight className="h-4 w-4 text-muted-foreground" /></p>
+          </Badge>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+        >
+          <AuroraHeader delayAurora={1.2}>
+            Secure Better Freight Rates with <AuroraText delayAurora={1.2}>AI Negotiation</AuroraText>
+          </AuroraHeader>
+        </motion.div>
+
+        <motion.p
+          className="text-lg md:text-xl text-muted-foreground max-w-2xl"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.7 }}
+        >
+          Alterion finds the best offers across marketplaces and uses AI to negotiate prices, saving you time and money on every shipment.
+        </motion.p>
+
+        <motion.div
+          className="flex flex-col sm:flex-row gap-4 mt-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 1.0 }}
+        >
+          <Button size="lg" className="gap-2" onClick={() => router.push('/dashboard')}>
+            Get Started Free <ArrowRight className="h-4 w-4" />
+          </Button>
+          <Button size="lg" variant="outline">
+            Request a Demo
+          </Button>
+        </motion.div>
+
+        <motion.div
+          className="relative w-full max-w-7xl mt-16 p-[1px] rounded-lg"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            duration: 0.8,
+            delay: 1.3,
+            ease: [0.25, 0.1, 0.25, 1]
+          }}
+        >
+          <div className="absolute inset-0 border-2 border-primary rounded-lg " />
+          <div className="relative w-full rounded-lg border shadow-2xl overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-primary/10 z-10 pointer-events-none" />
+            <Image
+              src={"/placeholder.svg"}
+              alt="Alterion TMS Dashboard Preview"
+              width={1920}
+              height={1080}
+              className="w-full h-auto"
+              priority
+              suppressHydrationWarning
+            />
+          </div>
+        </motion.div>
+      </section>
+
+      <section className="py-24 pb-36 px-6 md:px-12 lg:px-24 bg-background" id="features">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <Badge className="mb-4" variant="outline">
+              <p className="flex items-center p-1">Core Features</p>
+            </Badge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-3">
+              Optimize Your Logistics with Intelligent Tools
+            </h2>
+            <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto">
+              Leverage AI to streamline rate discovery, automate negotiation, and manage your transportation effortlessly.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            <div className="space-y-4">
+              {detailedFeatures.map((feature, index) => (
+                <div
+                  key={index}
+                  className={`transition-all duration-200 ${activeFeature === index ? 'bg-background' : 'hover:bg-muted/50'}`}
+                >
+                  <button
+                    onClick={() => handleFeatureClick(index)}
+                    className="w-full py-4 flex items-start gap-4 text-left"
+                  >
+                    <div
+                      className={`w-1 self-stretch rounded-full transition-all duration-200 ${activeFeature === index ? 'bg-purple-500 scale-y-100' : 'bg-purple-500/30 scale-y-50'}`}
+                    />
+                    <div>
+                      <h3 className="text-lg md:text-xl font-medium mb-2">{feature.title}</h3>
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{
+                          height: activeFeature === index ? "auto" : 0,
+                          opacity: activeFeature === index ? 1 : 0
+                        }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+                          {feature.description}
+                        </p>
+                      </motion.div>
+                    </div>
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="relative aspect-[4/3] overflow-hidden border-2 rounded-xl">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeFeature}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="absolute inset-0"
+                >
+                  <Image
+                    src={detailedFeatures[activeFeature].image}
+                    alt={detailedFeatures[activeFeature].title}
+                    fill
+                    className="object-cover"
+                  />
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-24 px-6 md:px-12 lg:px-24 bg-muted/50" id="testimonials">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Trusted by Logistics Professionals</h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Hear how Alterion is transforming transportation management.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {testimonials.map((testimonial, index) => (
+               <TestimonialCard
+                 key={index}
+                 quote={testimonial.quote}
+                 author={testimonial.name}
+                 role={testimonial.designation}
+                 avatarSrc={testimonial.src}
+               />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16 px-6 md:px-12 lg:px-24" id="how-it-works">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <Badge className="mb-4" variant="outline">
+              <p className="flex items-center p-1">Simple Steps</p>
+            </Badge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-3">
+              Optimize Shipments in Minutes
+            </h2>
+            <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto">
+              Find, negotiate, and book the best rates with Alterion's streamlined process.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[
+                {
+                  icon: <Database className="w-5 h-5" />,
+                  title: "Enter Shipment Details",
+                  description: "Provide your origin, destination, cargo specifics, and connect your preferred marketplaces or carriers."
+                },
+                {
+                  icon: <Search className="w-5 h-5" />,
+                  title: "Discover & Compare Offers",
+                  description: "Alterion's AI instantly scans connected sources for the best matching rates and presents clear comparisons."
+                },
+                {
+                  icon: <Handshake className="w-5 h-5" />,
+                  title: "Negotiate & Book",
+                  description: "Use the AI assistant to negotiate prices automatically or manually confirm the best offer to book your shipment."
+                }
+              ].map((step, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleStepClick(index)}
+                  className="flex flex-col items-center text-center group p-4 rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center mb-3">
+                    <span className="text-purple-500">{step.icon}</span>
+                  </div>
+                  <h3 className="text-lg md:text-xl font-medium mb-2">{step.title}</h3>
+                  <p className="text-sm md:text-base text-muted-foreground mb-3">{step.description}</p>
+                  <div className="w-full h-0.5 rounded-full overflow-hidden bg-muted">
+                    <div
+                      className={`h-full bg-purple-500 transition-all duration-300 ${activeStep === index ? 'w-full' : 'w-0'}`}
+                    />
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="relative aspect-[16/9] overflow-hidden border-2 rounded-xl mt-8">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeStep}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="absolute inset-0"
+                >
+                  <Image
+                    src={"/placeholder.svg"}
+                    alt={["Enter Shipment Details", "Discover & Compare Offers", "Negotiate & Book"][activeStep]}
+                    fill
+                    className="object-cover"
+                  />
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-24 px-6 md:px-12 lg:px-24" id="pricing">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Flexible Plans for Every Scale</h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
+              Choose the right Alterion plan for your shipping volume and needs. Start with a 14-day free trial.
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <span className={`text-sm font-medium ${!isYearly ? 'text-foreground' : 'text-muted-foreground'}`}>Monthly</span>
+              <Switch
+                checked={isYearly}
+                onCheckedChange={setIsYearly}
+                className="data-[state=checked]:bg-primary"
+              />
+              <span className={`text-sm font-medium ${isYearly ? 'text-foreground' : 'text-muted-foreground'}`}>
+                Yearly
+                <span className="ml-1.5 inline-block text-xs py-0.5 px-1.5 bg-primary/10 text-primary rounded-full">
+                  Save ~15%
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {pricingPlans.map((plan) => (
+              <Card
+                key={plan.title}
+                className={`p-6 flex flex-col border-2 ${plan.popular ? 'border-primary shadow-lg relative' : 'hover:border-primary/50 transition-colors'}`}
+              >
+                {plan.popular && (
+                  <div className="absolute top-0 right-0 bg-primary text-primary-foreground px-3 py-1 text-xs font-medium rounded-bl-lg rounded-tr-lg">
+                    Most Popular
+                  </div>
+                )}
+                <div className="mb-6">
+                  <h3 className="text-xl font-semibold mb-2">{plan.title}</h3>
+                  <p className="text-muted-foreground">{plan.description}</p>
+                </div>
+                <div className="mb-6">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={isYearly ? 'yearly' : 'monthly'}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex items-baseline"
+                    >
+                      <span className="text-4xl font-bold">
+                        ${isYearly ? Math.round(plan.yearly / 12) : plan.monthly}
+                      </span>
+                      <span className="text-muted-foreground ml-2">/month</span>
+                    </motion.div>
+                  </AnimatePresence>
+                  {isYearly && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      ${plan.yearly} billed yearly
+                    </p>
+                  )}
+                </div>
+                <ul className="space-y-3 mb-8 flex-grow">
+                  {plan.features.map((feature) => (
+                    <PricingFeature key={feature}>{feature}</PricingFeature>
+                  ))}
+                </ul>
+                <Button
+                  variant={plan.popular ? "default" : "outline"}
+                  className="w-full"
+                  // onClick={() => handlePurchase(plan)} // Commented out
+                  // disabled={processingPlanId === plan.title} // Commented out
+                >
+                  {/* {processingPlanId === plan.title ? ( // Commented out processing state
+                    <span className="flex items-center gap-2">
+                      <div className="h-4 w-4 rounded-full border-2 border-current border-r-transparent animate-spin" />
+                      Processing...
+                    </span>
+                  ) : ( */} 
+                    {plan.title === "Enterprise Logistics" ? "Contact Sales" : "Start Free Trial"} 
+                  {/* )} */} 
+                </Button>
+              </Card>
+            ))}
+          </div>
+
+          <div className="mt-12 text-center">
+            <p className="text-muted-foreground">
+              Need custom features or volume pricing? <Link href="/contact" className="text-primary font-medium hover:underline">Contact our sales team</Link>.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-24 px-6 md:px-12 lg:px-24 bg-muted/50" id="faq">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Common Questions</h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Find answers to frequently asked questions about Alterion.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {faqItems.map((item, index) => (
+              <div
+                key={index}
+                className="border bg-background rounded-lg transition-all duration-200 hover:border-primary/50"
+              >
+                <button
+                  onClick={() => setOpenFAQ(openFAQ === index ? null : index)}
+                  className="w-full px-6 py-4 flex items-center justify-between text-left"
+                >
+                  <span className="font-medium">{item.question}</span>
+                  {openFAQ === index ? (
+                    <Minus className="h-4 w-4 text-primary flex-shrink-0" />
+                  ) : (
+                    <Plus className="h-4 w-4 text-primary flex-shrink-0" />
+                  )}
+                </button>
+                <motion.div
+                  initial={false}
+                  animate={{ height: openFAQ === index ? 'auto' : 0 }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                   <div className="px-6 pb-4 pt-0">
+                     <p className="text-muted-foreground">{item.answer}</p>
+                   </div>
+                 </motion.div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-12 text-center">
+            <p className="text-muted-foreground">
+              Have more questions?{" "}
+              <Link href="/contact" className="text-primary font-medium hover:underline">
+                Contact Support
+              </Link>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-24 px-6 md:px-12 lg:px-24 relative overflow-hidden">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_center,rgba(var(--chart-2),0.15),transparent_50%)]"></div>
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to Reduce Your Freight Spend?</h2>
+          <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
+            Start your free trial today and see how Alterion's AI can optimize your logistics and save you money.
+          </p>
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
+             <Button size="lg" className="gap-2" onClick={() => router.push('/dashboard')}>
+               Start Free Trial <ArrowRight className="h-4 w-4" />
+             </Button>
+             <Button size="lg" variant="outline">
+               Schedule a Demo
+             </Button>
+          </div>
+        </div>
+      </section>
+
+      <footer className="py-12 px-6 md:px-12 lg:px-24 border-t">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="space-y-4">
+            <Image
+              src={"/placeholder.svg"}
+              alt="Alterion Logo"
+              width={120}
+              height={40}
+              style={{ objectFit: 'contain', height: 'auto' }}
+              className="w-auto transition-all duration-200"
+              suppressHydrationWarning
+            />
+            <p className="text-sm text-muted-foreground">
+              Intelligent logistics optimization for smarter shipping.
+            </p>
+             <p className="text-sm text-muted-foreground pt-4">© {new Date().getFullYear()} Alterion. All rights reserved.</p>
+          </div>
+          <div>
+            <h4 className="font-medium mb-4">Product</h4>
+            <ul className="space-y-2 text-sm">
+              <li><Link href="#features" className="text-muted-foreground hover:text-foreground">Features</Link></li>
+              <li><Link href="#pricing" className="text-muted-foreground hover:text-foreground">Pricing</Link></li>
+              <li><Link href="/integrations" className="text-muted-foreground hover:text-foreground">Integrations</Link></li>
+              <li><Link href="#faq" className="text-muted-foreground hover:text-foreground">FAQ</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="font-medium mb-4">Resources</h4>
+            <ul className="space-y-2 text-sm">
+              <li><Link href="/docs" className="text-muted-foreground hover:text-foreground">Documentation</Link></li>
+              <li><Link href="/blog" className="text-muted-foreground hover:text-foreground">Blog</Link></li>
+              <li><Link href="/support" className="text-muted-foreground hover:text-foreground">Support</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="font-medium mb-4">Company</h4>
+            <ul className="space-y-2 text-sm">
+              <li><Link href="/about" className="text-muted-foreground hover:text-foreground">About Us</Link></li>
+              <li><Link href="/careers" className="text-muted-foreground hover:text-foreground">Careers</Link></li>
+              <li><Link href="/contact" className="text-muted-foreground hover:text-foreground">Contact</Link></li>
+              <li><Link href="/privacy" className="text-muted-foreground hover:text-foreground">Privacy Policy</Link></li>
+              <li><Link href="/terms" className="text-muted-foreground hover:text-foreground">Terms of Service</Link></li>
+            </ul>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function TestimonialCard({ quote, author, role, avatarSrc }: TestimonialCardProps) {
+  return (
+    <Card className="p-6 h-full flex flex-col">
+      <div className="mb-4 text-3xl text-primary">"</div>
+      <p className="text-muted-foreground mb-6 flex-grow">{quote}</p>
+      <div className="flex items-center gap-3">
+        {avatarSrc && (
+          <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 border">
+            <Image
+              src={avatarSrc}
+              alt={`${author} avatar`}
+              width={40}
+              height={40}
+              className="object-cover w-full h-full"
+            />
+          </div>
+        )}
+        <div>
+          <p className="font-semibold">{author}</p>
+          <p className="text-sm text-muted-foreground">{role}</p>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function PricingFeature({ children }: { children: ReactNode }) {
+  return (
+    <li className="flex items-center gap-2">
+      <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0" />
+      <span className="text-sm">{children}</span>
+    </li>
+  );
+}

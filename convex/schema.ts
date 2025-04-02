@@ -8,6 +8,12 @@ export default defineSchema({
         name: v.string(),
         imageUrl: v.string(),
     }),
+    demoRequests: defineTable({
+        email: v.string(),
+        message: v.optional(v.string()),
+        status: v.string(), // "new", "contacted", "completed"
+        createdAt: v.number(),
+    }),
     negotiations: defineTable({
         userId: v.string(),
         offerId: v.string(),

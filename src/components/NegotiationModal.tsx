@@ -12,7 +12,9 @@ import {
   Send,
   Loader2,
   Mail,
-  MinusCircle
+  MinusCircle,
+  Check,
+  ArrowRightLeft
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -137,28 +139,32 @@ export function NegotiationModal({
   // Minimized view
   if (isMinimized) {
     return (
-      <div className="fixed right-4 bottom-4 w-[260px] bg-white rounded-lg shadow-xl border z-50">
+      <div className="fixed right-4 bottom-4 w-[280px] bg-white rounded-lg shadow-lg border z-50 cursor-pointer hover:shadow-xl transition-shadow">
         <div 
-          className="flex justify-between items-center p-3 cursor-pointer"
+          className="flex justify-between items-center p-2"
           onClick={() => setIsMinimized(false)}
         >
-          <div>
-            <h3 className="font-semibold text-sm flex items-center gap-1">
-              <Mail className="h-4 w-4 text-primary" />
-              Negotiation {negotiationId.toString().substring(0, 6)}
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              {negotiation.initialRequest.origin} → {negotiation.initialRequest.destination}
-            </p>
+          <div className="flex items-center gap-2 min-w-0">
+            <Mail className="h-4 w-4 text-primary flex-shrink-0" />
+            <div className="min-w-0">
+              <h3 className="font-semibold text-sm truncate">
+                Negotiation
+              </h3>
+              <p className="text-xs text-muted-foreground truncate" title={`${negotiation.initialRequest.origin} to ${negotiation.initialRequest.destination}`}>
+                {negotiation.initialRequest.origin} → {negotiation.initialRequest.destination}
+              </p>
+            </div>
           </div>
+          
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-7 w-7" 
+            className="h-7 w-7 text-muted-foreground hover:text-foreground flex-shrink-0"
             onClick={(e) => {
-              e.stopPropagation(); // Prevent expanding when clicking close
+              e.stopPropagation();
               onClose();
             }}
+            title="Close Chat"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -169,194 +175,229 @@ export function NegotiationModal({
   
   // Full view
   return (
-    <div className="fixed right-4 bottom-4 w-[400px] max-h-[80vh] bg-white rounded-lg shadow-xl border z-50 flex flex-col">
-      {/* Header - clickable to minimize */}
-      <div 
-        className="p-3 border-b flex items-center justify-between cursor-pointer"
-        onClick={() => setIsMinimized(true)}
-      >
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-semibold flex items-center gap-1">
-              <Mail className="h-4 w-4 text-primary" />
-              Negotiation {negotiationId.toString().substring(0, 6)}
-            </h3>
-            <Badge 
-              variant={
-                negotiation.status === "pending" ? "outline" :
-                negotiation.status === "accepted" ? "success" :
-                negotiation.status === "rejected" ? "destructive" :
-                "outline"
-              }
-              className="text-xs"
+    <div className="fixed right-4 bottom-4 w-[400px] max-w-[calc(100vw-32px)] max-h-[650px] bg-gray-50 rounded-lg shadow-xl border z-50 flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="p-3 border-b bg-white flex items-center justify-between flex-shrink-0">
+        {/* Left: Title, Status, Minimize */}
+        <div className="flex items-center gap-2 min-w-0">
+          {/* Minimize Button (looks like header icon) */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6 text-muted-foreground hover:text-foreground flex-shrink-0" 
+            onClick={() => setIsMinimized(true)}
+            title="Minimize Chat"
+          >
+            <MinusCircle className="h-4 w-4" />
+          </Button>
+          
+          {/* Title & Status */}
+          <div className="flex flex-col min-w-0">
+            <h3 
+              className="font-semibold text-sm truncate flex items-center" 
+              title={`${negotiation.initialRequest.origin} to ${negotiation.initialRequest.destination}`}
             >
-              {negotiation.status === "pending" ? "Negotiating" : 
-              negotiation.status.charAt(0).toUpperCase() + negotiation.status.slice(1)}
-            </Badge>
+              {negotiation.initialRequest.origin}
+              <ArrowRight className="h-3.5 w-3.5 mx-1 text-muted-foreground flex-shrink-0" />
+              {negotiation.initialRequest.destination}
+            </h3>
+            <p className="text-xs text-muted-foreground truncate" title={`Negotiation ID: ${negotiationId}`}> 
+              ID: {negotiationId.toString().substring(0, 8)}...
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {negotiation.initialRequest.origin} → {negotiation.initialRequest.destination}
-          </p>
+          <Badge 
+            variant={
+              negotiation.status === "pending" ? "secondary" :
+              negotiation.status === "accepted" ? "default" :
+              negotiation.status === "rejected" ? "destructive" :
+              "outline"
+            }
+            className="px-2 py-0.5 text-xs font-medium rounded-full flex-shrink-0 ml-1"
+          >
+            {negotiation.status === "pending" ? "Active" : 
+            negotiation.status.charAt(0).toUpperCase() + negotiation.status.slice(1)}
+          </Badge>
         </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-7 w-7" 
-          onClick={(e) => {
-            e.stopPropagation(); // Prevent minimizing when clicking close
-            onClose();
-          }}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-      
-      {/* Price summary */}
-      <div className="flex justify-between border-b p-2 bg-muted/30 text-xs">
-        <div className="flex items-center gap-2">
-          <DollarSign className="h-3 w-3" />
-          <span>Initial: {initialPrice}</span>
-          <ArrowRight className="h-3 w-3" />
-          <span>Current: {currentPrice}</span>
-        </div>
-        {savings > 0 && (
-          <div className="text-green-600">
-            Saved: €{savings.toFixed(0)} ({savingsPercentage.toFixed(1)}%)
-          </div>
-        )}
-      </div>
-      
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
-        {/* Initial negotiation message */}
-        <div className="bg-muted/30 rounded-lg p-3 text-xs">
-          <div className="flex items-center justify-between mb-1">
-            <div className="font-medium">Negotiation Started</div>
-            <div className="text-xs text-muted-foreground">
-              {format(new Date(negotiation.createdAt), "PPp")}
-            </div>
-          </div>
-          <p>
-            Transport negotiation initiated for route: {negotiation.initialRequest.origin} to {negotiation.initialRequest.destination}.
-            <br />Initial price: {negotiation.initialRequest.price}
-          </p>
-          {negotiation.initialRequest.notes && (
-            <div className="mt-1">
-              <strong>Additional Notes:</strong>
-              <p>{negotiation.initialRequest.notes}</p>
-            </div>
+
+        {/* Right: Actions (Accept, Reject, Close) */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {negotiation.status === 'pending' && (
+            <>
+              <Button 
+                variant="outline"
+                size="icon"
+                className="text-destructive border-destructive/50 hover:bg-destructive/5 hover:text-destructive h-7 w-7"
+                onClick={() => handleUpdateStatus("rejected")}
+                disabled={negotiation.status !== "pending"}
+                title="Reject Offer"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <Button 
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => handleUpdateStatus("accepted")}
+                disabled={negotiation.status !== "pending"}
+                title="Accept Offer"
+              >
+                <Check className="h-4 w-4" />
+              </Button>
+            </>
           )}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-7 w-7 text-muted-foreground hover:text-foreground" 
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent minimizing when clicking close
+              onClose();
+            }}
+            title="Close Chat"
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
-        
-        {/* Counter offers shown as emails */}
-        {negotiation.counterOffers.map((offer, index) => (
-          <div 
-            key={`offer-${index}`}
-            className={cn(
-              "rounded-lg p-3 text-xs",
-              offer.proposedBy === "user" 
-                ? "bg-blue-50 border-blue-100" 
-                : "bg-amber-50 border-amber-100"
-            )}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <div className="font-medium">
-                {offer.proposedBy === "user" ? "Your Proposal" : "Carrier Proposal"}
-                <Badge 
-                  variant={
-                    offer.status === "pending" ? "outline" :
-                    offer.status === "accepted" ? "success" :
-                    "destructive"
-                  }
-                  className="ml-1 text-[10px] px-1 py-0"
+      </div>
+      
+      {/* Price summary - REMOVED */}
+      {/* <div className="flex justify-between border-b p-2 bg-muted/30 text-xs"> ... </div> */}
+      
+      {/* Messages - Apply new chat feed style */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
+        {/* Combined Messages and Offers Feed */}
+        {[
+          // Add a fake initial message object for rendering the system message
+          { type: 'system', timestamp: negotiation.createdAt }, 
+          ...(negotiation.counterOffers || []),
+          ...(negotiation.messages || [])
+        ]
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) // Ensure chronological order
+        .map((item, index) => {
+          const timestamp = new Date(item.timestamp);
+
+          // --- System Message Rendering ---
+          if ('type' in item && item.type === 'system') {
+             return (
+               <div key={`sys-${index}`} className="text-center text-xs text-muted-foreground my-3">
+                 <p className="inline-block bg-gray-200 rounded-full px-2.5 py-1">
+                   Negotiation started on {format(timestamp, "PP")} for{' '}
+                   <span className="font-medium">{negotiation.initialRequest.origin} to {negotiation.initialRequest.destination}</span>
+                   {' '}at <span className="font-medium">{negotiation.initialRequest.price}</span>.
+                 </p>
+                 {negotiation.initialRequest.notes && (
+                    <p className="mt-1.5 italic text-gray-600 max-w-xs mx-auto text-xs">
+                       Initial Notes: {negotiation.initialRequest.notes}
+                    </p>
+                 )}
+               </div>
+             );
+          }
+
+          // Determine if the item is a message or an offer
+          const isMessage = 'content' in item; 
+
+          if (isMessage) {
+            // --- Message Rendering ---
+            const messageItem = item as typeof negotiation.messages[0];
+            const isUser = messageItem.sender === "user";
+
+            return (
+              <div
+                key={`msg-${index}`}
+                className={cn("flex", isUser ? "justify-end" : "justify-start")}
+              >
+                <div
+                  className={cn(
+                    "max-w-[80%] rounded-lg px-2.5 py-1.5 shadow-sm text-sm",
+                    isUser
+                      ? "bg-blue-500 text-white" 
+                      : "bg-white border" 
+                  )}
                 >
-                  {offer.status}
-                </Badge>
+                  <p>{messageItem.content}</p>
+                  <p className={cn(
+                      "text-xs mt-0.5 text-right",
+                      isUser ? "text-blue-200" : "text-muted-foreground"
+                    )}
+                    title={format(timestamp, "PPpp")}
+                  >
+                      {formatDistanceToNow(timestamp, { addSuffix: true })}
+                  </p>
+                </div>
               </div>
-              <div className="text-xs text-muted-foreground">
-                {format(new Date(offer.timestamp), "PPp")}
-              </div>
-            </div>
-            <div>
-              <p>Proposed price: <strong>{offer.price}</strong></p>
-              {offer.notes && <p className="mt-1">{offer.notes}</p>}
-            </div>
-          </div>
-        ))}
-        
-        {/* Regular messages */}
-        {negotiation.messages.map((msg, index) => (
-          <div
-            key={`msg-${index}`}
-            className={cn(
-              "rounded-lg p-3 text-xs",
-              msg.sender === "user"
-                ? "bg-blue-50 border-blue-100"
-                : "bg-amber-50 border-amber-100"
-            )}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <div className="font-medium">
-                {msg.sender === "user" ? "You" : "Carrier"}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {format(new Date(msg.timestamp), "PPp")}
-              </div>
-            </div>
-            <p>{msg.content}</p>
-          </div>
-        ))}
-        
-        {/* Scrolling anchor */}
+            );
+          } else {
+              // --- Counter Offer Rendering ---
+             const offerItem = item as typeof negotiation.counterOffers[0];
+             const isUserProposal = offerItem.proposedBy === "user";
+
+             return (
+               <div key={`offer-${index}`} className="text-center text-xs text-muted-foreground my-3">
+                  <div className={cn(
+                    "inline-block border rounded-lg px-3 py-1.5 text-left max-w-xs mx-auto shadow-sm",
+                     isUserProposal ? "border-blue-200 bg-blue-50" : "border-amber-200 bg-amber-50"
+                  )}>
+                   <div className="flex justify-between items-center mb-0.5">
+                      <span className={cn(
+                          "font-semibold text-sm",
+                          isUserProposal ? "text-blue-700" : "text-amber-800"
+                        )}>
+                         {isUserProposal ? "Your Proposal" : "Carrier Proposal"}
+                      </span>
+                      <span className="text-xs text-muted-foreground" title={format(timestamp, "PPpp")}>
+                         {formatDistanceToNow(timestamp, { addSuffix: true })}
+                      </span>
+                   </div>
+                    <p className="text-sm font-semibold text-gray-800 mb-0.5">{offerItem.price}</p>
+                    {offerItem.notes && <p className="text-xs text-gray-600 italic mt-1">{offerItem.notes}</p>}
+                    {offerItem.status !== 'pending' && (
+                      <Badge
+                         variant={
+                           offerItem.status === "accepted" ? "default" :
+                           offerItem.status === "rejected" ? "destructive" :
+                           "outline"
+                         }
+                         className="mt-1.5 text-xs px-1.5 py-0.5"
+                       >
+                         {offerItem.status.charAt(0).toUpperCase() + offerItem.status.slice(1)}
+                       </Badge>
+                    )}
+                  </div>
+                </div>
+             );
+           }
+         })}
         <div ref={messagesEndRef} />
       </div>
       
-      {/* Actions */}
-      <div className="flex justify-between p-2 border-t bg-muted/10">
-        <div className="flex gap-1">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="h-7 text-xs"
-            onClick={() => handleUpdateStatus("rejected")}
-            disabled={negotiation.status === "rejected" || negotiation.status === "accepted"}
-          >
-            <X className="h-3 w-3 mr-1" />
-            Reject
-          </Button>
-          <Button 
-            size="sm" 
-            className="h-7 text-xs"
-            onClick={() => handleUpdateStatus("accepted")}
-            disabled={negotiation.status === "accepted"}
-          >
-            <ThumbsUp className="h-3 w-3 mr-1" />
-            Accept
-          </Button>
-        </div>
-      </div>
-      
-      {/* Message input */}
-      <div className="p-2 border-t">
-        <div className="flex gap-1">
+      {/* Input Area - Apply final styling */}
+      <div className="border-t bg-gray-100 p-2 flex-shrink-0"> {/* Consistent background */}
+        <div className="flex items-start space-x-2"> {/* Consistent spacing */}
           <Textarea
-            placeholder="Type your message here..."
-            className="text-xs min-h-[60px]"
+            placeholder="Type message..." // Keep placeholder simple
+            className="flex-1 min-h-[38px] max-h-[100px] resize-none bg-white border-gray-300 rounded-lg shadow-sm focus:border-primary focus:ring-1 focus:ring-primary text-sm p-2" // Added rounded-lg, adjusted padding
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            disabled={negotiation.status !== "pending"}
+            disabled={isSending || negotiation.status !== "pending"} // Removed !message.trim()
+            onKeyDown={(e) => { // Added Enter to send
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
+            title={negotiation.status !== "pending" ? "Negotiation closed" : "Shift+Enter for newline"} // Dynamic title
           />
-          <Button
-            className="self-end h-8 w-8 p-0"
-            variant="default"
-            size="icon"
+          <Button 
+            size="icon" // Use icon size
             onClick={handleSendMessage}
-            disabled={!message.trim() || isSending || negotiation.status !== "pending"}
+            disabled={isSending || !message.trim() || negotiation.status !== "pending"} // Re-added !message.trim()
+            className="h-9 w-9 flex-shrink-0 rounded-lg" // Use rounded-lg, adjusted size
+            title="Send Message"
           >
             {isSending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" /> // Adjusted icon size
             ) : (
-              <Send className="h-4 w-4" />
+              <Send className="h-4 w-4" /> // Adjusted icon size
             )}
           </Button>
         </div>
