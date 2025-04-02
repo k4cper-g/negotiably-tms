@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Bot, Workflow, Zap, BarChart3, Shield, CheckCircle2, Menu, X, ChevronRight, Plus, Minus, Route, Cog, Rocket } from "lucide-react";
 import { ReactNode, useState, useEffect, useRef } from "react";
 
+
 import { useTheme } from "next-themes";
 import { Switch } from "@/components/ui/switch";
 import { motion, AnimatePresence } from "framer-motion";
@@ -357,18 +358,10 @@ export default function Home() {
           }}
         >
           <div className="absolute inset-0 border-2 border-primary rounded-lg " />
-          <div className="relative w-full rounded-lg border shadow-2xl overflow-hidden">
+          <div className="relative w-full rounded-lg border shadow-2xl overflow-hidden flex justify-center">
             <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-primary/10 z-10 pointer-events-none" />
-            <Image 
-              src="/alterion_mock1.png"
-              alt="AI Transport Marketplace Dashboard" 
-              width={1920} 
-              height={1080}
-              className="w-full h-auto"
-              quality={100}
-              priority
-              suppressHydrationWarning
-            />
+            <iframe width="2033" height="814" src="https://www.youtube.com/embed/5I6VUHXV35A?autoplay=1&mute=1" title="Alterion - TMS Demo Showcase" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen></iframe>
+
           </div>
         </motion.div>
       </section>
