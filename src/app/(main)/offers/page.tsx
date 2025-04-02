@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -11,18 +11,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  BarChart2,
+  Filter,
   MapPin,
   Search,
+  SlidersHorizontal,
+  Truck,
   Info,
+  ExternalLink,
   Sparkles,
   RefreshCw,
   Loader2,
+  Pin,
   MessageSquare,
   Award,
+  Bot,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import Link from "next/link";
 import { useState, useEffect, useRef, ChangeEvent } from "react";
 import dynamic from 'next/dynamic';
 import { useRouter } from "next/navigation";
@@ -30,6 +38,7 @@ import { useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useNegotiationModal } from "@/context/NegotiationModalContext";
 import { Id } from "../../../../convex/_generated/dataModel";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 // Dynamic import of map components to avoid SSR issues with Leaflet
@@ -1421,38 +1430,48 @@ export default function OffersPage() {
                                 </div>
                               </td>
                               <td className="py-3 px-4">
-                                <div className="flex items-center gap-2">
-                                  <span>{offer.origin}</span>
-                                  <span>→</span>
-                                  <span>{offer.destination}</span>
+                                <div className="flex flex-col">
+                                  <div className="flex items-center">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500 mr-1.5"></span>
+                                    {offer.origin}
+                                  </div>
+                                  <div className="flex items-center mt-1">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 mr-1.5"></span>
+                                    {offer.destination}
+                                  </div>
                                 </div>
                               </td>
                               <td className="py-3 px-4">{offer.distance}</td>
-                              <td className="py-3 px-4">{offer.price}</td>
+                              <td className="py-3 px-4 font-medium">{offer.price}</td>
                               <td className="py-3 px-4">{offer.vehicle}</td>
                               <td className="py-3 px-4">
-                                <div className="flex items-center gap-2">
-                                  <span>{offer.loadingDate}</span>
-                                  <span>→</span>
-                                  <span>{offer.deliveryDate}</span>
+                                <div className="flex flex-col">
+                                  <span className="text-xs text-muted-foreground">Load: {offer.loadingDate}</span>
+                                  <span className="text-xs text-muted-foreground mt-1">Delivery: {offer.deliveryDate}</span>
                                 </div>
                               </td>
                               <td className="py-3 px-4">
-                                <Badge 
-                                  className={`text-xs ${
-                                    offer.status === "Available" 
-                                      ? "bg-green-100 text-green-800 hover:bg-green-100" 
-                                      : offer.status === "Pending" 
-                                      ? "bg-orange-100 text-orange-800 hover:bg-orange-100" 
-                                      : "bg-neutral-100 text-neutral-800 hover:bg-neutral-100"
-                                  }`}
-                                >
+                                <div className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                                  ${
+                                    offer.status === "Available"
+                                      ? "bg-green-100 text-green-800"
+                                      : offer.status === "Pending"
+                                      ? "bg-orange-100 text-orange-800"
+                                      : "bg-neutral-100 text-neutral-800"
+                                  }
+                                `}>
                                   {offer.status}
-                                </Badge>
+                                </div>
                               </td>
                               <td className="py-3 px-4">{offer.platform}</td>
                             </tr>
                           </DialogTrigger>
+                          <DialogContent className="max-w-2xl">
+                            <DialogHeader>
+                              <DialogTitle>Transport Offer {offer.id}</DialogTitle>
+                            </DialogHeader>
+                            <TransportOfferDetails offer={offer} />
+                          </DialogContent>
                         </Dialog>
                       );
                     })
@@ -1464,142 +1483,215 @@ export default function OffersPage() {
         </TabsContent>
 
         <TabsContent value="grid" className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[400px]">
+          <div className="min-h-[600px]">
             {isLoading ? (
-              Array(6).fill(0).map((_, i) => (
-                <Card key={`loading-grid-${i}`} className="animate-pulse">
-                  <CardContent className="p-0">
-                    <div className="p-6 space-y-4">
-                      <div className="space-y-2">
-                        <div className="h-5 bg-muted rounded w-16"></div>
-                        <div className="h-4 bg-muted rounded w-28"></div>
-                      </div>
-                      <div className="h-5 bg-muted rounded w-24"></div>
-                      <div className="space-y-1">
-                        <div className="h-4 bg-muted rounded w-full"></div>
-                        <div className="h-4 bg-muted rounded w-3/4"></div>
-                      </div>
-                      <div className="flex justify-between">
-                        <div className="h-5 bg-muted rounded w-20"></div>
-                        <div className="h-5 bg-muted rounded w-16"></div>
-                      </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 p-1">
+                {Array(8).fill(0).map((_, i) => (
+                  <Card key={`skeleton-${i}`} className="h-full flex flex-col overflow-hidden animate-pulse">
+                    <div className="bg-muted px-3 py-2 border-b flex items-center justify-between">
+                      <div className="h-5 bg-muted-foreground/20 rounded w-16"></div>
+                      <div className="h-4 bg-muted-foreground/20 rounded w-20"></div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))
+                    
+                    <CardHeader className="pb-1 pt-3">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-muted-foreground/20"></div>
+                          <div className="h-4 bg-muted-foreground/20 rounded w-28"></div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-muted-foreground/20"></div>
+                          <div className="h-4 bg-muted-foreground/20 rounded w-32"></div>
+                        </div>
+                        <div className="flex items-center justify-between pt-1">
+                          <div className="h-4 bg-muted-foreground/20 rounded w-20"></div>
+                          <div className="h-5 bg-muted-foreground/20 rounded w-16"></div>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    
+                    <CardContent className="flex-1 py-0">
+                      <div className="grid grid-cols-2 gap-y-2 gap-x-4 mb-4">
+                        <div>
+                          <div className="h-3 bg-muted-foreground/20 rounded w-8 mb-1"></div>
+                          <div className="h-5 bg-muted-foreground/20 rounded w-16"></div>
+                        </div>
+                        <div>
+                          <div className="h-3 bg-muted-foreground/20 rounded w-12 mb-1"></div>
+                          <div className="h-5 bg-muted-foreground/20 rounded w-14"></div>
+                        </div>
+                        <div>
+                          <div className="h-3 bg-muted-foreground/20 rounded w-10 mb-1"></div>
+                          <div className="h-5 bg-muted-foreground/20 rounded w-24"></div>
+                        </div>
+                        <div>
+                          <div className="h-3 bg-muted-foreground/20 rounded w-10 mb-1"></div>
+                          <div className="h-5 bg-muted-foreground/20 rounded w-24"></div>
+                        </div>
+                      </div>
+                      
+                      <div className="h-4 bg-muted-foreground/20 rounded w-full mb-2"></div>
+                      
+                      <div className="bg-muted/30 -mx-6 px-6 py-2 mt-auto border-t flex justify-between items-center">
+                        <div className="flex flex-col gap-1">
+                          <div className="h-3 bg-muted-foreground/20 rounded w-14"></div>
+                          <div className="h-4 bg-muted-foreground/20 rounded w-20"></div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <div className="h-3 bg-muted-foreground/20 rounded w-14"></div>
+                          <div className="h-4 bg-muted-foreground/20 rounded w-20"></div>
+                        </div>
+                      </div>
+                    </CardContent>
+                    
+                    <div className="p-3 border-t bg-background flex items-center justify-between gap-2">
+                      <div className="h-8 bg-muted-foreground/20 rounded w-full"></div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
             ) : filteredOffers.length === 0 ? (
-              <div className="col-span-full py-20 text-center text-muted-foreground">
-                No offers found matching your criteria.
+              <div className="flex flex-col items-center justify-center h-[600px]">
+                <p className="text-muted-foreground">No offers found matching your criteria.</p>
               </div>
             ) : (
-              filteredOffers.map((offer) => {
-                const aiResult = aiEvaluationResults[offer.id];
-                
-                return (
-                  <Dialog key={`grid-${offer.id}`}>
-                    <DialogTrigger asChild>
-                      <Card className={`cursor-pointer transition-colors hover:shadow-md ${
-                        aiResult?.rank === 1 ? 'border-yellow-200 bg-yellow-50' : 
-                        aiResult?.rank === 2 ? 'border-gray-200 bg-gray-50' : 
-                        aiResult?.rank === 3 ? 'border-orange-200 bg-orange-50' : ''
-                      }`}>
-                        <CardContent className="p-0">
-                          <div className="p-6 space-y-4">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <h3 className="font-medium text-lg flex items-center gap-2">
-                                  {offer.id}
-                                  {aiResult && (
-                                    <TooltipProvider>
-                                      <Tooltip delayDuration={100}>
-                                        <TooltipTrigger asChild>
-                                          <Award 
-                                            className={`h-4 w-4 
-                                              ${aiResult.rank === 1 ? 'text-yellow-500' : ''}
-                                              ${aiResult.rank === 2 ? 'text-gray-500' : ''}
-                                              ${aiResult.rank === 3 ? 'text-orange-500' : ''}
-                                            `}
-                                          />
-                                        </TooltipTrigger>
-                                        <TooltipContent className="max-w-xs">
-                                          <p className="text-sm font-semibold mb-1">AI Rank #{aiResult.rank}</p>
-                                          <p className="text-xs">{aiResult.reason}</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  )}
-                                </h3>
-                                <p className="text-sm text-muted-foreground">{offer.carrier}</p>
-                              </div>
-                              <Badge 
-                                className={`text-xs ${
-                                  offer.status === "Available" 
-                                    ? "bg-green-100 text-green-800 hover:bg-green-100" 
-                                    : offer.status === "Pending" 
-                                    ? "bg-orange-100 text-orange-800 hover:bg-orange-100" 
-                                    : "bg-neutral-100 text-neutral-800 hover:bg-neutral-100"
-                                }`}
-                              >
-                                {offer.status}
-                              </Badge>
-                            </div>
-                            
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <div className="h-2 w-2 rounded-full bg-blue-500"></div>
-                                <span>{offer.origin}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                                <span>{offer.destination}</span>
-                              </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <p className="text-sm text-muted-foreground">Distance</p>
-                                <p>{offer.distance}</p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-muted-foreground">Price</p>
-                                <p className="font-medium">{offer.price}</p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-muted-foreground">Vehicle</p>
-                                <p>{offer.vehicle}</p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-muted-foreground">Load</p>
-                                <p>{offer.loadType}</p>
-                              </div>
-                            </div>
-                            
-                            <div className="flex justify-between items-center text-sm">
-                              <span className="text-muted-foreground">{offer.platform}</span>
-                              <span className="text-muted-foreground">Updated: {offer.lastUpdated}</span>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </DialogTrigger>
-                  </Dialog>
-                );
-              })
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 p-1">
+                {filteredOffers.map((offer) => (
+                  <OfferCard 
+                    key={offer.id} 
+                    offer={offer} 
+                    onSelect={(id) => handleOpenOfferDetails(id)} 
+                    aiResult={aiEvaluationResults[offer.id]} // Pass AI result to OfferCard
+                  />
+                ))}
+              </div>
             )}
           </div>
         </TabsContent>
 
         <TabsContent value="map" className="space-y-4">
-          <div ref={mapContainerRef} className="h-[70vh] rounded-lg overflow-hidden border">
-            <TransportMap 
-              offers={filteredOffers} 
-              selectedOfferId={selectedOffer}
-              onRouteSelect={(id) => setSelectedOffer(id)}
-              onOpenDetails={(id) => setSelectedOfferForModal(id)}
-            />
+          <div 
+            ref={mapContainerRef}
+            className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-[700px]"
+          >
+            {/* Offers list sidebar */}
+            <div className="lg:col-span-1 border rounded-lg overflow-hidden shadow-sm bg-card h-[700px]">
+              <div className="p-3 border-b flex items-center justify-between bg-muted/30">
+                <h3 className="font-medium">Available Routes</h3>
+                <div className="text-xs text-muted-foreground">
+                  {isLoading ? (
+                    <span className="flex items-center gap-1">
+                      <RefreshCw className="h-3 w-3 animate-spin" />
+                      Loading...
+                    </span>
+                  ) : (
+                    `${filteredOffers.length} offers`
+                  )}
+                </div>
+              </div>
+              <div className="overflow-y-auto h-[calc(700px-48px)]">
+                {isLoading ? (
+                  <div className="space-y-0">
+                    {Array(6).fill(0).map((_, i) => (
+                      <div key={`map-skeleton-${i}`} className="p-3 border-b animate-pulse">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="h-5 bg-muted-foreground/20 rounded w-16"></div>
+                          <div className="h-5 bg-muted-foreground/20 rounded w-20"></div>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-[16px_1fr] gap-1.5">
+                            <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/20 mt-1.5"></div>
+                            <div className="h-4 bg-muted-foreground/20 rounded w-28"></div>
+                          </div>
+                          <div className="grid grid-cols-[16px_1fr] gap-1.5">
+                            <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/20 mt-1.5"></div>
+                            <div className="h-4 bg-muted-foreground/20 rounded w-32"></div>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center mt-2 pt-2 border-t border-border/40">
+                          <div className="h-5 bg-muted-foreground/20 rounded w-16"></div>
+                          <div className="h-4 bg-muted-foreground/20 rounded w-14"></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : filteredOffers.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full">
+                    <p className="text-sm text-muted-foreground">No offers found</p>
+                  </div>
+                ) : (
+                  filteredOffers.map((offer) => (
+                    <div 
+                      key={offer.id}
+                      className={`p-3 border-b hover:bg-muted/50 cursor-pointer transition-colors ${selectedOffer === offer.id ? 'bg-muted' : ''}`}
+                      onClick={() => setSelectedOffer(selectedOffer === offer.id ? null : offer.id)}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="font-medium">{offer.id}</div>
+                        <Badge 
+                          variant="outline" 
+                          className="text-xs"
+                        >
+                          {offer.platform}
+                        </Badge>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-[16px_1fr] gap-1.5">
+                          <div className="h-2.5 w-2.5 rounded-full bg-blue-500 mt-1.5"></div>
+                          <div className="text-sm truncate">{offer.origin}</div>
+                        </div>
+                        <div className="grid grid-cols-[16px_1fr] gap-1.5">
+                          <div className="h-2.5 w-2.5 rounded-full bg-green-500 mt-1.5"></div>
+                          <div className="text-sm truncate">{offer.destination}</div>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center mt-2 pt-2 border-t border-border/40">
+                        <div className="text-sm font-medium">{offer.price}</div>
+                        <div className="text-xs text-muted-foreground">{offer.distance}</div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            
+            {/* Map container */}
+            <Card className="lg:col-span-3 h-[700px] p-0">
+              <CardContent className="p-0 h-full">
+                {isLoading ? (
+                  <div className="flex flex-col items-center justify-center h-full space-y-3">
+                    <RefreshCw className="h-10 w-10 animate-spin text-primary/70" />
+                    <p className="text-muted-foreground">Loading map and routes...</p>
+                  </div>
+                ) : (
+                  <TransportMap 
+                    offers={filteredOffers} 
+                    selectedOfferId={selectedOffer} 
+                    onRouteSelect={(offerId) => setSelectedOffer(selectedOffer === offerId ? null : offerId)} 
+                    onOpenDetails={handleOpenOfferDetails}
+                  />
+                )}
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
       </Tabs>
+      
+      {/* Modal Dialog for offer details that can be triggered from map popups */}
+      {selectedOfferForModal && (
+        <Dialog open={!!selectedOfferForModal} onOpenChange={(open) => !open && setSelectedOfferForModal(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                Transport Offer {filteredOffers.find(o => o.id === selectedOfferForModal)?.id}
+              </DialogTitle>
+            </DialogHeader>
+            <TransportOfferDetails 
+              offer={filteredOffers.find(o => o.id === selectedOfferForModal) as TransportOffer} 
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
-}
+} 

@@ -373,4 +373,51 @@
     border-radius: 50%;
     border: 2px solid white; /* White border for contrast */
     box-shadow: 0 0 5px rgba(0,0,0,0.4); /* Subtle shadow */
+}
+
+/* Routes Loading Overlay styles */
+.routesLoadingOverlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000; /* Above the map */
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 10px 16px;
+  border-radius: 30px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 220px;
+}
+
+.routesLoadingContent {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.routesLoadingContent p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.routesLoadingIcon {
+  height: 20px;
+  width: 20px;
+  color: #8b5cf6; /* Purple to match route color */
+  animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 } 

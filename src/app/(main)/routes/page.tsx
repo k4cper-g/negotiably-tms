@@ -23,6 +23,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { CSS } from '@dnd-kit/utilities';
 import { useMap, useMapEvents } from 'react-leaflet/hooks';
 import debounce from 'lodash.debounce';
+import { Loader2, RefreshCw } from 'lucide-react';
 
 // Shadcn/ui component imports (adjust path if needed)
 import { Button } from "@/components/ui/button";
@@ -105,12 +106,23 @@ interface RoutingControlOptions {
 interface RouteLayerProps { stops: Stop[]; }
 const RouteLayer: React.FC<RouteLayerProps> = ({ stops }) => {
     const map = useMap();
+    const [isRoutesLoading, setIsRoutesLoading] = useState(false);
+    const [routesProgress, setRoutesProgress] = useState({ loaded: 0, total: 0 });
+    
     useEffect(() => {
         // Only draw route if 2+ stops exist
         if (!map || stops.length < 2) return;
 
         let routingControl: L.Routing.Control | null = null;
+        // Safety timeout to hide the loading indicator if events don't fire properly
+        let safetyTimeout: NodeJS.Timeout | null = null;
+        
         try {
+            setIsRoutesLoading(true);
+            // Calculate total possible routes between n stops
+            const totalRoutes = stops.length > 2 ? stops.length - 1 : 1;
+            setRoutesProgress({ loaded: 0, total: totalRoutes });
+            
             const waypoints = stops.map(stop => L.latLng(stop.lat, stop.lng));
             if (!L.Routing) { return; }
             routingControl = L.Routing.control(({
@@ -122,11 +134,71 @@ const RouteLayer: React.FC<RouteLayerProps> = ({ stops }) => {
                 lineOptions: { styles: [{ color: '#8b5cf6', opacity: 0.7, weight: 5 }], extendToWaypoints: false, missingRouteTolerance: 5 },
                 createMarker: function() { return null; } 
             } as RoutingControlOptions)).addTo(map);
-        } catch (error) { console.error("Error creating routing control:", error); }
-        // Cleanup
-        return () => { if (map && routingControl) { try { map.removeControl(routingControl); } catch (error) { console.error("Error removing routing control:", error); } } };
+            
+            // Force immediate hide of loading indicator once any route line is visible
+            const checkForVisibleRoute = () => {
+                // Check if there are any polylines on the map (route lines)
+                let hasVisibleRoutes = false;
+                map.eachLayer((layer) => {
+                    if (layer instanceof L.Polyline) {
+                        hasVisibleRoutes = true;
+                    }
+                });
+                
+                if (hasVisibleRoutes) {
+                    // Route is visually displayed, hide loading indicator immediately
+                    if (safetyTimeout) clearTimeout(safetyTimeout);
+                    setIsRoutesLoading(false);
+                    return true;
+                }
+                return false;
+            };
+            
+            // Check periodically for visible routes (every 100ms)
+            const routeVisibilityInterval = setInterval(() => {
+                if (checkForVisibleRoute()) {
+                    clearInterval(routeVisibilityInterval);
+                }
+            }, 100);
+            
+            // Set a shorter safety timeout (3 seconds should be plenty)
+            safetyTimeout = setTimeout(() => {
+                console.log("Safety timeout triggered to hide loading indicator");
+                setIsRoutesLoading(false);
+                clearInterval(routeVisibilityInterval);
+            }, 3000);
+            
+            // Return cleanup function
+            return () => { 
+                if (safetyTimeout) clearTimeout(safetyTimeout);
+                clearInterval(routeVisibilityInterval);
+                
+                if (map && routingControl) { 
+                    try { 
+                        map.removeControl(routingControl); 
+                    } catch (error) { 
+                        console.error("Error removing routing control:", error); 
+                    } 
+                }
+                setIsRoutesLoading(false);
+            };
+            
+        } catch (error) { 
+            console.error("Error creating routing control:", error); 
+            setIsRoutesLoading(false);
+            if (safetyTimeout) clearTimeout(safetyTimeout);
+        }
     }, [map, stops]); // Re-run when stops change
-    return null; // Component doesn't render anything itself
+    
+    // Return the loading indicator when routes are being calculated
+    return isRoutesLoading ? (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm py-2 px-4 rounded-full shadow-lg">
+            <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span className="text-sm font-medium">Calculating route</span>
+            </div>
+        </div>
+    ) : null;
 };
 
 // --- StaticStopItem Component (for Drag Overlay) ---
