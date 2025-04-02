@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { 
@@ -31,6 +31,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { signOut } = useClerk()
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const router = useRouter();
   
   // Fetch user data
   const convexUser = useQuery(api.users.getCurrentUser);
@@ -252,7 +253,7 @@ export default function Sidebar() {
         <Button 
           variant="ghost" 
           className="w-full justify-start text-gray-600 font-normal"
-          onClick={() => signOut()}
+          onClick={() => { router.push("/"); signOut(); }}
         >
           <LogOut className="h-4 w-4 mr-3" />
           Sign Out
