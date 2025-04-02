@@ -39,6 +39,7 @@
     "@tanstack/react-table": "^8.21.2",
     "@types/lodash.debounce": "^4.0.9",
     "@vercel/analytics": "^1.5.0",
+    "@vercel/blob": "^0.27.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
