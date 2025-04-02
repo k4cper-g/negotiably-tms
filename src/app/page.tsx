@@ -299,7 +299,7 @@ export default function Home() {
       {/* Hero Section - Add padding-top to account for fixed navbar */}
       <section className="relative w-full pt-32 pb-24 px-6 md:px-12 lg:px-24 flex flex-col items-center justify-center text-center space-y-8 overflow-hidden" id="hero">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 0 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
         >
@@ -329,11 +329,11 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.7 }}
         >
-          Find and negotiate the best transport rates across multiple marketplaces with AI assistance. Compare offers, negotiate prices, and manage shipments all in one platform.
+          Find and negotiate the best transport rates across multiple marketplaces. Compare offers, negotiate prices, and manage shipments in one platform.
         </motion.p>
         
         <motion.div 
-          className="flex flex-col sm:flex-row gap-4 mt-4"
+          className="flex flex-col sm:flex-row gap-4 mt-2"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 1.0 }}
@@ -348,7 +348,7 @@ export default function Home() {
         
         {/* Dashboard Preview */}
         <motion.div 
-          className="relative w-full max-w-7xl mt-16 p-[1px] rounded-lg"
+          className="relative w-full max-w-7xl mt-8 p-[1px] rounded-lg"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ 
