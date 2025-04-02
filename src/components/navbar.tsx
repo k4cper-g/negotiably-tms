@@ -220,10 +220,10 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-8 z-50 bg-background/80 backdrop-blur-xl border-b border-border/40 h-16">
+    <nav className="fixed top-0 left-0 right-0 z-[100] bg-background/80 backdrop-blur-xl border-b border-border/40 h-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
-        <div className="grid grid-cols-[1fr_auto_1fr] w-full h-full items-center">
-          {/* Logo - Left column */}
+        <div className="flex justify-between items-center h-full">
+          {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center">
               <Image 
@@ -238,7 +238,7 @@ export default function Navbar() {
             </Link>
           </div>
           
-          {/* Desktop Navigation - Middle column */}
+          {/* Desktop Navigation */}
           <div className="hidden md:flex items-center justify-center space-x-1">
             {navItems.map((item, index) => (
               item.dropdown ? (
@@ -276,8 +276,8 @@ export default function Navbar() {
             ))}
           </div>
           
-          {/* Auth Buttons & User Menu - Right column */}
-          <div className="flex items-center justify-end">
+          {/* Auth Buttons & User Menu */}
+          <div className="flex items-center gap-4">
             <div className="hidden md:block">
               <AuthButtons />
             </div>
@@ -319,7 +319,7 @@ export default function Navbar() {
       
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden py-2 px-4 bg-background border-t">
+        <div className="md:hidden py-2 px-4 bg-background border-t max-h-[100vh] overflow-y-auto">
           <div className="flex flex-col space-y-1">
             {navItems.map((item, index) => (
               <React.Fragment key={index}>
