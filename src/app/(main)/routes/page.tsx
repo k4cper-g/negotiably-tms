@@ -441,8 +441,8 @@ const RoutePlanningPage = () => {
       </div>
 
       {/* Name Input Dialog */} 
-      <Dialog open={isNameDialogOpen} onOpenChange={handleDialogClose} className={styles.dialogOverlay}>
-          <DialogContent className={`sm:max-w-[425px] ${styles.dialogContent}`}>
+      <Dialog open={isNameDialogOpen} onOpenChange={handleDialogClose}>
+          <DialogContent className={`sm:max-w-[425px] ${styles.dialogContent} ${styles.dialogOverlay}`}>
               <DialogHeader>
                   <DialogTitle>Name New Stop</DialogTitle>
                   <DialogDescription>
