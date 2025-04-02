@@ -45,13 +45,20 @@ const Spinner = () => (
     </svg>
 );
 
-// --- Leaflet Icon Fix ---
+// Import leaflet images properly
+import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
+import iconUrl from 'leaflet/dist/images/marker-icon.png';
+import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
+
+// Define the IconDefault type
 type IconDefault = L.Icon.Default & { _getIconUrl?: string };
+
+// Then set them using the imported assets
 delete (L.Icon.Default.prototype as IconDefault)._getIconUrl;
 L.Icon.Default.mergeOptions({
-    iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
-    iconUrl: require('leaflet/dist/images/marker-icon.png'),
-    shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+    iconRetinaUrl: iconRetinaUrl.src,
+    iconUrl: iconUrl.src,
+    shadowUrl: shadowUrl.src,
 });
 
 // Dynamic imports
@@ -79,6 +86,21 @@ interface AddressSuggestion {
 }
 interface Stop { id: string; name: string; address: string; lat: number; lng: number; }
 
+// Type for routing control options
+interface RoutingControlOptions {
+  waypoints: L.LatLng[];
+  routeWhileDragging: boolean;
+  show: boolean;
+  addWaypoints: boolean;
+  fitSelectedRoutes: boolean;
+  lineOptions: {
+    styles: Array<{color: string; opacity: number; weight: number}>;
+    extendToWaypoints: boolean;
+    missingRouteTolerance: number;
+  };
+  createMarker: () => null;
+}
+
 // --- RouteLayer Component (Update Line Color) ---
 interface RouteLayerProps { stops: Stop[]; }
 const RouteLayer: React.FC<RouteLayerProps> = ({ stops }) => {
@@ -99,7 +121,7 @@ const RouteLayer: React.FC<RouteLayerProps> = ({ stops }) => {
                 fitSelectedRoutes: true,
                 lineOptions: { styles: [{ color: '#8b5cf6', opacity: 0.7, weight: 5 }], extendToWaypoints: false, missingRouteTolerance: 5 },
                 createMarker: function() { return null; } 
-            } as any)).addTo(map);
+            } as RoutingControlOptions)).addTo(map);
         } catch (error) { console.error("Error creating routing control:", error); }
         // Cleanup
         return () => { if (map && routingControl) { try { map.removeControl(routingControl); } catch (error) { console.error("Error removing routing control:", error); } } };
@@ -441,8 +463,8 @@ const RoutePlanningPage = () => {
       </div>
 
       {/* Name Input Dialog */} 
-      <Dialog open={isNameDialogOpen} onOpenChange={handleDialogClose} className={styles.dialogOverlay}>
-          <DialogContent className={`sm:max-w-[425px] ${styles.dialogContent}`}>
+      <Dialog open={isNameDialogOpen} onOpenChange={handleDialogClose}>
+          <DialogContent className={`sm:max-w-[425px] ${styles.dialogContent} ${styles.dialogOverlay}`}>
               <DialogHeader>
                   <DialogTitle>Name New Stop</DialogTitle>
                   <DialogDescription>

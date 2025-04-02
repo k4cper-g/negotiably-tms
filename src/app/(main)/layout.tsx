@@ -1,10 +1,7 @@
 "use client";
 
 import { ReactNode, useState, useEffect } from "react";
-import { UserButton } from "@clerk/nextjs";
 import Sidebar from "@/components/Sidebar";
-import { Button } from "@/components/ui/button";
-import { useMediaQuery } from "@/hooks/use-media-query";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 

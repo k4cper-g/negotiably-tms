@@ -2,27 +2,22 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ArrowRight,
   DollarSign,
-  MessageSquare,
-  ThumbsUp,
   X,
   Send,
   Loader2,
-  Mail,
   Pin,
   Clock,
-  Calendar,
   Package,
   Ruler,
   Weight,
   ChevronUp,
   ChevronDown,
   Info,
-  Check,
-  ArrowRightLeft
+  Check
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";

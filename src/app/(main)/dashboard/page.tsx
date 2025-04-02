@@ -8,7 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -52,7 +51,7 @@ const formatDateTime = (timestamp: number | undefined | null) => {
         console.error("Error formatting timestamp:", timestamp, e);
         try {
             return new Date(Number(timestamp)).toLocaleString('de-DE');
-        } catch (finalError) {
+        } catch (_unused) {
             return "Invalid Date";
         }
     }

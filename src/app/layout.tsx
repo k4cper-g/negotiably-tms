@@ -12,8 +12,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Negotiable",
-  description: "The best transport management app in the world",
+  title: "Alterion - Empowering Businesses Through AI-Driven Automation and Innovation",
+  description: "Alterion is a TMS platform that automates your supply chain, streamlines operations, and boosts efficiency.",
 };
 
 export default function RootLayout({
