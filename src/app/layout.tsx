@@ -6,6 +6,7 @@ import { SyncUserWithConvex } from "@/providers/syncuser";
 import { NegotiationModalProvider } from '@/context/NegotiationModalContext';
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
+import { Analytics } from "@vercel/analytics/react"
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
@@ -24,6 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={cn("min-h-screen bg-background font-sans antialiased", inter.variable)}>
+        <Analytics />
         <ConvexClerkClientProvider>
           <SyncUserWithConvex />
           <NegotiationModalProvider>
