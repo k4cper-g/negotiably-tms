@@ -308,7 +308,7 @@ export default function Home() {
             - Total aurora delay: 0.4 + 0.6 + 0.2 = 1.2s
           */}
              <h1 className="text-4xl md:text-6xl font-bold tracking-tight max-w-4xl">
-              Smart Transport Management with <AuroraText>AI-Powered</AuroraText> Negotiations
+              Smart Transport Management with AI-Powered Negotiations
             </h1>
         </motion.div>
         
