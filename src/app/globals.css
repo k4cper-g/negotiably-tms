@@ -76,6 +76,12 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --color-1: 0 100% 63%;    /* Red */
+  --color-2: 270 100% 63%;  /* Purple */
+  --color-3: 210 100% 63%;  /* Blue */
+  --color-4: 195 100% 63%;  /* Cyan */
+  --color-5: 90 100% 63%;   /* Green */
+  --header-height: 64px;    /* Define header height for calculations */
 }
 
 .dark {
@@ -146,6 +152,20 @@
   scrollbar-width: none;  /* Firefox */
 }
 
+/* MacOS/Safari specific optimizations */
+@supports (-webkit-backdrop-filter: none) or (backdrop-filter: none) {
+  /* Improve backdrop-filter performance on Safari */
+  .backdrop-blur-sm {
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  
+  /* Fix for Safari scrolling momentum */
+  .safari-scroll-fix {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 @theme inline {
   --animate-scroll: scroll var(--animation-duration, 40s) var(--animation-direction, forwards) linear infinite;
  
@@ -157,15 +177,6 @@
 }
 
 /* AuroraText Essential CSS - Copy this into your globals.css */
-
-/* Color variables - add to :root selector */
-:root {
-  --color-1: 0 100% 63%;    /* Red */
-  --color-2: 270 100% 63%;  /* Purple */
-  --color-3: 210 100% 63%;  /* Blue */
-  --color-4: 195 100% 63%;  /* Cyan */
-  --color-5: 90 100% 63%;   /* Green */
-}
 
 /* Aurora animations */
 @keyframes aurora-spin {

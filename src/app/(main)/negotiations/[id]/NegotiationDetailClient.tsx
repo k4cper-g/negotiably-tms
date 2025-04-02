@@ -191,7 +191,7 @@ export default function NegotiationDetailClient({
           {/* Main chat section */}
           <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden order-2 md:order-1">
             {/* Chat history */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 safari-scroll-fix">
               <div className="max-w-[900px] mx-auto space-y-4">
                 {/* Initial negotiation message - System Message Style */}
                 <div className="text-center text-xs text-muted-foreground my-4">
