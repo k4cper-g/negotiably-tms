@@ -1,7 +1,7 @@
 export default {
     providers: [
       {
-        domain: "https://clerk.alteriontech.com",
+        domain: "https://clerk.alterion.io",
         applicationID: "convex",
       },
     ]
