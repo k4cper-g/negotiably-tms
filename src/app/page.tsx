@@ -300,7 +300,7 @@ export default function Home() {
       <section className="relative w-full pt-32 pb-24 px-6 md:px-12 lg:px-24 flex flex-col items-center justify-center text-center space-y-8 overflow-hidden" 
         id="hero"
       >
-        <div 
+        {/* <div 
           className="absolute inset-0 -z-10" 
           style={{
             backgroundImage: "url('/bg.png')",
@@ -309,7 +309,7 @@ export default function Home() {
             backgroundRepeat: "no-repeat",
             opacity: 0.15
           }} 
-        />
+        /> */}
         <motion.div
           initial={{ opacity: 0, y: 0 }}
           animate={{ opacity: 1, y: 0 }}
