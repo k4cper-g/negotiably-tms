@@ -15,7 +15,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Alterion - Smart Transport Management with AI-Powered Solutions",
   description: "Alterion is a TMS platform that automates your supply chain, streamlines operations, and boosts efficiency.",
-  metadataBase: new URL('https://alterion.com'),
+  metadataBase: new URL('https://alterion.io'),
   icons: {
     icon: "/favicon.ico",
     shortcut: "/favicon.ico",
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://alterion.com",
+    url: "https://alterion.io",
     title: "Alterion - Smart Transport Management with AI-Powered Solutions",
     description: "Alterion is a TMS platform that automates your supply chain, streamlines operations, and boosts efficiency.",
     siteName: "Alterion",
