@@ -26,6 +26,8 @@ import {
   MessageSquare,
   Award,
   Bot,
+  Settings2,
+  Wand2,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +42,9 @@ import { useNegotiationModal } from "@/context/NegotiationModalContext";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Dynamic import of map components to avoid SSR issues with Leaflet
 const TransportMap = dynamic(() => import('@/components/TransportMap'), {
@@ -84,7 +89,7 @@ interface AiEvaluationResult {
   reason: string;
 }
 
-// Dummy data for demonstration
+// Dummy data for demonstration - UPDATED DATES relative to April 4, 2025
 const transportOffers: TransportOffer[] = [
   {
     id: "TR-2587",
@@ -100,8 +105,8 @@ const transportOffers: TransportOffer[] = [
     vehicle: "Standard Truck",
     weight: "22 tons",
     dimensions: "13.6 x 2.45 x 2.7m",
-    loadingDate: "2023-10-15",
-    deliveryDate: "2023-10-18", 
+    loadingDate: "2025-04-05", // Tomorrow
+    deliveryDate: "2025-04-08", // 3 days later
     status: "Available",
     platform: "TimoCom",
     lastUpdated: "Today, 14:35",
@@ -124,8 +129,8 @@ const transportOffers: TransportOffer[] = [
     vehicle: "Standard Truck",
     weight: "15 tons",
     dimensions: "13.6 x 2.45 x 2.7m",
-    loadingDate: "2023-10-16",
-    deliveryDate: "2023-10-17",
+    loadingDate: "2025-04-06", // Day after tomorrow
+    deliveryDate: "2025-04-07", // Next day
     status: "Available",
     platform: "Trans.eu",
     lastUpdated: "Today, 12:20",
@@ -148,8 +153,8 @@ const transportOffers: TransportOffer[] = [
     vehicle: "Refrigerated Truck",
     weight: "8 tons",
     dimensions: "13.6 x 2.45 x 2.7m",
-    loadingDate: "2023-10-15",
-    deliveryDate: "2023-10-15",
+    loadingDate: "2025-04-04", // Today
+    deliveryDate: "2025-04-04", // Today
     status: "Available",
     platform: "Freightos",
     lastUpdated: "Today, 10:15",
@@ -172,8 +177,8 @@ const transportOffers: TransportOffer[] = [
     vehicle: "Mega Trailer",
     weight: "24 tons",
     dimensions: "13.6 x 2.45 x 3.0m",
-    loadingDate: "2023-10-14",
-    deliveryDate: "2023-10-16",
+    loadingDate: "2025-04-07", // 3 days from now
+    deliveryDate: "2025-04-09", // 2 days later
     status: "Available",
     platform: "TimoCom",
     lastUpdated: "Yesterday, 16:40",
@@ -196,8 +201,8 @@ const transportOffers: TransportOffer[] = [
     vehicle: "Standard Truck",
     weight: "22 tons",
     dimensions: "13.6 x 2.45 x 2.7m",
-    loadingDate: "2023-10-13",
-    deliveryDate: "2023-10-16",
+    loadingDate: "2025-04-10", // 6 days from now (outside 5-day forecast)
+    deliveryDate: "2025-04-13", // 3 days later
     status: "Available",
     platform: "Trans.eu",
     lastUpdated: "Yesterday, 14:10",
@@ -220,8 +225,8 @@ const transportOffers: TransportOffer[] = [
     vehicle: "Box Truck",
     weight: "12 tons",
     dimensions: "13.6 x 2.45 x 2.7m",
-    loadingDate: "2023-10-18",
-    deliveryDate: "2023-10-20",
+    loadingDate: "2025-04-08", // 4 days from now
+    deliveryDate: "2025-04-10", // 2 days later (edge of 5-day forecast for loading, outside for delivery)
     status: "Available",
     platform: "Freightos",
     lastUpdated: "2 days ago",
@@ -456,7 +461,7 @@ function OfferCard({
                   Rank #{aiResult.rank}
                 </Badge>
               </TooltipTrigger>
-              <TooltipContent side="top" align="end" className="max-w-xs text-center">
+              <TooltipContent side="top" align="end" className="max-w-md text-left">
                 <p className="text-sm font-semibold mb-1">AI Evaluation:</p>
                 <p className="text-xs">{aiResult.reason}</p>
               </TooltipContent>
@@ -567,6 +572,12 @@ export default function OffersPage() {
   const [filteredOffers, setFilteredOffers] = useState<TransportOffer[]>(transportOffers);
   const [negotiationIdMap, setNegotiationIdMap] = useState<Record<string, Id<"negotiations">>>({});
   const [aiEvaluationResults, setAiEvaluationResults] = useState<Record<string, AiEvaluationResult>>({});
+
+  // --- State for AI Tool Preferences ---
+  const [useWeatherTool, setUseWeatherTool] = useState(true);
+  const [useRouteTool, setUseRouteTool] = useState(true);
+  const [useTollsTool, setUseTollsTool] = useState(true);
+  // -------------------------------------
 
   // Get the Convex action handler
   const evaluateOffersAction = useAction(api.offers.evaluateOffers);
@@ -978,7 +989,7 @@ export default function OffersPage() {
     setActiveFilters(newActiveFilters);
     // --- End of Filtering Logic ---
 
-    // Gather context for AI - use the newly filtered 'offersToEvaluate'
+    // Gather context for AI
     const searchContext = {
       filters: {
         searchTerm,
@@ -990,13 +1001,15 @@ export default function OffersPage() {
         maxPrice,
         loadTypeFilter,
         sortBy,
-        // Pass the actual number of offers being sent for evaluation
-        maxResults: offersToEvaluate.length, 
+        maxResults: offersToEvaluate.length,
       },
-      offers: offersToEvaluate, // Send the just-filtered list
+      offers: offersToEvaluate,
+      useWeatherTool: useWeatherTool,
+      useRouteTool: useRouteTool,
+      useTollsTool: useTollsTool,
     };
 
-    console.log(`Frontend: Filtered down to ${offersToEvaluate.length} offers. Calling evaluateOffers action.`);
+    console.log(`Frontend: Filtered down to ${offersToEvaluate.length} offers. Calling evaluateOffers action with tool prefs: Weather=${useWeatherTool}, Route=${useRouteTool}, Tolls=${useTollsTool}.`);
 
     // Check if there are any offers left after filtering before calling AI
     if (offersToEvaluate.length === 0) {
@@ -1009,7 +1022,7 @@ export default function OffersPage() {
     }
 
     try {
-      // Call the Convex action with the filtered list
+      // Call the Convex action with the filtered list and NEW tool prefs
       const results = await evaluateOffersAction(searchContext);
       console.log("Frontend: Received evaluation results:", results);
 
@@ -1158,7 +1171,7 @@ export default function OffersPage() {
               </div>
               
               {/* Platform, Status, Load Type, Price Range */}
-              <div className="space-y-1 flex-1 md:col-span-3">
+              <div className="space-y-1 md:col-span-3">
                 <label className="text-sm font-medium leading-none">Platform</label>
                 <Select value={platformFilter} onValueChange={handlePlatformChange}>
                   <SelectTrigger className="h-9 w-full">
@@ -1173,7 +1186,7 @@ export default function OffersPage() {
                 </Select>
               </div>
 
-              <div className="space-y-1 flex-1 md:col-span-3">
+              <div className="space-y-1 md:col-span-3">
                 <label className="text-sm font-medium leading-none">Status</label>
                 <Select value={statusFilter} onValueChange={handleStatusChange}>
                   <SelectTrigger className="h-9 w-full">
@@ -1188,7 +1201,7 @@ export default function OffersPage() {
                 </Select>
               </div>
               
-              <div className="space-y-1 flex-1 md:col-span-3">
+              <div className="space-y-1 md:col-span-3">
                 <label className="text-sm font-medium leading-none">Load Type</label>
                 <Select value={loadTypeFilter} onValueChange={handleLoadTypeChange}>
                   <SelectTrigger className="h-9 w-full">
@@ -1205,7 +1218,7 @@ export default function OffersPage() {
               </div>
               
               {/* Price Range */}
-              <div className="space-y-1 flex-1 md:col-span-3">
+              <div className="space-y-1 md:col-span-3">
                 <label className="text-sm font-medium leading-none">Price Range</label>
                 <div className="flex items-center gap-2">
                   <Input 
@@ -1225,29 +1238,72 @@ export default function OffersPage() {
               </div>
               
               {/* Buttons */}
-              <div className="flex items-end justify-between gap-2 md:col-span-12 md:mt-2">
-                <Button 
-                  size="sm" 
-                  onClick={handleAiSearchClick}
-                  disabled={isLoading}
-                  className="h-9 px-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 relative overflow-hidden min-w-[110px] flex items-center justify-center"
-                >
-                  {/* Show spinner only if loading was triggered by AI Search */}
-                  {isLoading && loadingSource === 'ai' ? (
-                    <Loader2 className="h-4 w-4 animate-spin" /> 
-                  ) : (
-                    <span className="inline-flex items-center"> 
-                      <Sparkles className="h-4 w-4 mr-1.5" /> 
-                      <span>AI Search</span>
-                    </span>
-                  )}
-                </Button>
+              <div className="flex items-center justify-between gap-2 md:col-span-12 pt-4">
+                <div className="flex items-center gap-1">
+                  <Button 
+                    size="sm" 
+                    onClick={handleAiSearchClick}
+                    disabled={isLoading}
+                    className="h-9 px-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 relative overflow-hidden min-w-[110px] flex items-center justify-center gap-1.5"
+                  >
+                    {isLoading && loadingSource === 'ai' ? (
+                      <Loader2 className="h-4 w-4 animate-spin" /> 
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4" /> 
+                        <span>AI Search</span>
+                      </>
+                    )}
+                  </Button>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-9 w-9" disabled={isLoading}>
+                        <Wand2 className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-4">
+                      <div className="space-y-4">
+                        <p className="text-sm font-medium leading-none">AI Agent Tools</p>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="weather-tool"
+                            checked={useWeatherTool}
+                            onCheckedChange={(checked) => setUseWeatherTool(Boolean(checked))}
+                          />
+                          <Label htmlFor="weather-tool" className="text-sm font-normal cursor-pointer">
+                            Weather Forecast
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="route-tool"
+                            checked={useRouteTool}
+                            onCheckedChange={(checked) => setUseRouteTool(Boolean(checked))}
+                          />
+                          <Label htmlFor="route-tool" className="text-sm font-normal cursor-pointer">
+                            Optimal Route & Time
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="toll-tool"
+                            checked={useTollsTool}
+                            onCheckedChange={(checked) => setUseTollsTool(Boolean(checked))}
+                          />
+                          <Label htmlFor="toll-tool" className="text-sm font-normal cursor-pointer">
+                            Toll Costs
+                          </Label>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
                 <div className="flex items-end gap-2">
                   <Button variant="outline" size="sm" onClick={resetFilters} className="h-9">
                     Reset Filters
                   </Button>
-                  <Button size="sm" onClick={applyFilters} className="h-9">
-                    <Search className="h-4 w-4" />
+                  <Button size="sm" onClick={applyFilters} className="h-9" disabled={isLoading && loadingSource !== 'ai'}>
+                    <Search className="h-4 w-4 mr-1.5" />
                     Search
                   </Button>
                 </div>
@@ -1330,7 +1386,7 @@ export default function OffersPage() {
               {isLoading ? (
                 <span className="flex items-center gap-2">
                   <RefreshCw className="h-3 w-3 animate-spin" />
-                  Loading offers...
+                  {loadingSource === 'ai' ? 'Agent evaluating...' : 'Loading offers...'}
                 </span>
               ) : (
                 `Showing ${filteredOffers.length} offers`
