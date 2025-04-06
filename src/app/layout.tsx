@@ -7,10 +7,12 @@ import { NegotiationModalProvider } from '@/context/NegotiationModalContext';
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
 import { Analytics } from "@vercel/analytics/react"
+
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
 });
+
 
 export const metadata: Metadata = {
   title: "Alterion - Smart Transport Management with AI-Powered Solutions",

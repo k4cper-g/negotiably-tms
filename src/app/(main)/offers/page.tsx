@@ -75,6 +75,7 @@ interface TransportOffer {
   dateCreated: string;
   description: string;
   contact: string;
+  offerContactEmail?: string;
   rating: number;
 }
 
@@ -113,6 +114,7 @@ const transportOffers: TransportOffer[] = [
     dateCreated: "Today, 13:20",
     description: "Full truck load. Standard loading/unloading. ADR not required.",
     contact: "+49 30 1234567",
+    offerContactEmail: "alteriontech@gmail.com",
     rating: 4.8,
   },
   {
@@ -137,6 +139,7 @@ const transportOffers: TransportOffer[] = [
     dateCreated: "Today, 09:45",
     description: "33 Euro pallets. Tail lift required. No dangerous goods.",
     contact: "+49 40 9876543",
+    offerContactEmail: "alteriontech@gmail.com",
     rating: 4.6,
   },
   {
@@ -161,6 +164,7 @@ const transportOffers: TransportOffer[] = [
     dateCreated: "Yesterday, 18:30",
     description: "Temperature-controlled transport (2-8°C). Pharmaceutical products.",
     contact: "+43 1 2345678",
+    offerContactEmail: "alteriontech@gmail.com",
     rating: 4.9,
   },
   {
@@ -185,6 +189,7 @@ const transportOffers: TransportOffer[] = [
     dateCreated: "Yesterday, 12:15",
     description: "Mixed cargo. High-value goods. Extra security required.",
     contact: "+31 20 1234567",
+    offerContactEmail: "alteriontech@gmail.com",
     rating: 4.5,
   },
   {
@@ -209,6 +214,7 @@ const transportOffers: TransportOffer[] = [
     dateCreated: "2 days ago",
     description: "General cargo, no special requirements. Loading dock available.",
     contact: "+420 2 3456789",
+    offerContactEmail: "alteriontech@gmail.com",
     rating: 4.4,
   },
   {
@@ -233,6 +239,7 @@ const transportOffers: TransportOffer[] = [
     dateCreated: "3 days ago",
     description: "Fragile goods, handle with care. Special packaging provided.",
     contact: "+33 1 2345678",
+    offerContactEmail: "alteriontech@gmail.com",
     rating: 4.7,
   },
 ];
@@ -260,7 +267,7 @@ function TransportOfferDetails({ offer }: { offer: TransportOffer }) {
     
     try {
       setIsCreating(true);
-      // Create a new negotiation
+      // Create a new negotiation, passing the email
       const result = await createNegotiation({
         offerId: offer.id,
         initialRequest: {
@@ -271,6 +278,7 @@ function TransportOfferDetails({ offer }: { offer: TransportOffer }) {
           weight: offer.weight,
           dimensions: offer.dimensions,
           carrier: offer.carrier,
+          offerContactEmail: offer.offerContactEmail, // Pass the email
           notes: `Request for transport from ${offer.origin} to ${offer.destination}`,
         },
       });
@@ -288,6 +296,7 @@ function TransportOfferDetails({ offer }: { offer: TransportOffer }) {
     }
   };
   
+  // --- Layout Without Map --- 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -295,7 +304,7 @@ function TransportOfferDetails({ offer }: { offer: TransportOffer }) {
           <Badge variant="outline">{offer.platform}</Badge>
           <Badge variant="outline">{offer.loadType}</Badge>
         </div>
-        <Badge variant={offer.status === "Available" ? "default" : "secondary"}>
+        <Badge variant={offer.status === "Available" ? "secondary" : "outline"}>
           {offer.status}
         </Badge>
       </div>
@@ -347,6 +356,14 @@ function TransportOfferDetails({ offer }: { offer: TransportOffer }) {
           <p className="text-sm text-muted-foreground">Dimensions</p>
           <p className="font-medium">{offer.dimensions}</p>
         </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Vehicle</p>
+          <p className="font-medium">{offer.vehicle}</p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Rating</p>
+          <p className="font-medium">{offer.rating} / 5</p>
+        </div>
       </div>
 
       <div>
@@ -357,31 +374,36 @@ function TransportOfferDetails({ offer }: { offer: TransportOffer }) {
       <div className="flex flex-col gap-1">
         <p className="text-sm text-muted-foreground">Contact</p>
         <p className="font-medium">{offer.contact}</p>
+        {/* Display Email if it exists */}
+        {offer.offerContactEmail && (
+          <p className="font-medium">{offer.offerContactEmail}</p>
+        )}
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="flex items-center justify-end gap-3 md:col-span-2 pt-4 border-t">
-          <Button 
-            onClick={handleRequestTransport}
-            disabled={isCreating}
-            className="gap-1"
-          >
-            {isCreating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Creating Negotiation...</span>
-              </>
-            ) : (
-              <>
-                <MessageSquare className="h-4 w-4" />
-                <span>Request Transport</span>
-              </>
-            )}
-          </Button>
-        </div>
+      {/* Map section is removed */}
+
+      <div className="flex items-center justify-end pt-4 border-t">
+        <Button 
+          onClick={handleRequestTransport}
+          disabled={isCreating}
+          className="gap-1"
+        >
+          {isCreating ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Creating Negotiation...</span>
+            </>
+          ) : (
+            <>
+              <MessageSquare className="h-4 w-4" />
+              <span>Start Negotiation</span>
+            </>
+          )}
+        </Button>
       </div>
     </div>
   );
+  // --- End Layout Without Map ---
 }
 
 // OfferCard component for individual transport offers
@@ -517,6 +539,14 @@ function OfferCard({
           <div>
             <p className="text-xs text-muted-foreground">Vehicle</p>
             <p className="font-medium">{offer.vehicle}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Weight</p>
+            <p className="font-medium">{offer.weight}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Dimensions</p>
+            <p className="font-medium">{offer.dimensions}</p>
           </div>
         </div>
         

@@ -37,6 +37,13 @@ export default function Sidebar() {
   const convexUser = useQuery(api.users.getCurrentUser);
   const { user: clerkUser } = useUser();
   
+  // Fetch notification count
+  const notificationsData = useQuery(api.notifications.getUserNotifications, {
+    filter: "unread",
+    limit: 1, // We only need the count, not actual notifications
+  });
+  const unreadCount = notificationsData?.unreadCount || 0;
+  
   // Reset selectedPath when pathname changes
   useEffect(() => {
     setSelectedPath(pathname);
@@ -212,12 +219,17 @@ export default function Sidebar() {
           <Button 
             variant={isActive("/notifications") ? "secondary" : "ghost"}
             className={cn(
-              "w-full justify-start transition-none",
+              "w-full justify-start transition-none relative",
               isActive("/notifications") ? "font-medium" : "font-normal text-gray-600"
             )}
           >
             <Bell className="h-4 w-4 mr-3" />
             Notifications
+            {unreadCount > 0 && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-xs font-medium text-white">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
           </Button>
         </Link>
         
