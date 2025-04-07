@@ -1,296 +1,258 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState } from 'react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Loader2, Bell, CheckCheck, Trash2, MoreVertical, X, Bot, AlertTriangle, RefreshCw } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
 import { Id } from "../../../../convex/_generated/dataModel";
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Bell, CheckCheck, Loader2, Trash2, CornerRightDown, AlertCircle } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 
-export default function NotificationsPage() {
-  const [activeTab, setActiveTab] = useState("all");
-  const [isMarkingRead, setIsMarkingRead] = useState(false);
-  const [isClearing, setIsClearing] = useState(false);
+const NotificationsPage = () => {
+  const [activeFilter, setActiveFilter] = useState<string>("all");
   
-  const router = useRouter();
+  // Fetch notifications with the selected filter
+  const { notifications, unreadCount } = useQuery(api.notifications.getUserNotifications, { 
+    filter: activeFilter as "all" | "unread" | "agent" 
+  }) || { notifications: [], unreadCount: 0 };
   
-  // Fetch notifications based on active tab
-  const filter = activeTab === "unread" ? "unread" : activeTab === "agent" ? "agent" : "all";
-  const notificationsData = useQuery(api.notifications.getUserNotifications, { 
-    filter,
-    limit: 50  // Fetch more notifications at once
-  });
-  const notifications = notificationsData?.notifications || [];
-  const unreadCount = notificationsData?.unreadCount || 0;
+  const markReadMutation = useMutation(api.notifications.markNotificationRead);
+  const markAllReadMutation = useMutation(api.notifications.markAllNotificationsRead);
+  const deleteNotificationMutation = useMutation(api.notifications.deleteNotification);
+  const clearAllNotificationsMutation = useMutation(api.notifications.clearAllNotifications);
   
-  // Mutations
-  const markNotificationRead = useMutation(api.notifications.markNotificationRead);
-  const markAllRead = useMutation(api.notifications.markAllNotificationsRead);
-  const deleteNotification = useMutation(api.notifications.deleteNotification);
-  const clearAllNotifications = useMutation(api.notifications.clearAllNotifications);
-  
-  // Handlers
-  const handleMarkAllAsRead = async () => {
-    setIsMarkingRead(true);
+  const [processingId, setProcessingId] = useState<Id<"notifications"> | null>(null);
+  const [isProcessingAll, setIsProcessingAll] = useState(false);
+
+  // Mark a single notification as read
+  const handleMarkRead = async (notificationId: Id<"notifications">) => {
+    setProcessingId(notificationId);
     try {
-      await markAllRead({ filter: activeTab === "agent" ? "agent" : undefined });
+      await markReadMutation({ notificationId });
+      toast.success("Notification marked as read");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to mark notification as read");
     } finally {
-      setIsMarkingRead(false);
+      setProcessingId(null);
     }
   };
-  
+
+  // Mark all notifications as read
+  const handleMarkAllRead = async () => {
+    setIsProcessingAll(true);
+    try {
+      const result = await markAllReadMutation({ filter: activeFilter as "all" | "agent" });
+      toast.success(`${result.count} notifications marked as read`);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to mark notifications as read");
+    } finally {
+      setIsProcessingAll(false);
+    }
+  };
+
+  // Delete a notification
+  const handleDelete = async (notificationId: Id<"notifications">) => {
+    setProcessingId(notificationId);
+    try {
+      await deleteNotificationMutation({ notificationId });
+      toast.success("Notification deleted");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete notification");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  // Clear all notifications
   const handleClearAll = async () => {
-    if (!confirm("Are you sure you want to clear all notifications? This cannot be undone.")) {
-      return;
-    }
-    
-    setIsClearing(true);
+    setIsProcessingAll(true);
     try {
-      await clearAllNotifications({ 
-        filter: activeTab === "unread" ? "read" : activeTab === "agent" ? "agent" : undefined 
-      });
+      const result = await clearAllNotificationsMutation({ filter: activeFilter as "all" | "unread" | "agent" });
+      toast.success(`${result.count} notifications cleared`);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to clear notifications");
     } finally {
-      setIsClearing(false);
+      setIsProcessingAll(false);
     }
   };
-  
-  const handleNotificationClick = async (notification: any) => {
-    // Mark as read
-    if (!notification.isRead) {
-      await markNotificationRead({ notificationId: notification._id });
-    }
-    
-    // Navigate to source if available
-    if (notification.sourceId) {
-      router.push(`/negotiations/${notification.sourceId}`);
-    }
-  };
-  
-  const handleDeleteNotification = async (e: React.MouseEvent, id: Id<"notifications">) => {
-    e.stopPropagation();
-    await deleteNotification({ notificationId: id });
-  };
-  
+
+  // Get the icon for a notification type
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case "agent_needs_review":
-        return <Bot className="h-5 w-5 text-amber-500" />;
-      case "agent_price_increase":
-        return <AlertTriangle className="h-5 w-5 text-red-500" />;
-      case "agent_new_terms":
-        return <AlertTriangle className="h-5 w-5 text-blue-500" />;
+      case 'agent_needs_review':
+        return <AlertCircle className="h-5 w-5 text-amber-500" />;
+      case 'agent_price_increase':
+        return <AlertCircle className="h-5 w-5 text-green-500" />;
+      case 'agent_new_terms':
+        return <CornerRightDown className="h-5 w-5 text-blue-500" />;
+      case 'negotiation_update':
+        return <Bell className="h-5 w-5 text-slate-500" />;
       default:
-        return <Bell className="h-5 w-5 text-primary" />;
+        return <Bell className="h-5 w-5 text-slate-500" />;
     }
   };
-  
-  if (!notificationsData) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Loading notifications...</p>
-      </div>
-    );
-  }
-  
+
+  // Get the text for a notification badge
+  const getNotificationBadgeText = (type: string) => {
+    switch (type) {
+      case 'agent_needs_review':
+        return 'Review';
+      case 'agent_price_increase':
+        return 'Price Update';
+      case 'agent_new_terms':
+        return 'New Terms';
+      case 'negotiation_update':
+        return 'Update';
+      default:
+        return 'Notification';
+    }
+  };
+
+  const isLoading = notifications === undefined;
+
   return (
-    <div className="container max-w-6xl py-6 space-y-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">Notifications</h1>
-        <p className="text-muted-foreground">
-          Stay updated with the latest activity and alerts.
-        </p>
-      </div>
-      
-      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-        <div className="flex justify-between items-center">
-          <TabsList>
-            <TabsTrigger value="all" className="relative">
-              All
-            </TabsTrigger>
-            <TabsTrigger value="unread" className="relative">
-              Unread
-              {unreadCount > 0 && (
-                <Badge variant="destructive" className="ml-1.5 px-1.5 py-0">
-                  {unreadCount}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="agent" className="relative">
-              AI Agent
-            </TabsTrigger>
-          </TabsList>
-          
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleMarkAllAsRead}
-              disabled={isMarkingRead || unreadCount === 0}
-            >
-              {isMarkingRead ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <CheckCheck className="h-4 w-4 mr-2" />
-              )}
-              Mark all as read
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleClearAll}
-              disabled={isClearing || notifications.length === 0}
-            >
-              {isClearing ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4 mr-2" />
-              )}
-              Clear all
-            </Button>
+    <div className="flex min-h-screen w-full flex-col">
+      <main className="flex min-h-[calc(100vh_-_theme(spacing.16))] flex-1 flex-col gap-4 bg-muted/40 p-4 md:gap-8 md:p-10">
+        <div className="mx-auto grid w-full max-w-6xl gap-2">
+          <div className="flex justify-between items-center">
+            <h1 className="text-3xl font-semibold">Notifications</h1>
+            {unreadCount > 0 && (
+              <Badge variant="secondary" className="ml-2">
+                {unreadCount} unread
+              </Badge>
+            )}
           </div>
         </div>
         
-        <TabsContent value="all">
-          <NotificationsList 
-            notifications={notifications} 
-            onNotificationClick={handleNotificationClick}
-            onDeleteNotification={handleDeleteNotification}
-            getNotificationIcon={getNotificationIcon}
-          />
-        </TabsContent>
-        
-        <TabsContent value="unread">
-          <NotificationsList 
-            notifications={notifications} 
-            onNotificationClick={handleNotificationClick}
-            onDeleteNotification={handleDeleteNotification}
-            getNotificationIcon={getNotificationIcon}
-          />
-        </TabsContent>
-        
-        <TabsContent value="agent">
-          <NotificationsList 
-            notifications={notifications} 
-            onNotificationClick={handleNotificationClick}
-            onDeleteNotification={handleDeleteNotification}
-            getNotificationIcon={getNotificationIcon}
-          />
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
-
-// Define notification type
-interface Notification {
-  _id: Id<"notifications">;
-  type: "agent_needs_review" | "agent_price_increase" | "agent_new_terms" | "negotiation_update";
-  title: string;
-  content: string;
-  sourceId?: Id<"negotiations">;
-  sourceName?: string;
-  isRead: boolean;
-  createdAt: number;
-}
-
-function NotificationsList({ 
-  notifications, 
-  onNotificationClick, 
-  onDeleteNotification,
-  getNotificationIcon
-}: { 
-  notifications: Notification[], 
-  onNotificationClick: (notification: Notification) => void,
-  onDeleteNotification: (e: React.MouseEvent, id: Id<"notifications">) => void,
-  getNotificationIcon: (type: string) => React.ReactNode
-}) {
-  if (notifications.length === 0) {
-    return (
-      <Card className="mt-4">
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <div className="bg-muted rounded-full p-3 mb-4">
-            <Bell className="h-6 w-6 text-muted-foreground" />
-          </div>
-          <h3 className="text-lg font-medium mb-1">No notifications</h3>
-          <p className="text-muted-foreground text-center max-w-sm">
-            When you receive notifications, they will appear here.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-  
-  return (
-    <Card className="mt-4">
-      <CardContent className="p-0">
-        <ul className="divide-y">
-          {notifications.map((notification, index) => (
-            <li 
-              key={notification._id} 
-              className={cn(
-                "flex p-4 hover:bg-muted/40 transition-colors cursor-pointer",
-                !notification.isRead && "bg-primary/5"
-              )}
-              onClick={() => onNotificationClick(notification)}
-            >
-              <div className="flex-shrink-0 mr-4 mt-1">
-                {getNotificationIcon(notification.type)}
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between">
-                  <p className={cn("text-sm font-medium", !notification.isRead && "font-semibold")}>
-                    {notification.title}
-                  </p>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
-                    </span>
-                    {!notification.isRead && (
-                      <Badge variant="default" className="h-1.5 w-1.5 rounded-full p-0" />
-                    )}
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={(e) => onDeleteNotification(e, notification._id)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
+        <div className="mx-auto w-full max-w-6xl">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Your Notifications</CardTitle>
+                  <CardDescription>
+                    Stay updated on your negotiation progress and AI agent activities
+                  </CardDescription>
                 </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleMarkAllRead}
+                    disabled={isProcessingAll || isLoading || (notifications && notifications.length === 0)}
+                  >
+                    {isProcessingAll ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckCheck className="mr-2 h-4 w-4" />
+                    )}
+                    Mark all read
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearAll}
+                    disabled={isProcessingAll || isLoading || (notifications && notifications.length === 0)}
+                  >
+                    {isProcessingAll ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="mr-2 h-4 w-4" />
+                    )}
+                    Clear all
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="all" className="w-full" onValueChange={setActiveFilter}>
+                <TabsList className="mb-4">
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="unread">Unread</TabsTrigger>
+                  <TabsTrigger value="agent">Agent</TabsTrigger>
+                </TabsList>
                 
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {notification.content}
-                </p>
-                
-                {notification.sourceName && (
-                  <div className="mt-1">
-                    <Badge variant="outline" className="text-xs font-normal">
-                      {notification.sourceName}
-                    </Badge>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : notifications && notifications.length > 0 ? (
+                  <div className="space-y-4">
+                    {notifications.map((notification) => (
+                      <div 
+                        key={notification._id} 
+                        className={`flex items-start justify-between p-4 rounded-lg border ${!notification.isRead ? 'bg-muted/60' : ''}`}
+                      >
+                        <div className="flex gap-3">
+                          {getNotificationIcon(notification.type)}
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="font-medium">{notification.title}</p>
+                              <Badge variant="outline" className="text-xs">
+                                {getNotificationBadgeText(notification.type)}
+                              </Badge>
+                              {!notification.isRead && (
+                                <Badge variant="secondary" className="text-xs">
+                                  New
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-1">{notification.content}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                              {notification.sourceName && ` • ${notification.sourceName}`}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          {!notification.isRead && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleMarkRead(notification._id)}
+                              disabled={processingId === notification._id}
+                            >
+                              {processingId === notification._id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <CheckCheck className="h-4 w-4" />
+                              )}
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(notification._id)}
+                            disabled={processingId === notification._id}
+                          >
+                            {processingId === notification._id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Bell className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-muted-foreground">No notifications to display</p>
                   </div>
                 )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    </div>
   );
-} 
+};
+
+export default NotificationsPage;

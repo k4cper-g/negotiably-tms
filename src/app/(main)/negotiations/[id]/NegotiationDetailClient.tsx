@@ -20,7 +20,11 @@ import {
   Check,
   Settings2,
   Bot,
-  ChevronRight
+  ChevronRight,
+  PlayIcon,
+  UserIcon,
+  MailWarning,
+  MessageCircleWarning
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,6 +59,21 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import { toast } from "sonner";
+
+// Add the helper function here, ideally move to utils later
+const parseNumericValue = (str: string | null | undefined): number | null => {
+  if (str === null || str === undefined) return null;
+  try {
+    const cleaned = str.replace(/[^\d.,]/g, '');
+    const withoutCommas = cleaned.replace(/,/g, '');
+    const value = parseFloat(withoutCommas);
+    return isNaN(value) ? null : value;
+  } catch (error) {
+    console.error(`Error parsing numeric value from string "${str}":`, error);
+    return null;
+  }
+};
 
 // Define type for AgentSettingsModal props
 interface AgentSettingsModalProps {
@@ -309,6 +328,7 @@ export default function NegotiationDetailClient({
 }: { 
   negotiationId: Id<"negotiations">
 }) {
+  // --- ALL HOOK CALLS MUST BE AT THE TOP LEVEL --- 
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [detailsExpanded, setDetailsExpanded] = useState(true);
@@ -325,6 +345,7 @@ export default function NegotiationDetailClient({
   const updateNegotiationStatus = useMutation(api.negotiations.updateNegotiationStatus);
   const updateEmailSettings = useMutation(api.negotiations.updateEmailSettings);
   const configureAgent = useMutation(api.negotiations.configureAgent);
+  const resumeAgentMutation = useMutation(api.negotiations.resumeAgent);
   
   // State for settings dialog
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -336,7 +357,7 @@ export default function NegotiationDetailClient({
   const [targetPricePerKm, setTargetPricePerKm] = useState<string>('');
   const [isConfiguringAgent, setIsConfiguringAgent] = useState(false);
   
-  // Advanced AI agent settings
+  // Advanced AI agent settings state
   const [isAdvancedSettingsOpen, setIsAdvancedSettingsOpen] = useState(false);
   const [notifyOnPriceIncrease, setNotifyOnPriceIncrease] = useState(true);
   const [notifyOnNewTerms, setNotifyOnNewTerms] = useState(true);
@@ -344,13 +365,88 @@ export default function NegotiationDetailClient({
   const [maxAutoReplies, setMaxAutoReplies] = useState(3);
   const [agentStyle, setAgentStyle] = useState<"conservative" | "balanced" | "aggressive">("balanced");
   
-  // Agent settings modal
+  // Agent settings modal state
   const [isAgentSettingsOpen, setIsAgentSettingsOpen] = useState(false);
-  
-  // Handle toggling the AI agent (wrapped in useCallback for stable identity)
+
+  // Function to find the latest price from messages or counter-offers
+  const determineCurrentPrice = useCallback(() => {
+    if (!negotiation) return 'N/A'; // Return N/A if negotiation data isn't loaded
+
+    const initialPrice = negotiation.initialRequest.price || 'N/A';
+
+    // Find latest counter-offer (from anyone)
+    const latestCounterOffer = negotiation.counterOffers.length > 0
+      ? [...negotiation.counterOffers].sort((a, b) => b.timestamp - a.timestamp)[0] // Sort by timestamp descending
+      : null;
+    const latestCounterOfferTimestamp = latestCounterOffer?.timestamp || 0;
+
+    // Find latest message from counterparty
+    const counterpartyMessages = negotiation.messages
+      .filter(m => m.sender !== 'user' && m.sender !== 'agent' && m.sender !== 'system')
+      .sort((a, b) => b.timestamp - a.timestamp);
+    const latestMessage = counterpartyMessages.length > 0 ? counterpartyMessages[0] : null;
+    const latestMessageTimestamp = latestMessage?.timestamp || 0;
+
+    let currentPriceStr = initialPrice;
+    let priceSource = "initial";
+
+    // Use latest counter offer if it's the latest price indication
+    if (latestCounterOffer && latestCounterOfferTimestamp >= latestMessageTimestamp) {
+      currentPriceStr = latestCounterOffer.price;
+      priceSource = "counter_offer";
+    } 
+    // Otherwise, check the latest message if it's newer
+    else if (latestMessage && latestMessageTimestamp > latestCounterOfferTimestamp) {
+       const priceRegex = /(?:€|EUR)?\s*(\d+(?:[.,]\d+)?)(?:\s*EUR)?/i;
+       const priceMatch = latestMessage.content.match(priceRegex);
+       
+      if (priceMatch && priceMatch[1]) { 
+          const extractedPriceValue = priceMatch[1];
+          currentPriceStr = `€${extractedPriceValue.replace(",", ".")}`; // Example formatting
+          priceSource = "message";
+      } else if (latestCounterOffer) {
+         currentPriceStr = latestCounterOffer.price;
+         priceSource = "counter_offer_fallback";
+      }
+    }
+
+    return currentPriceStr;
+  }, [negotiation]); // Dependency array
+
+  // State for currentPrice (initialized using the memoized function)
+  const [currentPrice, setCurrentPrice] = useState<string>(() => determineCurrentPrice());
+
+  // Function to calculate price per km (memoized)
+  const calculateCurrentPricePerKm = useCallback(() => {
+    if (!negotiation || !negotiation.initialRequest.distance) return null;
+
+    try {
+      const currentPriceStr = currentPrice; // Use the state variable
+      const distanceStr = negotiation.initialRequest.distance;
+
+      // Parse using the robust helper function
+      const priceValue = parseNumericValue(currentPriceStr);
+      const distanceValue = parseNumericValue(distanceStr);
+
+      if (priceValue === null || distanceValue === null || isNaN(priceValue) || isNaN(distanceValue) || distanceValue === 0) {
+        console.warn(`[UI] Invalid EUR/km calculation inputs: price=${priceValue}, distance=${distanceValue} from strings '${currentPriceStr}', '${distanceStr}'`);
+        return null;
+      }
+
+      const pricePerKm = priceValue / distanceValue;
+      return pricePerKm.toFixed(2);
+
+    } catch (error) {
+      console.error("Error calculating price per km in UI:", error);
+      return null;
+    }
+  }, [negotiation, currentPrice]);
+
+  // Handle toggling the AI agent (memoized)
   const handleToggleAgent = useCallback(async (enabled: boolean) => {
     if (!negotiation) return;
     
+    // Validation only needed when enabling
     if (enabled && (!targetPricePerKm || isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0)) {
       alert("Please enter a valid target price per km to activate the agent.");
       return;
@@ -358,137 +454,68 @@ export default function NegotiationDetailClient({
     
     setIsConfiguringAgent(true);
     try {
-      // Pass the full configuration including advanced settings
-      await configureAgent({
+      const configPayload: any = {
         negotiationId: negotiation._id,
         isActive: enabled,
-        targetPricePerKm: enabled ? parseFloat(targetPricePerKm) : undefined,
-        agentSettings: enabled ? {
+      };
+      
+      // Only send full configuration when enabling or re-configuring
+      if (enabled) {
+        configPayload.targetPricePerKm = parseFloat(targetPricePerKm);
+        configPayload.agentSettings = {
           style: agentStyle,
           notifyOnPriceIncrease,
           notifyOnNewTerms,
           maxAutoReplies,
           notifyAfterRounds,
-        } : undefined,
-      });
+        };
+      }
+      // NOTE: When disabling (enabled=false), we *only* send isActive: false
+      // This prevents unintentionally clearing existing settings in the backend.
       
-      console.log("Agent configuration submitted:", {
-        isActive: enabled,
-        targetPricePerKm: enabled ? parseFloat(targetPricePerKm) : undefined,
-        settings: enabled ? { style: agentStyle, notifyOnPriceIncrease, notifyOnNewTerms, maxAutoReplies, notifyAfterRounds } : undefined
-      });
+      await configureAgent(configPayload);
+      
+      console.log("Agent configuration submitted:", configPayload);
       
       // Close modal if activating successfully from within it
       if (enabled && isAgentSettingsOpen) {
         setIsAgentSettingsOpen(false);
       }
       
-      // Optional success notification
+      toast(
+        enabled ? "AI Agent Activated" : "AI Agent Deactivated",
+        {
+          description: enabled 
+            ? "The agent will now monitor the conversation."
+            : "The agent is paused. You can reactivate it later.",
+        }
+      );
     } catch (error) {
       console.error("Failed to configure agent:", error);
-      // Optional error notification
+      toast.error("Failed to configure agent");
     } finally {
       setIsConfiguringAgent(false);
     }
-  }, [negotiation, targetPricePerKm, configureAgent, agentStyle, notifyOnPriceIncrease, notifyOnNewTerms, maxAutoReplies, notifyAfterRounds, isAgentSettingsOpen]);
+  }, [
+    negotiation, 
+    targetPricePerKm, 
+    configureAgent, 
+    agentStyle, 
+    notifyOnPriceIncrease, 
+    notifyOnNewTerms, 
+    maxAutoReplies, 
+    notifyAfterRounds, 
+    isAgentSettingsOpen
+  ]);
   
-  // Create a stable callback for handling modal toggle
+  // Create a stable callback for handling modal toggle (memoized)
   const handleOpenAgentSettings = useCallback((open: boolean) => {
     setIsAgentSettingsOpen(open);
   }, []);
   
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [negotiation?.messages]);
-  
-  // Effect to initialize dialog state
-  useEffect(() => {
-    if (negotiation) {
-      setSubjectInput(negotiation.emailSubject || '');
-      setCcInput(negotiation.emailCcRecipients?.join(', ') || '');
-      
-      // Initialize target price per km if agent is already active
-      if (negotiation.isAgentActive && negotiation.agentTargetPricePerKm) {
-        setTargetPricePerKm(negotiation.agentTargetPricePerKm.toString());
-        
-        // If the agent is already active, we could retrieve advanced settings
-        // from the negotiation object in the future
-        // For now, we'll use defaults
-        if (negotiation.isAgentActive) {
-          // TODO: In the future, these would come from the negotiation object
-          // when backend support is added
-          // const settings = negotiation.agentSettings || {};
-          // setAgentStyle(settings.style || "balanced");
-          // setNotifyOnPriceIncrease(settings.notifyOnPriceIncrease !== false);
-          // setNotifyOnNewTerms(settings.notifyOnNewTerms !== false);
-          // setNotifyAfterRounds(settings.notifyAfterRounds || 5);
-          // setMaxAutoReplies(settings.maxAutoReplies || 3);
-        }
-      } else {
-        // Suggest 10% less than current price/km as a starting point
-        const currentPricePerKm = calculateCurrentPricePerKm();
-        if (currentPricePerKm) {
-          const suggestedTarget = (parseFloat(currentPricePerKm) * 0.9).toFixed(2);
-          setTargetPricePerKm(suggestedTarget);
-        }
-      }
-    }
-  }, [negotiation]);
-  
-  if (!negotiation) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[80vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Loading negotiation details...</p>
-      </div>
-    );
-  }
-  
-  // Calculate savings
-  const getNumericPrice = (price: string) => {
-    return parseFloat(price.replace(/[^0-9.]/g, ""));
-  };
-  
-  const initialPrice = negotiation.initialRequest.price;
-  const latestOffer = negotiation.counterOffers.length > 0
-    ? negotiation.counterOffers[negotiation.counterOffers.length - 1]
-    : null;
-  const currentPrice = latestOffer ? latestOffer.price : initialPrice;
-  
-  // Calculate savings
-  const initialNumeric = getNumericPrice(initialPrice);
-  const currentNumeric = getNumericPrice(currentPrice);
-  let savings = 0;
-  let savingsPercentage = 0;
-  
-  if (initialNumeric > currentNumeric) {
-    savings = initialNumeric - currentNumeric;
-    savingsPercentage = (savings / initialNumeric) * 100;
-  }
-  
-  // Function to calculate price per km (for display and suggestions)
-  const calculateCurrentPricePerKm = () => {
-    if (!negotiation || !negotiation.initialRequest.distance) return null;
-    
-    try {
-      const currentPriceStr = latestOffer ? latestOffer.price : initialPrice;
-      const priceValue = parseFloat(currentPriceStr.replace(/[^0-9.]/g, ""));
-      const distanceValue = parseFloat(negotiation.initialRequest.distance.replace(/[^0-9.,]/g, "").replace(",", "."));
-      
-      if (isNaN(priceValue) || isNaN(distanceValue) || distanceValue === 0) return null;
-      return (priceValue / distanceValue).toFixed(2);
-    } catch (error) {
-      console.error("Error calculating price per km:", error);
-      return null;
-    }
-  };
-  
-  // Handle sending a message
-  const handleSendMessage = async () => {
-    if (!message.trim()) return;
+  // Handle sending a message (memoized)
+  const handleSendMessage = useCallback(async () => {
+    if (!message.trim() || !negotiation) return;
     
     setIsSending(true);
     try {
@@ -503,10 +530,11 @@ export default function NegotiationDetailClient({
     } finally {
       setIsSending(false);
     }
-  };
+  }, [message, addMessage, negotiationId, negotiation]);
   
-  // Handle accepting or rejecting an offer
-  const handleUpdateStatus = async (status: string) => {
+  // Handle accepting or rejecting an offer (memoized)
+  const handleUpdateStatus = useCallback(async (status: string) => {
+    if (!negotiation) return;
     try {
       await updateNegotiationStatus({
         negotiationId,
@@ -515,10 +543,10 @@ export default function NegotiationDetailClient({
     } catch (error) {
       console.error("Error updating status:", error);
     }
-  };
+  }, [negotiationId, updateNegotiationStatus, negotiation]);
 
-  // Handle saving email settings
-  const handleSaveSettings = async () => {
+  // Handle saving email settings (memoized)
+  const handleSaveSettings = useCallback(async () => {
     if (!negotiation) return;
     setIsSavingSettings(true);
     try {
@@ -540,8 +568,120 @@ export default function NegotiationDetailClient({
     } finally {
       setIsSavingSettings(false);
     }
+  }, [negotiation, ccInput, subjectInput, updateEmailSettings]);
+  
+  // Handle resuming agent (memoized)
+  const handleResumeAgent = useCallback(async (action: "continue" | "take_over") => {
+    if (!negotiation?._id) return;
+    
+    try {
+      await resumeAgentMutation({
+        negotiationId: negotiation._id,
+        action
+      });
+      
+      toast(
+        action === "continue" 
+          ? "AI agent is continuing the negotiation" 
+          : "You've taken over this negotiation",
+        {
+          description: action === "continue"
+            ? "The AI will respond to the next message from the other party."
+            : "The AI has been disabled. You can re-enable it later if needed."
+        }
+      );
+    } catch (error) {
+      console.error("Error resuming agent:", error);
+      toast.error("Error resuming agent", {
+        description: "There was a problem with your request. Please try again."
+      });
+    }
+  }, [negotiation, resumeAgentMutation]);
+
+  // --- EFFECTS (called after all other hooks) ---
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (negotiation && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [negotiation?.messages]);
+  
+  // Effect to initialize dialog and agent state when negotiation data loads/changes
+  useEffect(() => {
+    if (negotiation) {
+      // Initialize Email settings
+      setSubjectInput(negotiation.emailSubject || '');
+      setCcInput(negotiation.emailCcRecipients?.join(', ') || '');
+      
+      // Initialize AI Agent settings 
+      if (negotiation.agentTargetPricePerKm) {
+        setTargetPricePerKm(String(negotiation.agentTargetPricePerKm).replace(',', '.'));
+      } else {
+        setTargetPricePerKm(''); 
+      }
+      
+      // Load or reset advanced settings
+      const agentSettings = (negotiation as any)?.agentSettings;
+      if (agentSettings) {
+        setAgentStyle(agentSettings.style || "balanced");
+        setNotifyOnPriceIncrease(agentSettings.notifyOnPriceIncrease !== false); 
+        setNotifyOnNewTerms(agentSettings.notifyOnNewTerms !== false); 
+        setNotifyAfterRounds(agentSettings.notifyAfterRounds || 5); 
+        setMaxAutoReplies(agentSettings.maxAutoReplies || 3); 
+      } else {
+        setAgentStyle("balanced");
+        setNotifyOnPriceIncrease(true);
+        setNotifyOnNewTerms(true);
+        setNotifyAfterRounds(5);
+        setMaxAutoReplies(3);
+      }
+    } else {
+      // Reset state if negotiation becomes null (safer than the previous version)
+      setSubjectInput('');
+      setCcInput('');
+      setTargetPricePerKm('');
+      setAgentStyle("balanced");
+      setNotifyOnPriceIncrease(true);
+      setNotifyOnNewTerms(true);
+      setNotifyAfterRounds(5);
+      setMaxAutoReplies(3);
+    }
+  }, [negotiation]); // Re-run only when negotiation data changes
+
+  // Effect to update currentPrice state when underlying data changes
+  useEffect(() => {
+    setCurrentPrice(determineCurrentPrice());
+  }, [negotiation, determineCurrentPrice]); // Recalculate when negotiation data changes
+
+  // --- CONDITIONAL RETURN (Now safe, after all hooks) --- 
+  if (!negotiation) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[80vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Loading negotiation details...</p>
+      </div>
+    );
+  }
+  
+  // --- CALCULATIONS (Can safely use negotiation data now) ---
+  const getNumericPrice = (price: string | null | undefined) => {
+    if (!price) return NaN;
+    const parsed = parseNumericValue(price);
+    return parsed === null ? NaN : parsed;
   };
   
+  const initialNumeric = getNumericPrice(negotiation?.initialRequest?.price);
+  const currentNumeric = getNumericPrice(currentPrice);
+  let savings = 0;
+  let savingsPercentage = 0;
+
+  if (!isNaN(initialNumeric) && !isNaN(currentNumeric) && initialNumeric > currentNumeric) {
+    savings = initialNumeric - currentNumeric;
+    savingsPercentage = (savings / initialNumeric) * 100;
+  }
+
+  // --- RETURN JSX --- 
   return (
     <div className="flex flex-col h-full max-h-[calc(100vh-var(--header-height))] overflow-hidden bg-gray-50">
       {/* Header with key info and actions */}
@@ -696,6 +836,7 @@ export default function NegotiationDetailClient({
                   ...(negotiation.messages || [])
                 ]
                 .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+                .filter(item => !('content' in item && item.sender === "system")) // Filter out system messages
                 .map((item, index) => {
                   // Determine if the item is a message or an offer
                   const isMessage = 'content' in item;
@@ -746,25 +887,25 @@ export default function NegotiationDetailClient({
                           </span>
                           
                           {/* Message bubble */}
-                          <div
-                            className={cn(
+                        <div
+                          className={cn(
                               "rounded-lg px-3 py-2 shadow-sm", // Base bubble style
-                              isUser
-                                ? "bg-blue-500 text-white" // User bubble style
+                            isUser
+                              ? "bg-blue-500 text-white" // User bubble style
                                 : isAgent
                                   ? "bg-emerald-500 text-white" // Agent bubble style
-                                  : "bg-white border" // Carrier/Other bubble style
-                            )}
-                          >
-                            <p className="text-sm">{messageItem.content}</p>
-                            <p className={cn(
-                                "text-xs mt-1 text-right", // Timestamp style
+                              : "bg-white border" // Carrier/Other bubble style
+                          )}
+                        >
+                          <p className="text-sm">{messageItem.content}</p>
+                          <p className={cn(
+                              "text-xs mt-1 text-right", // Timestamp style
                                 isUser ? "text-blue-200" : isAgent ? "text-emerald-200" : "text-muted-foreground"
-                              )}
-                              title={format(timestamp, "PPpp")} // Show full date on hover
-                            >
-                               {formatDistanceToNow(timestamp, { addSuffix: true })}
-                            </p>
+                            )}
+                            title={format(timestamp, "PPpp")} // Show full date on hover
+                          >
+                             {formatDistanceToNow(timestamp, { addSuffix: true })}
+                          </p>
                           </div>
                         </div>
                       </div>
@@ -812,16 +953,85 @@ export default function NegotiationDetailClient({
                 })}
                 
                 {/* Agent typing indicator */}
-                {negotiation.isAgentActive && negotiation.agentStatus === "negotiating" && (
-                  <div className="flex justify-center my-2">
-                    <div className="bg-emerald-100 text-emerald-700 rounded-lg px-3 py-2 text-sm flex items-center shadow-sm">
-                      <Bot className="h-3.5 w-3.5 mr-2" />
-                      <span className="mr-2">AI Agent is monitoring conversation</span>
-                      <span className="flex space-x-1">
-                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" style={{ animationDuration: "1.5s" }}></span>
-                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" style={{ animationDuration: "1.5s", animationDelay: "0.3s" }}></span>
-                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" style={{ animationDuration: "1.5s", animationDelay: "0.6s" }}></span>
-                      </span>
+                {/* {negotiation.isAgentActive && negotiation.agentStatus === "negotiating" && (
+                  <div className="flex justify-center  my-3">
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm max-w-lg  w-full shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-emerald-100 rounded-full p-2 mt-0.5">
+                          <Bot className="h-5 w-5 text-emerald-600" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center">
+                            <p className="font-semibold text-emerald-800 text-sm mr-2">AI Agent is monitoring conversation</p>
+                            <span className="flex space-x-1">
+                              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" style={{ animationDuration: "1.5s" }}></span>
+                              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" style={{ animationDuration: "1.5s", animationDelay: "0.3s" }}></span>
+                              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" style={{ animationDuration: "1.5s", animationDelay: "0.6s" }}></span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )} */}
+                
+                {/* Agent needs review notification - MOVED HERE FROM INPUT AREA */}
+                {negotiation.isAgentActive && negotiation.agentStatus === "needs_review" && (
+                  <div className="flex justify-center items-center my-3">
+                    <div className="border rounded-xl px-4 py-3 text-sm max-w-md w-full shadow-sm ">
+                      <div className="flex items-center justify-center gap-3">
+                        {/* <div className="bg-amber-100 rounded-full p-2 mt-0.5">
+                          <Info className="h-5 w-5 text-amber-600" />
+        
+                        </div> */}
+                        <div className="flex-1 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <Info className="h-5 w-5 " />
+                            <p className="font-semibold text-sm ">Review needed</p>
+                          </div>
+                          <p className="text-sm  mt-1 mb-3 ">
+                          The agent has paused and needs your decision on how to proceed.
+                          </p>
+                          <div className="flex gap-2 justify-center">
+                            <Button
+                              size="sm"
+                              className="text-xs h-8"
+                              onClick={() => handleResumeAgent("continue")}
+                            >
+                        
+                              Continue
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-blue-200 text-xs h-8"
+                              onClick={() => handleResumeAgent("take_over")}
+                            >
+                       
+                              Take over
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Agent error notification - MOVED HERE FROM INPUT AREA */}
+                {negotiation.isAgentActive && negotiation.agentStatus === "error" && (
+                  <div className="flex justify-center my-3">
+                    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm max-w-xl w-full shadow-sm">
+                      <div className="flex items-start gap-3">
+                        <div className="bg-red-100 rounded-full p-2 mt-0.5">
+                          <Bot className="h-5 w-5 text-red-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-red-800 text-sm">AI Agent encountered an error</p>
+                          <p className="text-sm text-red-700 mt-1 mb-3">
+                            There was a problem with the AI agent. You may need to deactivate and reactivate it, or continue negotiating manually.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -833,41 +1043,14 @@ export default function NegotiationDetailClient({
             
             {/* Message input section */}
             <div className="border-t bg-gray-100 p-3 sm:p-4 sticky bottom-0 z-10 flex-shrink-0">
-              {/* Agent needs review alert */}
-              {negotiation.isAgentActive && negotiation.agentStatus === "needs_review" && (
-                <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded-md text-sm flex items-start gap-2">
-                  <div className="text-amber-600 mt-0.5">
-                    <Bot className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-amber-800">AI Agent needs your review</p>
-                    <p className="text-xs text-amber-700 mt-0.5">
-                      The agent has reached a point where human input is needed. Please review the conversation 
-                      and take appropriate action.
-                    </p>
-                  </div>
-                </div>
-              )}
-              
-              {/* Error alert */}
-              {negotiation.isAgentActive && negotiation.agentStatus === "error" && (
-                <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-md text-sm flex items-start gap-2">
-                  <div className="text-red-600 mt-0.5">
-                    <Bot className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-red-800">AI Agent encountered an error</p>
-                    <p className="text-xs text-red-700 mt-0.5">
-                      There was a problem with the AI agent. You may need to deactivate and reactivate it, or continue negotiating manually.
-                    </p>
-                  </div>
-                </div>
-              )}
-              
               <div className="flex items-start space-x-3 max-w-[900px] mx-auto">
                 <Textarea
-                  placeholder="Type your message or offer details..."
-                  className="flex-1 min-h-[40px] max-h-[150px] sm:min-h-[44px] resize-none bg-white border-gray-300 rounded-lg shadow-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                  placeholder={
+                    negotiation.status !== "pending" 
+                      ? `Cannot send messages: Negotiation is ${negotiation.status}.`
+                      : "Type your message or offer details..."
+                  }
+                  className="flex-1 min-h-[40px] max-h-[150px] sm:min-h-[44px] resize-none bg-white border-gray-300 rounded-lg shadow-sm focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyDown={(e) => {
@@ -876,11 +1059,12 @@ export default function NegotiationDetailClient({
                       handleSendMessage();
                     }
                   }}
+                  disabled={negotiation.status !== "pending"}
                 />
                 <Button
                   size="icon"
                   onClick={handleSendMessage}
-                  disabled={isSending || !message.trim()}
+                  disabled={negotiation.status !== "pending" || isSending || !message.trim()}
                   className="h-10 w-10 flex-shrink-0 rounded-lg"
                   title="Send Message"
                 >
@@ -892,35 +1076,176 @@ export default function NegotiationDetailClient({
                 </Button>
               </div>
               {negotiation.status !== "pending" && (
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-xs text-muted-foreground mt-1 text-center sm:text-left max-w-[900px] mx-auto">
                   This negotiation is {negotiation.status}. You cannot send new messages.
                 </p>
               )}
             </div>
           </div>
           
-          {/* Details section (collapsible) */}
-          <div className={cn(
-            "w-full md:w-[320px] lg:w-[360px] flex-shrink-0 border-l bg-white overflow-y-auto transition-all duration-300 order-1 md:order-2",
-             detailsExpanded ? "max-h-[50vh] md:max-h-full" : "max-h-12 md:max-h-full overflow-hidden"
-          )}>
+          {/* Details section (non-collapsible) */}
+          <div className="w-full md:w-[320px] lg:w-[360px] flex-shrink-0 border-l bg-white overflow-y-auto order-1 md:order-2">
             <Card className="shadow-none border-0 rounded-none h-full flex flex-col">
-               {/* Collapse Toggle Header */}
-               <CardHeader
-                 className="flex flex-row items-center justify-between py-2 px-4 border-b cursor-pointer sticky top-0 bg-white z-10"
-                 onClick={() => setDetailsExpanded(!detailsExpanded)}
-               >
-                 <CardTitle className="text-base font-semibold flex items-center gap-2">
-                   <Info className="h-4 w-4 text-muted-foreground" />
-                   Negotiation Details
-                 </CardTitle>
-                 {detailsExpanded ? <ChevronDown className="h-5 w-5 text-muted-foreground" /> : <ChevronUp className="h-5 w-5 text-muted-foreground" />}
-               </CardHeader>
+               {/* REMOVED Collapse Toggle Header */}
 
-              {/* Content - Only render if expanded for performance? Or use conditional class */}
-              <CardContent className={cn("p-4 flex-1 overflow-y-auto text-sm", !detailsExpanded && "hidden")}>
-                <div className="space-y-6">
+              {/* Content Area */}
+              <CardContent className="p-4 flex-1 overflow-y-auto text-sm space-y-6">
+                
+                {/* AI Agent Section - MOVED TO TOP */}
+                {negotiation && (
+                    <div className="border rounded-lg overflow-hidden">
+                        {/* ... existing AI Agent JSX ... */}
+          <div className={cn(
+                        "p-3 flex items-center justify-between",
+                      "bg-gray-50 border-b border-gray-100" 
+               
+                        )}>
+                        <div className="flex items-center gap-2">
+                            <div className={cn(
+                            "rounded-full p-1.5","bg-gray-100"
+                            )}>
+                            <Bot className={cn(
+                                "h-4 w-4",
+                          "text-black-500"
+                            )} />
+                            </div>
+                            <h3 className="font-medium text-sm">AI Negotiation Agent</h3>
+                        </div>
+                        
+                        <Switch
+                            checked={negotiation?.isAgentActive || false}
+                            onCheckedChange={handleToggleAgent}
+                            disabled={isConfiguringAgent || negotiation.status !== "pending"}
+                            className={cn(
+                            "data-[state=checked]:bg-primary"
+                            )}
+                        />
+                        </div>
+                        
+                        {/* Agent Content - Active */}
+                        {negotiation.isAgentActive && (
+                        <div className="p-3 space-y-3">
+                            {/* Status Card */}
+                            <div className={cn(
+                            "rounded-md p-2 flex items-start gap-2.5",
+                            negotiation.agentStatus === "negotiating" ? "bg-green-50" 
+                            : negotiation.agentStatus === "needs_review" ? "bg-amber-50"
+                            : negotiation.agentStatus === "error" ? "bg-red-50"
+                            : "bg-gray-50"
+                            )}>
+                            <div className={cn(
+                                "mt-0.5 rounded-full p-1",
+                                negotiation.agentStatus === "negotiating" 
+                                ? "bg-green-100 text-green-600" 
+                                : negotiation.agentStatus === "needs_review" 
+                                    ? "bg-amber-100 text-amber-600"
+                                    : "bg-red-100 text-red-600"
+                            )}>
+                                {negotiation.agentStatus === "negotiating" 
+                                ? <Bot className="h-3 w-3" /> 
+                                : negotiation.agentStatus === "needs_review" 
+                                    ? <Info className="h-3 w-3" />
+                                    : <X className="h-3 w-3" />
+                                }
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                                <p className={cn(
+                                "text-sm font-medium",
+                                negotiation.agentStatus === "negotiating" ? "text-green-800" 
+                                : negotiation.agentStatus === "needs_review" ? "text-amber-800"
+                                : "text-red-800"
+                                )}>
+                                {negotiation.agentStatus === "negotiating" ? "Actively Negotiating" 
+                                : negotiation.agentStatus === "needs_review" ? "Needs Your Review"
+                                : "Agent Error"}
+                                </p>
+                                <p className="text-xs mt-0.5 text-muted-foreground line-clamp-2">
+                                {negotiation.agentStatus === "negotiating" 
+                                    ? "The AI agent is working to reach your target price." 
+                                    : negotiation.agentStatus === "needs_review" 
+                                    ? "The agent has paused and needs your decision on how to proceed."
+                                    : "The agent encountered an error. You may need to reconfigure it."}
+                                </p>
+                            </div>
+                            </div>
+                            
+                    
+                            {/* Agent Settings Card */}
+                            <div className="space-y-3 border rounded-md p-2.5">
+                            {/* Target Price */}
+                            {negotiation.agentTargetPricePerKm && (
+                                <div className="flex justify-between items-center">
+                                <span className="text-sm text-muted-foreground">Target price:</span>
+                                <Badge variant="outline" className="font-mono bg-white">
+                                    {negotiation.agentTargetPricePerKm} EUR/km
+                                </Badge>
+                                </div>
+                            )}
+                            
+                            {/* Current Price */}
+                            {calculateCurrentPricePerKm() && (
+                                <div className="flex justify-between items-center">
+                                <span className="text-sm text-muted-foreground">Current price:</span>
+                                <Badge 
+                                    variant="outline" 
+                                    className={cn(
+                                    "font-mono bg-white",
+                                    calculateCurrentPricePerKm() && negotiation.agentTargetPricePerKm && 
+                                    parseFloat(calculateCurrentPricePerKm() || "0") <= parseFloat(negotiation.agentTargetPricePerKm.toString())
+                                        ? "text-green-600 border-green-200"
+                                        : "text-amber-600 border-amber-200"
+                                    )}
+                                >
+                                    {calculateCurrentPricePerKm()} EUR/km
+                                </Badge>
+                                </div>
+                            )}
+                            
+                            {/* Style */}
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm text-muted-foreground">Negotiation style:</span>
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100">
+                                {agentStyle}
+                                </span>
+                            </div>
+                
+                            
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="w-full h-8 mt-1 border-gray-200"
+                                onClick={() => handleOpenAgentSettings(true)}
+                            >
+                                <Settings2 className="h-3 w-3 mr-1.5" />
+                                Configure Agent
+                            </Button>
+                            </div>
+                        </div>
+                        )}
+                        
+                        {/* Agent Content - Inactive */}
+                        {!negotiation.isAgentActive && (
+                        <div className="p-3 space-y-3">
+                            <p className="text-sm text-muted-foreground">
+                            Let AI negotiate on your behalf to reach your target price.
+                            </p>
+                            <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full"
+                            onClick={() => handleOpenAgentSettings(true)}
+                            >
+                            <Settings2 className="h-3.5 w-3.5 mr-2" />
+                            Setup Agent
+                            </Button>
+                        </div>
+                        )}
+                    </div>
+                )}
+
                   {/* Pricing Section */}
+                {negotiation && (
                   <div>
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
                         <DollarSign className="h-4 w-4" />
@@ -929,7 +1254,7 @@ export default function NegotiationDetailClient({
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Initial Price:</span>
-                        <span className="font-medium">{initialPrice}</span>
+                        <span className="font-medium">{negotiation.initialRequest.price}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Current Price:</span>
@@ -945,8 +1270,10 @@ export default function NegotiationDetailClient({
                       )}
                     </div>
                   </div>
+                )}
 
                   {/* Status & Timeline Section */}
+                {negotiation && (
                    <div>
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
                        <Clock className="h-4 w-4" />
@@ -982,8 +1309,10 @@ export default function NegotiationDetailClient({
                        </div>
                      </div>
                    </div>
+                )}
 
                   {/* Initial Request Details Section */}
+                {negotiation && (
                   <div>
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
                        <Package className="h-4 w-4" />
@@ -1008,89 +1337,7 @@ export default function NegotiationDetailClient({
                        )}
                      </div>
                   </div>
-
-                  {/* AI Agent Section - Simplified for Sidebar */}
-                  <div>
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
-                      <Bot className="h-4 w-4" />
-                      AI Negotiation Agent
-                    </h3>
-                    <div className="space-y-4 text-sm bg-gray-50 p-3 rounded-md">
-                      {/* Agent Status */}
-                      {negotiation.isAgentActive && (
-                        <div className="flex items-center gap-2">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Badge 
-                                  variant={
-                                    negotiation.agentStatus === "negotiating" ? "default" :
-                                    negotiation.agentStatus === "needs_review" ? "secondary" :
-                                    negotiation.agentStatus === "error" ? "destructive" :
-                                    "outline"
-                                  }
-                                  className="px-1.5 py-0.5 text-xs cursor-help"
-                                >
-                                  {negotiation.agentStatus || "Inactive"}
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {negotiation.agentStatus === "negotiating" ? 
-                                  "The AI agent is actively working on your behalf to reach your target price" :
-                                 negotiation.agentStatus === "needs_review" ? 
-                                  "The agent has reached a point where human input is required" :
-                                 negotiation.agentStatus === "error" ? 
-                                  "The agent encountered an error and needs troubleshooting" :
-                                  "Agent status is unknown"
-                                }
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                          <span className="text-xs text-muted-foreground">
-                            {negotiation.agentStatus === "negotiating" ? "Actively negotiating" :
-                             negotiation.agentStatus === "needs_review" ? "Needs your review" :
-                             negotiation.agentStatus === "error" ? "Error - please check" :
-                             "Status unknown"}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Main Controls */}
-                      <div className="flex flex-col gap-3">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">Enable AI Agent</span>
-                          <Switch
-                            checked={negotiation?.isAgentActive || false}
-                            onCheckedChange={handleToggleAgent}
-                            disabled={isConfiguringAgent || negotiation.status !== "pending"}
-                          />
-                        </div>
-                        
-                        {negotiation.isAgentActive && negotiation.agentTargetPricePerKm && (
-                          <p className="text-xs">
-                            <span className="font-medium">Target price:</span> {negotiation.agentTargetPricePerKm} EUR/km
-                          </p>
-                        )}
-                        
-                        {/* Config Button */}
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="w-full mt-2"
-                          onClick={() => handleOpenAgentSettings(true)}
-                        >
-                          <Settings2 className="h-3.5 w-3.5 mr-2" />
-                          Configure Agent
-                        </Button>
-                        
-                        <p className="text-xs text-muted-foreground">
-                          The AI agent will negotiate on your behalf toward your target price.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
+                )}
               </CardContent>
             </Card>
           </div>

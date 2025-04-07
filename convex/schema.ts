@@ -51,8 +51,10 @@ export default defineSchema({
         emailCcRecipients: v.optional(v.array(v.string())),
         isAgentActive: v.optional(v.boolean()),
         agentTargetPricePerKm: v.optional(v.number()),
-        agentStatus: v.optional(v.string()),
+        agentState: v.optional(v.union(v.literal("needs_review"), v.literal("error"))),
+        agentMessage: v.optional(v.string()),
         agentReplyCount: v.optional(v.number()),
+        finalPrice: v.optional(v.string()),
     }).index("by_userId", ["userId"]).index("by_offerId", ["offerId"]),
     connections: defineTable({
         userId: v.id("users"),

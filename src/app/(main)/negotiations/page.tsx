@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/select";
 import {
   Search,
-  ArrowDown,
   MessageSquare,
   Loader2,
   Pin,
@@ -27,7 +26,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { formatDistanceToNow } from "date-fns";
 import { useNegotiationModal } from "@/context/NegotiationModalContext";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import { 
   AlertDialog, 
   AlertDialogAction, 
@@ -121,12 +120,22 @@ function NegotiationRow({ neg, onDelete }: { neg: Negotiation; onDelete?: () => 
       <td className="py-3 px-4 text-sm">{neg.currentPrice || neg.initialPrice}</td>
       <td className="py-3 px-4 text-sm">
         <div className="flex items-center">
-          {neg.savings ? (
+          {neg.savings && neg.savings.startsWith('+') ? (
             <>
-              <ArrowDown className="h-4 w-4 text-green-500 mr-1" />
               <span className="text-green-600 font-medium">{neg.savings}</span>
-              <span className="text-xs text-green-500 ml-1">({neg.savingsPercentage})</span>
+              {neg.savingsPercentage && (
+                <span className="text-xs text-green-500 ml-1">({neg.savingsPercentage})</span>
+              )}
             </>
+          ) : neg.savings && neg.savings.startsWith('-') ? (
+            <>
+              <span className="text-red-600 font-medium">{neg.savings}</span>
+              {neg.savingsPercentage && (
+                 <span className="text-xs text-red-500 ml-1">({neg.savingsPercentage})</span>
+              )}
+            </>
+          ) : neg.savings === "€0.00" ? (
+            <span className="text-muted-foreground">{neg.savings}</span>
           ) : (
             <span className="text-muted-foreground">-</span>
           )}
@@ -204,6 +213,21 @@ function NegotiationRow({ neg, onDelete }: { neg: Negotiation; onDelete?: () => 
   );
 }
 
+// --- Add Helper Function --- 
+const parseNumericValue = (str: string | null | undefined): number | null => {
+  if (str === null || str === undefined) return null;
+  try {
+    const cleaned = str.replace(/[^\d.,]/g, '');
+    const withoutCommas = cleaned.replace(/,/g, '');
+    const value = parseFloat(withoutCommas);
+    return isNaN(value) ? null : value;
+  } catch (error) {
+    // console.error(`Error parsing numeric value from string "${str}":`, error); // Optional logging
+    return null;
+  }
+};
+// --- End Helper Function ---
+
 export default function NegotiationsPage() {
   // State for search and filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -214,50 +238,126 @@ export default function NegotiationsPage() {
   // Fetch negotiations from Convex
   const convexNegotiations = useQuery(api.negotiations.getUserNegotiations);
   
-  // Convert Convex negotiations to the UI format
+  // Helper to get numeric price
+  const getNumericPrice = (price: string | null | undefined): number => {
+    if (!price) return NaN;
+    const parsed = parseNumericValue(price);
+    return parsed === null ? NaN : parsed;
+  };
+  
+  // Helper to determine the effective current price for the list view
+  const determineCurrentPriceForList = (neg: Doc<"negotiations">): string => {
+      // The function should ALWAYS find the latest actual offer/message price.
+      // The savings calculation below handles the 'accepted' status.
+      
+      const initialPrice = neg.initialRequest.price || 'N/A';
+  
+      // Find latest counter-offer (from anyone)
+      const latestCounterOffer = neg.counterOffers.length > 0
+        ? [...neg.counterOffers].sort((a, b) => b.timestamp - a.timestamp)[0]
+        : null;
+      const latestCounterOfferTimestamp = latestCounterOffer?.timestamp || 0;
+  
+      // Find latest message from counterparty
+      const counterpartyMessages = neg.messages
+        .filter(m => m.sender !== 'user' && m.sender !== 'agent' && m.sender !== 'system')
+        .sort((a, b) => b.timestamp - a.timestamp);
+      const latestMessage = counterpartyMessages.length > 0 ? counterpartyMessages[0] : null;
+      const latestMessageTimestamp = latestMessage?.timestamp || 0;
+  
+      let currentPriceStr = initialPrice;
+  
+      // Use latest counter offer if it's the latest price indication
+      if (latestCounterOffer && latestCounterOfferTimestamp >= latestMessageTimestamp) {
+        currentPriceStr = latestCounterOffer.price;
+      } 
+      // Otherwise, check the latest message if it's newer
+      else if (latestMessage && latestMessageTimestamp > latestCounterOfferTimestamp) {
+         const priceRegex = /(?:€|EUR)?\s*(\d+(?:[.,]\d+)?)(?:\s*EUR)?/i;
+         const priceMatch = latestMessage.content.match(priceRegex);
+         
+        if (priceMatch && priceMatch[1]) { 
+            const extractedPriceValue = priceMatch[1];
+            currentPriceStr = `€${extractedPriceValue.replace(",", ".")}`;
+        } else if (latestCounterOffer) {
+           currentPriceStr = latestCounterOffer.price;
+        }
+      }
+  
+      return currentPriceStr;
+  };
+
+  // Format negotiations data from Convex
   const formatNegotiations = (): Negotiation[] => {
     if (!convexNegotiations) return [];
-    
+
     return convexNegotiations.map(neg => {
-      // Make sure to access the correct property structure based on your data model
-      const latestMessage = neg.messages.length > 0 ? 
-        neg.messages[neg.messages.length - 1] : 
-        undefined;
-      
-      // Type assertion to handle the dynamic structure
-      const latestPrice = latestMessage && 'price' in latestMessage ? 
-        latestMessage.price as string : 
-        undefined;
-      
-      const initialPrice = neg.initialRequest.price as string;
+      const initialPriceStr = neg.initialRequest.price;
+      const currentPriceStr = determineCurrentPriceForList(neg);
       
       let savings: string | null = null;
       let savingsPercentage: string | null = null;
       
-      if (latestPrice) {
-        try {
-          const initialValue = parseFloat(initialPrice);
-          const currentValue = parseFloat(latestPrice);
-          if (!isNaN(initialValue) && !isNaN(currentValue)) {
-            savings = formatCurrency(initialValue - currentValue);
-            savingsPercentage = ((initialValue - currentValue) / initialValue * 100).toFixed(1) + "%";
+      // --- Only calculate savings/gain if status is 'accepted' --- 
+      if (neg.status === "accepted") {
+        const initialPriceStr = neg.initialRequest.price;
+        const currentPriceStr = determineCurrentPriceForList(neg); // This is the accepted price
+        const distanceStr = neg.initialRequest.distance;
+        const targetPricePerKm = neg.agentTargetPricePerKm; // Target set by user
+
+        const initialNumeric = getNumericPrice(initialPriceStr);
+        const acceptedNumeric = getNumericPrice(currentPriceStr);
+        const distanceNumeric = parseNumericValue(distanceStr);
+
+        // Check if all necessary values are valid numbers
+        if (!isNaN(initialNumeric) && !isNaN(acceptedNumeric) && 
+            distanceNumeric !== null && distanceNumeric > 0 && 
+            targetPricePerKm !== null && targetPricePerKm !== undefined) 
+        {
+          const initialPricePerKm = initialNumeric / distanceNumeric;
+          const wasAimingDown = targetPricePerKm < initialPricePerKm;
+          
+          let difference = 0;
+          if (wasAimingDown) {
+            difference = initialNumeric - acceptedNumeric; // Positive if price went down (good)
+          } else {
+            difference = acceptedNumeric - initialNumeric; // Positive if price went up (good)
           }
-        } catch (e) {
-          console.error("Error calculating savings:", e);
+
+          // Format the result
+          if (difference > 0) {
+            savings = `+€${difference.toFixed(2)}`;
+            savingsPercentage = `+${((difference / initialNumeric) * 100).toFixed(1)}%`;
+          } else if (difference < 0) {
+            // Show the negative outcome relative to the goal
+            savings = `-€${(-difference).toFixed(2)}`; 
+            savingsPercentage = `${((difference / initialNumeric) * 100).toFixed(1)}%`; // Will be negative
+          } else {
+            savings = "€0.00";
+            savingsPercentage = "0.0%";
+          }
         }
       }
+      // --- End savings/gain calculation block ---
       
+      // Get last activity time
+      const lastMessageTimestamp = neg.messages.length > 0 ? neg.messages[neg.messages.length - 1].timestamp : 0;
+      const lastCounterOfferTimestamp = neg.counterOffers.length > 0 ? neg.counterOffers[neg.counterOffers.length - 1].timestamp : 0;
+      const lastUpdateTime = Math.max(neg.updatedAt || 0, lastMessageTimestamp, lastCounterOfferTimestamp, neg.createdAt);
+      const lastActivity = formatDistanceToNow(new Date(lastUpdateTime), { addSuffix: true });
+
       return {
         id: neg._id as string,
         offerId: neg.offerId as string,
         origin: neg.initialRequest.origin,
         destination: neg.initialRequest.destination,
         carrier: neg.initialRequest.carrier,
-        initialPrice: initialPrice,
-        currentPrice: latestPrice,
+        initialPrice: initialPriceStr,
+        currentPrice: currentPriceStr,
         savings: savings,
         savingsPercentage: savingsPercentage,
         status: neg.status as NegotiationStatus,
+        lastActivity: lastActivity,
         dateCreated: new Date(neg.createdAt).toISOString(),
         messages: neg.messages.length,
         loadType: neg.initialRequest.loadType,
@@ -304,10 +404,6 @@ export default function NegotiationsPage() {
       }
       return 0;
     });
-  };
-  
-  const getNumericPrice = (price: string) => {
-    return parseFloat(price.replace(/[^0-9.]/g, ""));
   };
   
   const filteredNegotiations = getFilteredNegotiations();

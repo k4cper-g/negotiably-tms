@@ -274,6 +274,7 @@ function TransportOfferDetails({ offer }: { offer: TransportOffer }) {
           origin: offer.origin,
           destination: offer.destination,
           price: offer.price,
+          distance: offer.distance, // Pass distance
           loadType: offer.loadType,
           weight: offer.weight,
           dimensions: offer.dimensions,
@@ -437,6 +438,7 @@ function OfferCard({
           origin: offer.origin,
           destination: offer.destination,
           price: offer.price,
+          distance: offer.distance, // Pass distance
           loadType: offer.loadType,
           weight: offer.weight,
           dimensions: offer.dimensions,
@@ -1107,6 +1109,7 @@ export default function OffersPage() {
           origin: offer.origin,
           destination: offer.destination,
           price: offer.price,
+          distance: offer.distance, // Pass distance
           loadType: offer.loadType,
           carrier: offer.carrier,
           weight: offer.weight,

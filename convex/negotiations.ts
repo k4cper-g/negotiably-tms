@@ -14,6 +14,7 @@ export const createNegotiation = mutation({
       origin: v.string(),
       destination: v.string(),
       price: v.string(),
+      distance: v.optional(v.string()),
       loadType: v.optional(v.string()),
       weight: v.optional(v.string()),
       dimensions: v.optional(v.string()),
@@ -336,13 +337,17 @@ export const updateCounterOfferStatus = mutation({
 
     // If accepting an offer, update the negotiation status as well
     let negotiationStatus = negotiation.status;
+    let finalPriceToUpdate = negotiation.finalPrice; // Carry over existing final price unless accepting
     if (args.status === "accepted") {
       negotiationStatus = "accepted";
+      // Capture the accepted price from the specific counter offer
+      finalPriceToUpdate = updatedCounterOffers[args.offerIndex].price;
     }
 
     await ctx.db.patch(args.negotiationId, {
       counterOffers: updatedCounterOffers,
       status: negotiationStatus,
+      finalPrice: finalPriceToUpdate, // Update the finalPrice field
       updatedAt: Date.now(),
     });
 
@@ -546,7 +551,8 @@ export const configureAgent = mutation({
     const negotiationUpdates: Partial<Doc<"negotiations">> = {
         isAgentActive: args.isActive,
         agentTargetPricePerKm: args.isActive ? args.targetPricePerKm : undefined,
-        agentStatus: args.isActive ? 'negotiating' : undefined,
+        agentState: undefined, // Clear agent state when activating/deactivating
+        agentMessage: undefined, // Clear agent message as well
         agentReplyCount: args.isActive ? 0 : undefined, // Reset or clear reply count
         updatedAt: Date.now(),
     };
@@ -642,13 +648,14 @@ export const addAgentMessage = internalMutation({
 export const updateAgentStatus = internalMutation({
     args: {
         negotiationId: v.id("negotiations"),
-        status: v.optional(v.string()),
+        // Ensure status argument matches the new allowed states
+        status: v.optional(v.union(v.literal("needs_review"), v.literal("error"))),
         reason: v.optional(v.string()), // Optional reason for status
     },
     handler: async (ctx, args) => {
         await ctx.db.patch(args.negotiationId, {
-            agentStatus: args.status,
-            // agentErrorReason: args.reason, // Store reason if schema allows
+            agentState: args.status, // Use the new field name
+            agentMessage: args.reason, // Store the reason in the new field
             updatedAt: Date.now(),
         });
     }
@@ -673,6 +680,109 @@ export const incrementAgentReplyCount = internalMutation({
         });
         // Return the new count for potential use in the calling action
         return currentCount + 1; 
+    }
+});
+
+// --- Mutation to Resume Agent After User Review ---
+export const resumeAgent = mutation({
+    args: {
+        negotiationId: v.id("negotiations"),
+        action: v.union(
+            v.literal("continue"), // Continue with AI agent responding
+            v.literal("take_over")  // User takes over, deactivates agent
+        )
+    },
+    handler: async (ctx, args) => {
+        // Get current user and verify access
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Not authenticated");
+        }
+
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", q => q.eq("clerkId", identity.subject))
+            .unique();
+        if (!user) {
+            throw new Error("User not found");
+        }
+
+        const negotiation = await ctx.db.get(args.negotiationId);
+        if (!negotiation) {
+            throw new Error("Negotiation not found");
+        }
+
+        // Verify user has access to this negotiation
+        if (negotiation.userId !== user._id) {
+            throw new Error("Unauthorized to modify this negotiation");
+        }
+
+        // Verify the agent is in a state that can be resumed
+        if (!negotiation.isAgentActive) {
+            throw new Error("Agent is not active on this negotiation");
+        }
+
+        // Handle based on user's chosen action
+        if (args.action === "take_over") {
+            // User wants to take over - deactivate the agent
+            await ctx.db.patch(args.negotiationId, {
+                isAgentActive: false,
+                agentState: undefined, // Clear agent state
+                agentMessage: undefined, // Clear agent message
+                updatedAt: Date.now()
+            });
+            
+            // Add a system message indicating the user has taken over
+            const systemMessage = {
+                sender: "system",
+                content: "User has taken over the negotiation manually.",
+                timestamp: Date.now()
+            };
+            
+            await ctx.db.patch(args.negotiationId, {
+                messages: [...negotiation.messages, systemMessage],
+                updatedAt: Date.now(),
+            });
+            
+            console.log(`[resumeAgent] User ${user._id} has taken over negotiation ${args.negotiationId}`);
+            return { success: true, action: "take_over" };
+        }
+        
+        // User wants to continue with AI - update status and run agent if appropriate
+        await ctx.db.patch(args.negotiationId, {
+            // isAgentActive should already be true here, clear the review state
+            agentState: undefined, // Clear agent state (was 'needs_review')
+            agentMessage: undefined, // Clear the review message
+            updatedAt: Date.now()
+        });
+        
+        // Add a system message indicating the agent is resuming
+        const systemMessage = {
+            sender: "system",
+            content: "AI agent is resuming the negotiation.",
+            timestamp: Date.now()
+        };
+        
+        await ctx.db.patch(args.negotiationId, {
+            messages: [...negotiation.messages, systemMessage],
+            updatedAt: Date.now(),
+        });
+        
+        // If the user chose to continue, run the agent immediately
+        // We want the agent to respond right away when a user manually clicks "continue"
+        if (args.action === "continue") {
+            console.log(`[resumeAgent] Scheduling immediate agent run for negotiation ${args.negotiationId} after user review`);
+            await ctx.scheduler.runAfter(0, internal.agent.runAgentNegotiation, {
+                negotiationId: args.negotiationId,
+                // Bypass all notification rules since the user has explicitly chosen to continue
+                bypassNewTermsCheck: true,     
+                bypassMaxRepliesCheck: true,   
+                bypassRoundsCheck: true,       
+                bypassPriceIncreaseCheck: true
+            });
+        }
+        
+        return { success: true, action: "continue" };
     }
 });
 

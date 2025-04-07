@@ -194,7 +194,7 @@ export const clearAllNotifications = mutation({
   args: {
     filter: v.optional(v.union(
       v.literal("all"),
-      v.literal("read"),
+      v.literal("unread"),
       v.literal("agent")
     )),
   },
@@ -204,9 +204,11 @@ export const clearAllNotifications = mutation({
     let query = ctx.db
       .query("notifications")
       .withIndex("by_userId", q => q.eq("userId", user._id));
-    
-    if (args.filter === "read") {
-      query = query.filter(q => q.eq(q.field("isRead"), true));
+      
+    // Filter based on the provided filter type
+    if (args.filter === "unread") {
+      // If clearing 'unread', we actually want to delete READ notifications
+      query = query.filter(q => q.eq(q.field("isRead"), true)); 
     } else if (args.filter === "agent") {
       query = query.filter(q => 
         q.or(
@@ -215,7 +217,7 @@ export const clearAllNotifications = mutation({
           q.eq(q.field("type"), "agent_new_terms")
         )
       );
-    }
+    } // 'all' filter needs no additional .filter()
     
     const notifications = await query.collect();
     
