@@ -250,89 +250,40 @@ export default function NegotiationsPage() {
     return parsed === null ? NaN : parsed;
   };
   
-  // Helper to determine the effective current price for the list view
-  const determineCurrentPriceForList = (neg: Doc<"negotiations">): string => {
-      // If the negotiation has been accepted, use the finalPrice
-      if (neg.status === "accepted" && neg.finalPrice) {
-          return neg.finalPrice;
-      }
-      
-      // For non-accepted negotiations, find the latest price
-      const initialPrice = neg.initialRequest.price || 'N/A';
-  
-      // Find latest counter-offer (from anyone)
-      const latestCounterOffer = neg.counterOffers.length > 0
-        ? [...neg.counterOffers].sort((a, b) => b.timestamp - a.timestamp)[0]
-        : null;
-      const latestCounterOfferTimestamp = latestCounterOffer?.timestamp || 0;
-  
-      // Find latest message from counterparty
-      const counterpartyMessages = neg.messages
-        .filter(m => m.sender !== 'user' && m.sender !== 'agent' && m.sender !== 'system')
-        .sort((a, b) => b.timestamp - a.timestamp);
-      const latestMessage = counterpartyMessages.length > 0 ? counterpartyMessages[0] : null;
-      const latestMessageTimestamp = latestMessage?.timestamp || 0;
-  
-      let currentPriceStr = initialPrice;
-  
-      // Use latest counter offer if it's the latest price indication
-      if (latestCounterOffer && latestCounterOfferTimestamp >= latestMessageTimestamp) {
-        currentPriceStr = latestCounterOffer.price;
-      } 
-      // Otherwise, check the latest message if it's newer
-      else if (latestMessage && latestMessageTimestamp > latestCounterOfferTimestamp) {
-         const priceRegex = /(?:€|EUR)?\s*(\d+(?:[.,]\d+)?)(?:\s*EUR)?/i;
-         const priceMatch = latestMessage.content.match(priceRegex);
-         
-        if (priceMatch && priceMatch[1]) { 
-            const extractedPriceValue = priceMatch[1];
-            currentPriceStr = `€${extractedPriceValue.replace(",", ".")}`;
-        } else if (latestCounterOffer) {
-           currentPriceStr = latestCounterOffer.price;
-        }
-      }
-  
-      return currentPriceStr;
-  };
-
   // Format negotiations data from Convex
   const formatNegotiations = (): Negotiation[] => {
     if (!convexNegotiations) return [];
 
     return convexNegotiations.map(neg => {
       const initialPriceStr = neg.initialRequest.price;
-      const currentPriceStr = determineCurrentPriceForList(neg);
+      const currentPriceStr = neg.currentPrice; // Use database field directly (string | undefined)
       
       let savings: string | null = null;
       let savingsPercentage: string | null = null;
       
-      // --- Only calculate savings/gain if status is 'accepted' --- 
-      if (neg.status === "accepted") {
-        const initialNumeric = getNumericPrice(initialPriceStr);
-        const finalNumeric = getNumericPrice(currentPriceStr); // Using current price from determineCurrentPriceForList
+      // --- Calculate savings based on CURRENT price (if available) --- 
+      const initialNumeric = getNumericPrice(initialPriceStr);
+      const currentNumeric = getNumericPrice(currentPriceStr); // Use current price string
         
-        // If we have both numeric values, calculate the difference
-        if (!isNaN(initialNumeric) && !isNaN(finalNumeric)) {
-          // Calculate the raw difference (savings if price went down, cost if price went up)
-          const difference = initialNumeric - finalNumeric;
-          
-          // Format the result
-          if (difference > 0) {
-            // Positive difference means price went down (savings)
-            savings = `€${difference.toFixed(2)}`;
-            savingsPercentage = `${((difference / initialNumeric) * 100).toFixed(1)}%`;
-          } else if (difference < 0) {
-            // Negative difference means price went up (increased cost)
-            savings = `-€${Math.abs(difference).toFixed(2)}`;
-            savingsPercentage = `-${(Math.abs(difference) / initialNumeric * 100).toFixed(1)}%`;
-          } else {
-            // No change in price
-            savings = "€0.00";
-            savingsPercentage = "0.0%";
-          }
+      // If we have both numeric values, calculate the difference
+      if (!isNaN(initialNumeric) && !isNaN(currentNumeric)) {
+        const difference = initialNumeric - currentNumeric;
+        
+        if (difference > 0) {
+          // Positive difference means price went down (savings)
+          savings = `€${difference.toFixed(2)}`;
+          savingsPercentage = `${((difference / initialNumeric) * 100).toFixed(1)}%`;
+        } else if (difference < 0) {
+          // Negative difference means price went up (increased cost)
+          savings = `-€${Math.abs(difference).toFixed(2)}`;
+          savingsPercentage = `-${(Math.abs(difference) / initialNumeric * 100).toFixed(1)}%`;
+        } else {
+          // No change in price
+          savings = "€0.00";
+          savingsPercentage = "0.0%";
         }
       }
-      // --- End savings/gain calculation block ---
+      // --- End savings calculation block ---
       
       // Get last activity time
       const lastMessageTimestamp = neg.messages.length > 0 ? neg.messages[neg.messages.length - 1].timestamp : 0;
@@ -347,7 +298,7 @@ export default function NegotiationsPage() {
         destination: neg.initialRequest.destination,
         carrier: neg.initialRequest.carrier,
         initialPrice: initialPriceStr,
-        currentPrice: currentPriceStr,
+        currentPrice: currentPriceStr || initialPriceStr, // Display initial if current is undefined
         savings: savings,
         savingsPercentage: savingsPercentage,
         status: neg.status as NegotiationStatus,
