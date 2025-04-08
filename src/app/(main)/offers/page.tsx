@@ -28,6 +28,14 @@ import {
   Bot,
   Settings2,
   Wand2,
+  ArrowUpDown, // Added
+  MoreHorizontal, // Added
+  ChevronDown,
+  Cog,
+  CogIcon,
+  Settings,
+  Eraser,
+  RemoveFormatting, // Added
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +53,32 @@ import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/comp
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import * as React from "react"; // Added
+import {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
+  VisibilityState,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+  RowSelectionState, // Added
+  PaginationState, // Added
+} from "@tanstack/react-table"; // Added
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"; // Added
+import { mockOffers } from "@/data/mockOffers"; // Import the mock data
+import { useOffers, OfferFilters } from '@/lib/offers/useOffers';
 
 // Dynamic import of map components to avoid SSR issues with Leaflet
 const TransportMap = dynamic(() => import('@/components/TransportMap'), {
@@ -89,160 +123,6 @@ interface AiEvaluationResult {
   rank: number;
   reason: string;
 }
-
-// Dummy data for demonstration - UPDATED DATES relative to April 4, 2025
-const transportOffers: TransportOffer[] = [
-  {
-    id: "TR-2587",
-    origin: "Warsaw, PL",
-    originCoords: "52.2297° N, 21.0122° E",
-    destination: "Barcelona, ES",
-    destinationCoords: "41.3874° N, 2.1686° E",
-    distance: "2,350 km",
-    price: "€1,720",
-    pricePerKm: "€0.73/km",
-    carrier: "SpeedFreight Ltd.",
-    loadType: "General Cargo",
-    vehicle: "Standard Truck",
-    weight: "22 tons",
-    dimensions: "13.6 x 2.45 x 2.7m",
-    loadingDate: "2025-04-05", // Tomorrow
-    deliveryDate: "2025-04-08", // 3 days later
-    status: "Available",
-    platform: "TimoCom",
-    lastUpdated: "Today, 14:35",
-    dateCreated: "Today, 13:20",
-    description: "Full truck load. Standard loading/unloading. ADR not required.",
-    contact: "+49 30 1234567",
-    offerContactEmail: "alteriontech@gmail.com",
-    rating: 4.8,
-  },
-  {
-    id: "TR-2586",
-    origin: "Berlin, DE",
-    originCoords: "52.5200° N, 13.4050° E",
-    destination: "Paris, FR",
-    destinationCoords: "48.8566° N, 2.3522° E",
-    distance: "1,050 km",
-    price: "€980",
-    pricePerKm: "€0.93/km",
-    carrier: "ExpressLogistics GmbH",
-    loadType: "Palletized",
-    vehicle: "Standard Truck",
-    weight: "15 tons",
-    dimensions: "13.6 x 2.45 x 2.7m",
-    loadingDate: "2025-04-06", // Day after tomorrow
-    deliveryDate: "2025-04-07", // Next day
-    status: "Available",
-    platform: "Trans.eu",
-    lastUpdated: "Today, 12:20",
-    dateCreated: "Today, 09:45",
-    description: "33 Euro pallets. Tail lift required. No dangerous goods.",
-    contact: "+49 40 9876543",
-    offerContactEmail: "alteriontech@gmail.com",
-    rating: 4.6,
-  },
-  {
-    id: "TR-2585",
-    origin: "Munich, DE",
-    originCoords: "48.1351° N, 11.5820° E",
-    destination: "Vienna, AT",
-    destinationCoords: "48.2082° N, 16.3738° E",
-    distance: "355 km",
-    price: "€590",
-    pricePerKm: "€1.66/km",
-    carrier: "AlpineTransport",
-    loadType: "Temperature Controlled",
-    vehicle: "Refrigerated Truck",
-    weight: "8 tons",
-    dimensions: "13.6 x 2.45 x 2.7m",
-    loadingDate: "2025-04-04", // Today
-    deliveryDate: "2025-04-04", // Today
-    status: "Available",
-    platform: "Freightos",
-    lastUpdated: "Today, 10:15",
-    dateCreated: "Yesterday, 18:30",
-    description: "Temperature-controlled transport (2-8°C). Pharmaceutical products.",
-    contact: "+43 1 2345678",
-    offerContactEmail: "alteriontech@gmail.com",
-    rating: 4.9,
-  },
-  {
-    id: "TR-2584",
-    origin: "Amsterdam, NL",
-    originCoords: "52.3676° N, 4.9041° E",
-    destination: "Milan, IT",
-    destinationCoords: "45.4642° N, 9.1900° E",
-    distance: "1,120 km",
-    price: "€1,340",
-    pricePerKm: "€1.20/km",
-    carrier: "EuroMovers B.V.",
-    loadType: "General Cargo",
-    vehicle: "Mega Trailer",
-    weight: "24 tons",
-    dimensions: "13.6 x 2.45 x 3.0m",
-    loadingDate: "2025-04-07", // 3 days from now
-    deliveryDate: "2025-04-09", // 2 days later
-    status: "Available",
-    platform: "TimoCom",
-    lastUpdated: "Yesterday, 16:40",
-    dateCreated: "Yesterday, 12:15",
-    description: "Mixed cargo. High-value goods. Extra security required.",
-    contact: "+31 20 1234567",
-    offerContactEmail: "alteriontech@gmail.com",
-    rating: 4.5,
-  },
-  {
-    id: "TR-2583",
-    origin: "Prague, CZ",
-    originCoords: "50.0755° N, 14.4378° E",
-    destination: "Madrid, ES",
-    destinationCoords: "40.4168° N, 3.7038° W",
-    distance: "2,200 km",
-    price: "€1,850",
-    pricePerKm: "€0.84/km",
-    carrier: "SpeedCargo",
-    loadType: "General Cargo",
-    vehicle: "Standard Truck",
-    weight: "22 tons",
-    dimensions: "13.6 x 2.45 x 2.7m",
-    loadingDate: "2025-04-10", // 6 days from now (outside 5-day forecast)
-    deliveryDate: "2025-04-13", // 3 days later
-    status: "Available",
-    platform: "Trans.eu",
-    lastUpdated: "Yesterday, 14:10",
-    dateCreated: "2 days ago",
-    description: "General cargo, no special requirements. Loading dock available.",
-    contact: "+420 2 3456789",
-    offerContactEmail: "alteriontech@gmail.com",
-    rating: 4.4,
-  },
-  {
-    id: "TR-2582",
-    origin: "Lyon, FR",
-    originCoords: "45.7640° N, 4.8357° E",
-    destination: "Hamburg, DE", 
-    destinationCoords: "53.5511° N, 9.9937° E",
-    distance: "1,350 km",
-    price: "€1,450", 
-    pricePerKm: "€1.07/km",
-    carrier: "FreightMasters France",
-    loadType: "Fragile Goods",
-    vehicle: "Box Truck",
-    weight: "12 tons",
-    dimensions: "13.6 x 2.45 x 2.7m",
-    loadingDate: "2025-04-08", // 4 days from now
-    deliveryDate: "2025-04-10", // 2 days later (edge of 5-day forecast for loading, outside for delivery)
-    status: "Available",
-    platform: "Freightos",
-    lastUpdated: "2 days ago",
-    dateCreated: "3 days ago",
-    description: "Fragile goods, handle with care. Special packaging provided.",
-    contact: "+33 1 2345678",
-    offerContactEmail: "alteriontech@gmail.com",
-    rating: 4.7,
-  },
-];
 
 // Component for showing transport offer details in a dialog
 function TransportOfferDetails({ offer }: { offer: TransportOffer }) {
@@ -578,559 +458,356 @@ function OfferCard({
   );
 }
 
+// Define columns for the table
+const columns: ColumnDef<TransportOffer>[] = [
+  {
+    id: "select",
+    header: ({ table }) => (
+      <Checkbox
+        checked={
+          table.getIsAllPageRowsSelected() ||
+          (table.getIsSomePageRowsSelected() && "indeterminate")
+        }
+        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+        aria-label="Select all"
+        className="translate-y-[2px]"
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        checked={row.getIsSelected()}
+        onCheckedChange={(value) => row.toggleSelected(!!value)}
+        aria-label="Select row"
+        className="translate-y-[2px]"
+        onClick={(e) => e.stopPropagation()} // Prevent row click from triggering when clicking checkbox
+      />
+    ),
+    enableSorting: false,
+    enableHiding: false,
+  },
+  {
+    accessorKey: "id",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        className="-ml-4 h-8 data-[state=open]:bg-accent"
+      >
+        ID
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+    cell: ({ row }) => <div className="w-[80px] truncate">{row.getValue("id")}</div>,
+    enableHiding: false,
+  },
+  {
+    accessorKey: "route", // Custom accessor for combined route
+    header: "Route",
+    cell: ({ row }) => (
+      <div className="flex flex-col">
+        <div className="flex items-center">
+          <span className="h-1.5 w-1.5 rounded-full bg-blue-500 mr-1.5"></span>
+          {row.original.origin}
+        </div>
+        <div className="flex items-center mt-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-green-500 mr-1.5"></span>
+          {row.original.destination}
+        </div>
+      </div>
+    ),
+  },
+  {
+    accessorKey: "distance",
+    header: ({ column }) => (
+       <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        className="-ml-4 h-8 data-[state=open]:bg-accent"
+      >
+        Distance
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+    cell: ({ row }) => row.getValue("distance"),
+  },
+  {
+    accessorKey: "price",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        className="-ml-4 h-8 data-[state=open]:bg-accent"
+      >
+        Price
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+    cell: ({ row }) => <div className="font-medium">{row.getValue("price")}</div>,
+  },
+  {
+    accessorKey: "vehicle",
+    header: "Vehicle",
+  },
+  {
+    accessorKey: "dates", // Custom accessor for combined dates
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        className="-ml-4 h-8 data-[state=open]:bg-accent"
+      >
+        Dates
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+    sortingFn: (rowA, rowB) => { // Custom sorting for dates
+       const dateA = new Date(rowA.original.loadingDate).getTime();
+       const dateB = new Date(rowB.original.loadingDate).getTime();
+       return dateA - dateB;
+    },
+    cell: ({ row }) => (
+       <div className="flex flex-col">
+          <span className="text-xs text-muted-foreground">Load: {row.original.loadingDate}</span>
+          <span className="text-xs text-muted-foreground mt-1">Delivery: {row.original.deliveryDate}</span>
+       </div>
+    ),
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ row }) => {
+      const status = row.getValue("status") as string;
+      return (
+         <div className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+           ${
+             status === "Available"
+               ? "bg-green-100 text-green-800"
+               : status === "Pending"
+               ? "bg-orange-100 text-orange-800"
+               : "bg-neutral-100 text-neutral-800"
+           }
+         `}>
+           {status}
+         </div>
+      );
+    },
+    filterFn: (row, id, value) => { // Enable filtering for status
+      return value.includes(row.getValue(id));
+    },
+  },
+  {
+    accessorKey: "platform",
+    header: "Platform",
+    filterFn: (row, id, value) => { // Enable filtering for platform
+      return value.includes(row.getValue(id));
+    },
+  },
+  {
+    id: "actions",
+    cell: ({ row, table }) => {
+       // Access the handleOpenOfferDetails function from the table meta
+      const { handleOpenOfferDetails } = table.options.meta as { handleOpenOfferDetails: (id: string) => void };
+      const offer = row.original;
+
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className="h-8 w-8 p-0"
+              onClick={(e) => e.stopPropagation()} // Prevent row selection toggle
+            >
+              <span className="sr-only">Open menu</span>
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => handleOpenOfferDetails(offer.id)}>
+              View Details
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled>Start Negotiation (soon)</DropdownMenuItem>
+             {/* Add more actions here if needed */}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    },
+    enableSorting: false,
+    enableHiding: false,
+  },
+];
+
+
 export default function OffersPage() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [originFilter, setOriginFilter] = useState("");
-  const [destinationFilter, setDestinationFilter] = useState("");
-  const [platformFilter, setPlatformFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
-  const [loadTypeFilter, setLoadTypeFilter] = useState("");
-  const [sortBy, setSortBy] = useState("recent");
-  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
-  const [maxResults, setMaxResults] = useState("50");
+  const router = useRouter();
+  const createNegotiation = useMutation(api.negotiations.createNegotiation);
+  const { openNegotiation } = useNegotiationModal();
+  const evaluateOffersAction = useAction(api.offers.evaluateOffers);
+
+  const {
+    offers: filteredOffers,
+    isLoading,
+    filters,
+    setFilters,
+    totalCount,
+    pageCount,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    resetFilters
+  } = useOffers();
+
+  // Map view state
   const [selectedOffer, setSelectedOffer] = useState<string | null>(null);
   const [selectedOfferForModal, setSelectedOfferForModal] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("list");
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [isCreatingNegotiation, setIsCreatingNegotiation] = useState(false);
-  const [loadingSource, setLoadingSource] = useState<'initial' | 'refresh' | 'ai' | null>(null);
-  const createNegotiation = useMutation(api.negotiations.createNegotiation);
-  const { openNegotiation } = useNegotiationModal();
-  const router = useRouter();
-  
-  const [filteredOffers, setFilteredOffers] = useState<TransportOffer[]>(transportOffers);
+  const [isCreatingBatchNegotiations, setIsCreatingBatchNegotiations] = useState(false);
   const [negotiationIdMap, setNegotiationIdMap] = useState<Record<string, Id<"negotiations">>>({});
-  const [aiEvaluationResults, setAiEvaluationResults] = useState<Record<string, AiEvaluationResult>>({});
+  const [aiEvaluationResults, setAiEvaluationResults] = useState<Record<string, any>>({});
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+  const [isAiLoading, setIsAiLoading] = useState(false); // Add AI loading state
+  const [pendingFilters, setPendingFilters] = useState<OfferFilters>(filters); // State for pending filters
 
-  // --- State for AI Tool Preferences ---
+  // AI Tool Preferences
   const [useWeatherTool, setUseWeatherTool] = useState(true);
   const [useRouteTool, setUseRouteTool] = useState(true);
   const [useTollsTool, setUseTollsTool] = useState(true);
-  // -------------------------------------
 
-  // Get the Convex action handler
-  const evaluateOffersAction = useAction(api.offers.evaluateOffers);
+  // TanStack Table state
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
-  // Initial load of offers
-  useEffect(() => {
-    // Pass 'initial' source on first load
-    loadOffers('initial'); 
-  }, []);
-
-  // Scroll to map when map view is selected
-  useEffect(() => {
-    if (activeTab === "map" && mapContainerRef.current) {
-      setTimeout(() => {
-        mapContainerRef.current?.scrollIntoView({ 
-          behavior: "smooth", 
-          block: "start" 
-        });
-      }, 100);
-    }
-  }, [activeTab]);
-
+  // Filter handlers - update pending filters
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
+    setPendingFilters(prev => ({ ...prev, searchTerm: e.target.value }));
   };
   
   const handleOriginChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setOriginFilter(e.target.value);
+    setPendingFilters(prev => ({ ...prev, origin: e.target.value }));
   };
   
   const handleDestinationChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setDestinationFilter(e.target.value);
+    setPendingFilters(prev => ({ ...prev, destination: e.target.value }));
   };
   
   const handlePlatformChange = (value: string) => {
-    setPlatformFilter(value);
+    setPendingFilters(prev => ({ ...prev, platform: value === 'all' ? undefined : value }));
   };
   
   const handleStatusChange = (value: string) => {
-    setStatusFilter(value);
+    setPendingFilters(prev => ({ ...prev, status: value === 'all' ? undefined : value }));
   };
   
   const handleMinPriceChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setMinPrice(e.target.value);
+    setPendingFilters(prev => ({ ...prev, minPrice: parseInt(e.target.value) || undefined }));
   };
   
   const handleMaxPriceChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setMaxPrice(e.target.value);
+    setPendingFilters(prev => ({ ...prev, maxPrice: parseInt(e.target.value) || undefined }));
   };
   
   const handleLoadTypeChange = (value: string) => {
-    setLoadTypeFilter(value);
-  };
-  
-  const handleSortChange = (value: string) => {
-    setSortBy(value);
-  };
-  
-  const handleMaxResultsChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setMaxResults(e.target.value);
-  };
-  
-  // Function to load offers with loading state
-  const loadOffers = (source: 'initial' | 'refresh' = 'refresh') => {
-    setIsLoading(true);
-    setLoadingSource(source);
-    setAiEvaluationResults({}); // Clear AI results on refresh
-    
-    // Keep the current data visible while loading new data
-    // Instead of clearing filteredOffers, we'll just show loading indicators
-    
-    // Simulate API request delay
-    setTimeout(() => {
-      setFilteredOffers(transportOffers);
-      setIsLoading(false);
-    }, 1000);
-    
-    // When integrating with a real API, replace the above with:
-    // fetch('/api/offers')
-    //   .then(res => res.json())
-    //   .then(data => {
-    //     setFilteredOffers(data);
-    //     setIsLoading(false);
-    //   })
-    //   .catch(err => {
-    //     console.error('Error loading offers:', err);
-    //     setIsLoading(false);
-    //     setLoadingSource(null); // Also clear source on error
-    //   });
+    setPendingFilters(prev => ({ ...prev, loadType: value === 'all' ? undefined : value }));
   };
 
-  const applyFilters = () => {
-    setIsLoading(true);
-    setAiEvaluationResults({}); // Clear AI results when applying standard filters
-    
-    // Keep the current data visible while loading new filtered data
-    // This prevents layout shifts during filtering
-    
-    setTimeout(() => {
-      // Move filtering logic here
-      let filtered = transportOffers;
-      
-      // Apply search term filter
-      if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        filtered = filtered.filter(offer => 
-          offer.id.toLowerCase().includes(term) || 
-          offer.origin.toLowerCase().includes(term) || 
-          offer.destination.toLowerCase().includes(term) || 
-          offer.carrier.toLowerCase().includes(term)
-        );
-      }
-      
-      // Apply origin filter
-      if (originFilter) {
-        filtered = filtered.filter(offer => 
-          offer.origin.toLowerCase().includes(originFilter.toLowerCase())
-        );
-      }
-      
-      // Apply destination filter
-      if (destinationFilter) {
-        filtered = filtered.filter(offer => 
-          offer.destination.toLowerCase().includes(destinationFilter.toLowerCase())
-        );
-      }
-      
-      // Apply platform filter
-      if (platformFilter && platformFilter !== "all") {
-        filtered = filtered.filter(offer => 
-          offer.platform === platformFilter
-        );
-      }
-      
-      // Apply status filter
-      if (statusFilter && statusFilter !== "all") {
-        filtered = filtered.filter(offer => 
-          offer.status === statusFilter
-        );
-      }
-      
-      // Apply price range filters
-      if (minPrice) {
-        const min = parseInt(minPrice);
-        filtered = filtered.filter(offer => {
-          const price = parseInt(offer.price.replace(/[^0-9]/g, ''));
-          return price >= min;
-        });
-      }
-      
-      if (maxPrice) {
-        const max = parseInt(maxPrice);
-        filtered = filtered.filter(offer => {
-          const price = parseInt(offer.price.replace(/[^0-9]/g, ''));
-          return price <= max;
-        });
-      }
-      
-      // Apply load type filter
-      if (loadTypeFilter && loadTypeFilter !== "all") {
-        filtered = filtered.filter(offer => 
-          offer.loadType === loadTypeFilter
-        );
-      }
-      
-      // Apply sorting
-      if (sortBy) {
-        switch (sortBy) {
-          case "price-low":
-            filtered.sort((a, b) => {
-              const priceA = parseInt(a.price.replace(/[^0-9]/g, ''));
-              const priceB = parseInt(b.price.replace(/[^0-9]/g, ''));
-              return priceA - priceB;
-            });
-            break;
-          case "price-high":
-            filtered.sort((a, b) => {
-              const priceA = parseInt(a.price.replace(/[^0-9]/g, ''));
-              const priceB = parseInt(b.price.replace(/[^0-9]/g, ''));
-              return priceB - priceA;
-            });
-            break;
-          case "distance-low":
-            filtered.sort((a, b) => {
-              const distanceA = parseInt(a.distance.replace(/[^0-9]/g, ''));
-              const distanceB = parseInt(b.distance.replace(/[^0-9]/g, ''));
-              return distanceA - distanceB;
-            });
-            break;
-          case "date":
-            filtered.sort((a, b) => {
-              return new Date(a.loadingDate).getTime() - new Date(b.loadingDate).getTime();
-            });
-            break;
-          case "recent":
-          default:
-            // Assume more recent items are at the top already (based on ID)
-            break;
-        }
-      }
-      
-      // If max results is set, limit the number of offers shown
-      if (maxResults && parseInt(maxResults) > 0) {
-        filtered = filtered.slice(0, parseInt(maxResults));
-      }
-      
-      setFilteredOffers(filtered);
-
-      // Build active filters array for display
-      const newActiveFilters = [];
-      
-      if (platformFilter && platformFilter !== "all") {
-        newActiveFilters.push({ type: 'platform', value: platformFilter });
-      }
-      
-      if (statusFilter && statusFilter !== "all") {
-        newActiveFilters.push({ type: 'status', value: statusFilter });
-      }
-      
-      if (minPrice || maxPrice) {
-        const priceRange = `€${minPrice || '0'} - €${maxPrice || '∞'}`;
-        newActiveFilters.push({ type: 'price', value: priceRange });
-      }
-      
-      if (loadTypeFilter && loadTypeFilter !== "all") {
-        newActiveFilters.push({ type: 'loadType', value: loadTypeFilter });
-      }
-      
-      setActiveFilters(newActiveFilters);
-      setIsLoading(false);
-    }, 800);
-  };
-  
-  const resetFilters = () => {
-    setSearchTerm("");
-    setOriginFilter("");
-    setDestinationFilter("");
-    setPlatformFilter("");
-    setStatusFilter("");
-    setMinPrice("");
-    setMaxPrice("");
-    setLoadTypeFilter("");
-    setSortBy("recent");
-    setActiveFilters([]);
-  };
-  
-  const removeFilter = (index: number) => {
-    const filter = activeFilters[index];
-    const newFilters = [...activeFilters];
-    newFilters.splice(index, 1);
-    
-    // Reset the corresponding filter state
-    switch (filter.type) {
-      case 'platform':
-        setPlatformFilter("");
-        break;
-      case 'status':
-        setStatusFilter("");
-        break;
-      case 'price':
-        setMinPrice("");
-        setMaxPrice("");
-        break;
-      case 'loadType':
-        setLoadTypeFilter("");
-        break;
-    }
-    
-    setActiveFilters(newFilters);
+  // Function to apply pending filters
+  const handleApplyFilters = () => {
+    setFilters(pendingFilters);
   };
 
+  // Function to reset filters (both pending and active)
+  const handleResetFilters = () => {
+    setPendingFilters({}); // Clear pending filters
+    resetFilters(); // Reset active filters via the hook
+  };
+  
+  // Handler for opening the details modal
   const handleOpenOfferDetails = (offerId: string) => {
     setSelectedOfferForModal(offerId);
   };
 
-  // Updated function for AI Search - now includes filtering and uses isLoading
+  // --- TanStack Table Instance ---
+  const table = useReactTable({
+    data: filteredOffers,
+    columns,
+    pageCount: pageCount, // Provide the total page count from the hook
+    manualPagination: true, // Tell the table pagination is handled manually
+    getRowId: (originalRow) => originalRow.id, // Use the unique offer ID for row identification
+    autoResetPageIndex: false, // Prevent table from resetting page index on data change
+    state: {
+      sorting,
+      columnVisibility,
+      rowSelection,
+      columnFilters,
+      pagination: {
+        pageIndex: currentPage - 1,
+        pageSize
+      }
+    },
+    meta: {
+      handleOpenOfferDetails,
+    },
+    enableRowSelection: true,
+    onRowSelectionChange: setRowSelection,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
+    onPaginationChange: (updater) => {
+      if (typeof updater === 'function') {
+        const newState = updater({ pageIndex: currentPage - 1, pageSize });
+        setCurrentPage(newState.pageIndex + 1);
+        setPageSize(newState.pageSize);
+      }
+    },
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  // AI Search function 
   const handleAiSearchClick = async () => {
-    // Set main loading state to true to show skeletons
-    setIsLoading(true);
-    setLoadingSource('ai');
-    setAiEvaluationResults({}); // Clear previous results
+    setIsAiLoading(true); // Set AI loading true
+    const offersToEvaluate = table.getSortedRowModel().rows.map(row => row.original);
 
-    // --- Filtering Logic (copied from applyFilters, without setTimeout/setIsLoading) ---
-    let offersToEvaluate = [...transportOffers]; // Start with the original full list
-    
-    // Apply search term filter
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      offersToEvaluate = offersToEvaluate.filter(offer => 
-        offer.id.toLowerCase().includes(term) || 
-        offer.origin.toLowerCase().includes(term) || 
-        offer.destination.toLowerCase().includes(term) || 
-        offer.carrier.toLowerCase().includes(term)
-      );
+    if (offersToEvaluate.length === 0) {
+      setIsAiLoading(false); // Set AI loading false if no offers
+      return;
     }
-    
-    // Apply origin filter
-    if (originFilter) {
-      offersToEvaluate = offersToEvaluate.filter(offer => 
-        offer.origin.toLowerCase().includes(originFilter.toLowerCase())
-      );
-    }
-    
-    // Apply destination filter
-    if (destinationFilter) {
-      offersToEvaluate = offersToEvaluate.filter(offer => 
-        offer.destination.toLowerCase().includes(destinationFilter.toLowerCase())
-      );
-    }
-    
-    // Apply platform filter
-    if (platformFilter && platformFilter !== "all") {
-      offersToEvaluate = offersToEvaluate.filter(offer => 
-        offer.platform === platformFilter
-      );
-    }
-    
-    // Apply status filter
-    if (statusFilter && statusFilter !== "all") {
-      offersToEvaluate = offersToEvaluate.filter(offer => 
-        offer.status === statusFilter
-      );
-    }
-    
-    // Apply price range filters
-    if (minPrice) {
-      const min = parseInt(minPrice);
-      if (!isNaN(min)) {
-        offersToEvaluate = offersToEvaluate.filter(offer => {
-          const price = parseInt(offer.price.replace(/[^0-9]/g, ''));
-          return !isNaN(price) && price >= min;
-        });
-      }
-    }
-    
-    if (maxPrice) {
-      const max = parseInt(maxPrice);
-      if (!isNaN(max)) {
-        offersToEvaluate = offersToEvaluate.filter(offer => {
-          const price = parseInt(offer.price.replace(/[^0-9]/g, ''));
-          return !isNaN(price) && price <= max;
-        });
-      }
-    }
-    
-    // Apply load type filter
-    if (loadTypeFilter && loadTypeFilter !== "all") {
-      offersToEvaluate = offersToEvaluate.filter(offer => 
-        offer.loadType === loadTypeFilter
-      );
-    }
-    
-    // Apply sorting (important for consistency if AI considers order)
-    if (sortBy) {
-      switch (sortBy) {
-        case "price-low":
-          offersToEvaluate.sort((a, b) => {
-            const priceA = parseInt(a.price.replace(/[^0-9]/g, ''));
-            const priceB = parseInt(b.price.replace(/[^0-9]/g, ''));
-            return (isNaN(priceA) ? Infinity : priceA) - (isNaN(priceB) ? Infinity : priceB);
-          });
-          break;
-        case "price-high":
-          offersToEvaluate.sort((a, b) => {
-            const priceA = parseInt(a.price.replace(/[^0-9]/g, ''));
-            const priceB = parseInt(b.price.replace(/[^0-9]/g, ''));
-            return (isNaN(priceB) ? -Infinity : priceB) - (isNaN(priceA) ? -Infinity : priceA);
-          });
-          break;
-        case "distance-low":
-          offersToEvaluate.sort((a, b) => {
-            const distanceA = parseInt(a.distance.replace(/[^0-9]/g, ''));
-            const distanceB = parseInt(b.distance.replace(/[^0-9]/g, ''));
-            return (isNaN(distanceA) ? Infinity : distanceA) - (isNaN(distanceB) ? Infinity : distanceB);
-          });
-          break;
-        case "date":
-          offersToEvaluate.sort((a, b) => {
-            const dateA = new Date(a.loadingDate).getTime();
-            const dateB = new Date(b.loadingDate).getTime();
-            return (isNaN(dateA) ? Infinity : dateA) - (isNaN(dateB) ? Infinity : dateB);
-          });
-          break;
-        case "recent":
-        default:
-          // Assuming original transportOffers might have some inherent order or rely on ID
-          break;
-      }
-    }
-    
-    // Apply max results limit AFTER filtering and sorting
-    const currentMaxResults = parseInt(maxResults) || 50; // Default to 50 if invalid
-    if (currentMaxResults > 0) {
-      offersToEvaluate = offersToEvaluate.slice(0, currentMaxResults);
-    }
-    
-    // Update the main displayed offers list
-    setFilteredOffers(offersToEvaluate); 
-    
-    // Build active filters array for display (optional, but good for UX)
-    const newActiveFilters = [];
-    if (platformFilter && platformFilter !== "all") newActiveFilters.push({ type: 'platform', value: platformFilter });
-    if (statusFilter && statusFilter !== "all") newActiveFilters.push({ type: 'status', value: statusFilter });
-    if (minPrice || maxPrice) {
-      const priceRange = `€${minPrice || '0'} - €${maxPrice || '∞'}`;
-      newActiveFilters.push({ type: 'price', value: priceRange });
-    }
-    if (loadTypeFilter && loadTypeFilter !== "all") newActiveFilters.push({ type: 'loadType', value: loadTypeFilter });
-    setActiveFilters(newActiveFilters);
-    // --- End of Filtering Logic ---
 
-    // Gather context for AI
+    const currentSortBy = sorting.length > 0 ? `${sorting[0].id} (${sorting[0].desc ? 'desc' : 'asc'})` : 'default';
     const searchContext = {
       filters: {
-        searchTerm,
-        originFilter,
-        destinationFilter,
-        platformFilter,
-        statusFilter,
-        minPrice,
-        maxPrice,
-        loadTypeFilter,
-        sortBy,
+        searchTerm: filters.searchTerm || "",
+        originFilter: filters.origin || "",
+        destinationFilter: filters.destination || "",
+        platformFilter: filters.platform || "",
+        statusFilter: filters.status || "",
+        minPrice: filters.minPrice?.toString() || "",
+        maxPrice: filters.maxPrice?.toString() || "",
+        loadTypeFilter: filters.loadType || "",
+        sortBy: currentSortBy,
         maxResults: offersToEvaluate.length,
       },
       offers: offersToEvaluate,
-      useWeatherTool: useWeatherTool,
-      useRouteTool: useRouteTool,
-      useTollsTool: useTollsTool,
+      useWeatherTool,
+      useRouteTool,
+      useTollsTool,
     };
 
-    console.log(`Frontend: Filtered down to ${offersToEvaluate.length} offers. Calling evaluateOffers action with tool prefs: Weather=${useWeatherTool}, Route=${useRouteTool}, Tolls=${useTollsTool}.`);
-
-    // Check if there are any offers left after filtering before calling AI
-    if (offersToEvaluate.length === 0) {
-      console.log("Frontend: No offers match criteria, skipping AI evaluation.");
-      setIsLoading(false); // Stop loading state if skipping AI
-      setLoadingSource(null);
-      // Optionally show a message to the user
-      // alert("No offers found matching your current filters.");
-      return; // Exit the function
-    }
-
     try {
-      // Call the Convex action with the filtered list and NEW tool prefs
       const results = await evaluateOffersAction(searchContext);
-      console.log("Frontend: Received evaluation results:", results);
-
-      // --- Re-sort based on AI Ranking --- 
-      const rankedResults = results as Record<string, AiEvaluationResult>;
-
-      const finalSortedOffers = [...offersToEvaluate].sort((a, b) => {
-        const rankA = rankedResults[a.id]?.rank;
-        const rankB = rankedResults[b.id]?.rank;
-
-        // Put ranked items before unranked items
-        if (rankA !== undefined && rankB === undefined) return -1;
-        if (rankA === undefined && rankB !== undefined) return 1;
-
-        // Sort by rank ascending if both are ranked
-        if (rankA !== undefined && rankB !== undefined) {
-          return rankA - rankB;
-        }
-
-        // Otherwise, maintain original relative order (stable sort behavior)
-        return 0; 
-      });
-      // --- End of Re-sorting ---
-
-      // Update the displayed offers with the AI-ranked order
-      setFilteredOffers(finalSortedOffers);
-
-      // Now set the evaluation results for UI highlighting
-      setAiEvaluationResults(rankedResults); 
-
+      setAiEvaluationResults(results);
     } catch (error) {
-      console.error("Frontend: AI Search Error:", error);
-      alert("AI evaluation failed. Please ensure the backend is running correctly and try again."); 
+      console.error("Error evaluating offers:", error);
     } finally {
-      setIsLoading(false);
-      setLoadingSource(null);
-    }
-  };
-
-  const handleRequestTransport = async (offer: TransportOffer) => {
-    // Check if we already have a negotiation for this offer
-    if (negotiationIdMap[offer.id]) {
-      router.push(`/negotiations/${negotiationIdMap[offer.id]}`);
-      return;
-    }
-    
-    setIsCreatingNegotiation(true);
-    try {
-      const result = await createNegotiation({
-        offerId: offer.id,
-        initialRequest: {
-          origin: offer.origin,
-          destination: offer.destination,
-          price: offer.price,
-          distance: offer.distance, // Pass distance
-          loadType: offer.loadType,
-          carrier: offer.carrier,
-          weight: offer.weight,
-          dimensions: offer.dimensions,
-          notes: `Request for transport from ${offer.origin} to ${offer.destination}`,
-        },
-      });
-      
-      // Store the negotiation ID for this offer
-      const negotiationId = result.negotiationId as Id<"negotiations">;
-      setNegotiationIdMap(prev => ({
-        ...prev,
-        [offer.id]: negotiationId,
-      }));
-      
-      // Navigate to the full negotiation page
-      router.push(`/negotiations/${negotiationId}`);
-    } catch (error) {
-      console.error("Error creating negotiation:", error);
-    } finally {
-      setIsCreatingNegotiation(false);
+      setIsAiLoading(false); // Set AI loading false
     }
   };
 
@@ -1141,15 +818,13 @@ export default function OffersPage() {
         <Button 
           variant="outline" 
           size="sm" 
-          onClick={() => loadOffers()} 
+          onClick={() => setFilters({})} 
           disabled={isLoading}
           className="gap-2 h-9 px-3 min-w-[100px] flex items-center justify-center"
         >
-          {/* Show spinner only if loading was triggered by Refresh */} 
-          {isLoading && loadingSource === 'refresh' ? (
+          {isLoading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            // Show icon and text when not loading
             <span className="inline-flex items-center"> 
               <RefreshCw className="h-4 w-4 mr-1.5" />
               <span>Refresh</span>
@@ -1160,53 +835,56 @@ export default function OffersPage() {
 
       {/* Search and Filters */}
       <Card className="overflow-hidden">
-        <CardContent className="p-0">
-          <div className="px-4 space-y-2">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+        <CardContent className="p-4"> {/* Adjusted padding */}
+          <div className="space-y-4"> {/* Use space-y for better structure */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end"> {/* Adjusted gap */}
               {/* Search, Origin, Destination */}
-              <div className="space-y-1 md:col-span-4">
-                <label className="text-sm font-medium leading-none">Search</label>
+              <div className="space-y-1.5 md:col-span-4"> {/* Adjusted spacing */}
+                <Label htmlFor="main-search">Search</Label>
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input 
+                    id="main-search"
                     placeholder="ID, route, carrier..." 
                     className="pl-8 h-9" 
-                    value={searchTerm}
+                    value={pendingFilters.searchTerm || ''}
                     onChange={handleSearchChange}
                   />
                 </div>
               </div>
               
-              <div className="space-y-1 md:col-span-4">
-                <label className="text-sm font-medium leading-none">Origin</label>
+              <div className="space-y-1.5 md:col-span-4">
+                <Label htmlFor="origin-filter">Origin</Label>
                 <div className="relative">
                   <MapPin className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input 
+                    id="origin-filter"
                     placeholder="Country or city..." 
                     className="pl-8 h-9" 
-                    value={originFilter}
+                    value={pendingFilters.origin || ''}
                     onChange={handleOriginChange}
                   />
                 </div>
               </div>
               
-              <div className="space-y-1 md:col-span-4">
-                <label className="text-sm font-medium leading-none">Destination</label>
+              <div className="space-y-1.5 md:col-span-4">
+                <Label htmlFor="destination-filter">Destination</Label>
                 <div className="relative">
                   <MapPin className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input 
+                    id="destination-filter"
                     placeholder="Country or city..." 
                     className="pl-8 h-9"
-                    value={destinationFilter}
+                    value={pendingFilters.destination || ''}
                     onChange={handleDestinationChange}
                   />
                 </div>
               </div>
               
-              {/* Platform, Status, Load Type, Price Range */}
-              <div className="space-y-1 md:col-span-3">
-                <label className="text-sm font-medium leading-none">Platform</label>
-                <Select value={platformFilter} onValueChange={handlePlatformChange}>
+              {/* Platform, Status, Load Type */}
+              <div className="space-y-1.5 md:col-span-3">
+                <Label>Platform</Label>
+                <Select value={pendingFilters.platform || 'all'} onValueChange={handlePlatformChange}>
                   <SelectTrigger className="h-9 w-full">
                     <SelectValue placeholder="All platforms" />
                   </SelectTrigger>
@@ -1219,9 +897,9 @@ export default function OffersPage() {
                 </Select>
               </div>
 
-              <div className="space-y-1 md:col-span-3">
-                <label className="text-sm font-medium leading-none">Status</label>
-                <Select value={statusFilter} onValueChange={handleStatusChange}>
+              <div className="space-y-1.5 md:col-span-3">
+                <Label>Status</Label>
+                <Select value={pendingFilters.status || 'all'} onValueChange={handleStatusChange}>
                   <SelectTrigger className="h-9 w-full">
                     <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
@@ -1234,9 +912,9 @@ export default function OffersPage() {
                 </Select>
               </div>
               
-              <div className="space-y-1 md:col-span-3">
-                <label className="text-sm font-medium leading-none">Load Type</label>
-                <Select value={loadTypeFilter} onValueChange={handleLoadTypeChange}>
+              <div className="space-y-1.5 md:col-span-3">
+                <Label>Load Type</Label>
+                <Select value={pendingFilters.loadType || 'all'} onValueChange={handleLoadTypeChange}>
                   <SelectTrigger className="h-9 w-full">
                     <SelectValue placeholder="All types" />
                   </SelectTrigger>
@@ -1251,40 +929,42 @@ export default function OffersPage() {
               </div>
               
               {/* Price Range */}
-              <div className="space-y-1 md:col-span-3">
-                <label className="text-sm font-medium leading-none">Price Range</label>
+              <div className="space-y-1.5 md:col-span-3">
+                <Label>Price Range</Label>
                 <div className="flex items-center gap-2">
                   <Input 
                     placeholder="Min €"
-                    className="h-9 w-full" 
-                    value={minPrice}
+                    type="number" // Use number input
+                    className="h-9 w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" // Hide number arrows
+                    value={pendingFilters.minPrice || ''}
                     onChange={handleMinPriceChange}
                   />
-                  <span>-</span>
+                  <span className="text-muted-foreground">-</span>
                   <Input 
                     placeholder="Max €" 
-                    className="h-9 w-full"
-                    value={maxPrice}
+                    type="number"
+                    className="h-9 w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    value={pendingFilters.maxPrice || ''}
                     onChange={handleMaxPriceChange}
                   />
                 </div>
               </div>
               
               {/* Buttons */}
-              <div className="flex items-center justify-between gap-2 md:col-span-12 pt-4">
-                <div className="flex items-center gap-1">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 md:col-span-12 pt-4 border-t mt-2"> {/* Added border */}
+                <div className="flex items-center gap-1 self-start"> {/* AI Search + Popover */}
                   <Button 
                     size="sm" 
                     onClick={handleAiSearchClick}
                     disabled={isLoading}
                     className="h-9 px-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 relative overflow-hidden min-w-[110px] flex items-center justify-center gap-1.5"
                   >
-                    {isLoading && loadingSource === 'ai' ? (
+                    {isAiLoading ? ( // Use isAiLoading state
                       <Loader2 className="h-4 w-4 animate-spin" /> 
                     ) : (
                       <>
                         <Sparkles className="h-4 w-4" /> 
-                        <span>AI Search</span>
+                        <span>AI Rank</span> {/* Changed Text */}
                       </>
                     )}
                   </Button>
@@ -1295,6 +975,7 @@ export default function OffersPage() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-64 p-4">
+                      {/* ... (Popover content remains the same) ... */}
                       <div className="space-y-4">
                         <p className="text-sm font-medium leading-none">AI Agent Tools</p>
                         <div className="flex items-center space-x-2">
@@ -1331,40 +1012,30 @@ export default function OffersPage() {
                     </PopoverContent>
                   </Popover>
                 </div>
-                <div className="flex items-end gap-2">
-                  <Button variant="outline" size="sm" onClick={resetFilters} className="h-9">
+                <div className="flex items-end gap-2 self-end"> {/* Reset + Manual Search */}
+                  <Button variant="outline" size="sm" onClick={handleResetFilters} className="h-9">
                     Reset Filters
                   </Button>
-                  <Button size="sm" onClick={applyFilters} className="h-9" disabled={isLoading && loadingSource !== 'ai'}>
-                    <Search className="h-4 w-4 mr-1.5" />
-                    Search
+                  <Button size="sm" onClick={handleApplyFilters} className="h-9" disabled={isLoading}> 
+                    <Filter className="h-4 w-4 mr-1.5" />
+                    Apply Filters
                   </Button>
                 </div>
               </div>
             </div>
             
-            {/* Active filters */}
-            {activeFilters.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-2 border-t mt-1">
+            {/* Active filters display - Needs adjustment if desired */}
+            {Object.values(filters).some(v => v !== undefined) && ( // Check active filters from hook
+              <div className="flex flex-wrap gap-2 pt-3 border-t mt-3">
                 <span className="text-sm text-muted-foreground mr-1 pt-0.5">Active filters:</span>
-                {activeFilters.map((filter, index) => (
-                  <Badge key={index} variant="secondary" className="gap-1">
-                    {filter.type === 'platform' ? 'Platform: ' : ''}
-                    {filter.type === 'status' ? 'Status: ' : ''}
-                    {filter.type === 'price' ? 'Price: ' : ''}
-                    {filter.type === 'loadType' ? 'Type: ' : ''}
-                    {filter.value}
-                    <button
-                      onClick={() => removeFilter(index)}
-                      className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
-                        <path d="M18 6 6 18" />
-                        <path d="m6 6 12 12" />
-                      </svg>
-                      <span className="sr-only">Remove filter</span>
-                    </button>
-                  </Badge>
+                {/* This part now reflects the ACTUAL applied filters, not pending ones */} 
+                {Object.entries(filters)
+                  .filter(([_, value]) => value !== undefined)
+                  .map(([key, value]) => (
+                    <Badge key={key} variant="secondary" className="gap-1">
+                      <span className="capitalize">{key.replace(/([A-Z])/g, ' $1')}:</span> {String(value)}
+                      {/* Add individual remove buttons here if needed, linking to setFilters */}
+                    </Badge>
                 ))}
               </div>
             )}
@@ -1374,373 +1045,347 @@ export default function OffersPage() {
 
       {/* View Modes */}
       <Tabs 
-        defaultValue="list" 
+        value={activeTab} // Control active tab state
         className="space-y-4"
-        onValueChange={(value) => setActiveTab(value)}
+        onValueChange={(value) => {
+          setActiveTab(value);
+          table.resetRowSelection(); // Clear selection when changing tabs
+        }}
       >
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 h-8"> {/* Responsive layout */}
           <TabsList>
-            <TabsTrigger value="list" className="cursor-pointer hover:bg-black/10  transition-all duration-300">List View</TabsTrigger>
-            <TabsTrigger value="grid" className="cursor-pointer hover:bg-black/10  transition-all duration-300">Grid View</TabsTrigger>
-            <TabsTrigger value="map" className="cursor-pointer hover:bg-black/10 transition-all duration-300">Map View</TabsTrigger>
+            <TabsTrigger value="list">List View</TabsTrigger>
+            <TabsTrigger value="grid">Grid View</TabsTrigger>
+            <TabsTrigger value="map">Map View</TabsTrigger>
           </TabsList>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium whitespace-nowrap">Sort By:</label>
-              <div className="w-40">
-                <Select value={sortBy} onValueChange={handleSortChange}>
-                  <SelectTrigger className="h-8">
-                    <SelectValue placeholder="Most recent" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="recent">Most recent</SelectItem>
-                    <SelectItem value="price-low">Price: Low to High</SelectItem>
-                    <SelectItem value="price-high">Price: High to Low</SelectItem>
-                    <SelectItem value="distance-low">Distance: Low to High</SelectItem>
-                    <SelectItem value="date">Loading Date</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium whitespace-nowrap">Max Results:</label>
-              <Input 
-                type="number"
-                min="1"
-                className="h-8 w-20"
-                value={maxResults}
-                onChange={handleMaxResultsChange}
-                placeholder="50"
-              />
-            </div>
-            
-            <div className="text-sm text-muted-foreground whitespace-nowrap">
-              {isLoading ? (
-                <span className="flex items-center gap-2">
-                  <RefreshCw className="h-3 w-3 animate-spin" />
-                  {loadingSource === 'ai' ? 'Agent evaluating...' : 'Loading offers...'}
+          
+          {/* Selection & Controls Bar - Combined layout */}
+          <div className="flex flex-wrap gap-3 items-center justify-between">
+            {/* Left side: Action buttons for selected items */}
+            {Object.keys(rowSelection).length > 0 && (
+              <div className="flex items-center gap-2 py-1 px-2 bg-muted/50 border rounded-md">
+                <span className="text-sm">
+                  {Object.keys(rowSelection).length} selected
                 </span>
-              ) : (
-                `Showing ${filteredOffers.length} offers`
-              )}
-            </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => table.resetRowSelection()}
+                  className="h-8 px-2 text-xs"
+                >
+                  <Eraser className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="h-8">
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    className="gap-1.5 h-8"
+                    disabled={isCreatingBatchNegotiations}
+                  >
+                    {isCreatingBatchNegotiations ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Creating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        <span>Negotiate</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+            
+            {/* Right side: Table controls (only visible for list view) */}
+            {activeTab === 'list' && (
+              <div className="flex items-center gap-2 justify-end flex-wrap ml-auto">
+                {/* Column Visibility Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8">
+                      Columns <ChevronDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {table
+                      .getAllColumns()
+                      .filter((column) => column.getCanHide())
+                      .map((column) => {
+                        return (
+                          <DropdownMenuCheckboxItem
+                            key={column.id}
+                            className="capitalize"
+                            checked={column.getIsVisible()}
+                            onCheckedChange={(value) =>
+                              column.toggleVisibility(!!value)
+                            }
+                          >
+                            {column.id}
+                          </DropdownMenuCheckboxItem>
+                        );
+                      })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Page Size Select */}
+                <div className="flex items-center space-x-2">
+                  <Select
+                    value={pageSize.toString()} // Use pageSize state
+                    onValueChange={(value) => setPageSize(parseInt(value))} // Use setPageSize
+                  >
+                    <SelectTrigger id="page-size-select" className="h-8 w-[70px]">
+                      <SelectValue placeholder={pageSize} />
+                    </SelectTrigger>
+                    <SelectContent side="top">
+                      {[10, 20, 50, 100].map((size) => (
+                        <SelectItem key={size} value={size.toString()}>
+                          {size}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         <TabsContent value="list" className="space-y-4">
-          <div className="rounded-md border overflow-hidden min-h-[400px]">
+          <div className="rounded-md border overflow-hidden"> {/* Removed min-h */}
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="py-3 px-4 text-left font-medium">ID</th>
-                    <th className="py-3 px-4 text-left font-medium">Route</th>
-                    <th className="py-3 px-4 text-left font-medium">Distance</th>
-                    <th className="py-3 px-4 text-left font-medium">Price</th>
-                    <th className="py-3 px-4 text-left font-medium">Vehicle</th>
-                    <th className="py-3 px-4 text-left font-medium">Dates</th>
-                    <th className="py-3 px-4 text-left font-medium">Status</th>
-                    <th className="py-3 px-4 text-left font-medium">Platform</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table>
+                <TableHeader>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => {
+                        return (
+                          <TableHead key={header.id} colSpan={header.colSpan}>
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext()
+                                )}
+                          </TableHead>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
                   {isLoading ? (
-                    Array(5).fill(0).map((_, i) => (
-                      <tr key={`loading-${i}`} className="border-b animate-pulse">
-                        <td className="py-3 px-4"><div className="h-5 bg-muted rounded w-16"></div></td>
-                        <td className="py-3 px-4">
+                    // Skeleton Loading Rows
+                    Array(10).fill(0).map((_, i) => (
+                      <TableRow key={`loading-${i}`} className="animate-pulse">
+                        <TableCell><div className="h-4 w-4 bg-muted rounded"></div></TableCell>
+                        <TableCell><div className="h-5 bg-muted rounded w-16"></div></TableCell>
+                        <TableCell>
                           <div className="space-y-2">
                             <div className="h-4 bg-muted rounded w-28"></div>
                             <div className="h-4 bg-muted rounded w-28"></div>
                           </div>
-                        </td>
-                        <td className="py-3 px-4"><div className="h-5 bg-muted rounded w-16"></div></td>
-                        <td className="py-3 px-4"><div className="h-5 bg-muted rounded w-16"></div></td>
-                        <td className="py-3 px-4"><div className="h-5 bg-muted rounded w-24"></div></td>
-                        <td className="py-3 px-4">
+                        </TableCell>
+                        <TableCell><div className="h-5 bg-muted rounded w-16"></div></TableCell>
+                        <TableCell><div className="h-5 bg-muted rounded w-16"></div></TableCell>
+                        <TableCell><div className="h-5 bg-muted rounded w-24"></div></TableCell>
+                        <TableCell>
                           <div className="space-y-2">
                             <div className="h-4 bg-muted rounded w-24"></div>
                             <div className="h-4 bg-muted rounded w-24"></div>
                           </div>
-                        </td>
-                        <td className="py-3 px-4"><div className="h-5 bg-muted rounded w-20"></div></td>
-                        <td className="py-3 px-4"><div className="h-5 bg-muted rounded w-16"></div></td>
-                      </tr>
+                        </TableCell>
+                        <TableCell><div className="h-5 bg-muted rounded w-20"></div></TableCell>
+                        <TableCell><div className="h-5 bg-muted rounded w-16"></div></TableCell>
+                        <TableCell><div className="h-8 w-8 bg-muted rounded"></div></TableCell>
+                      </TableRow>
                     ))
-                  ) : filteredOffers.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="py-20 text-center text-muted-foreground">
-                        No offers found matching your criteria.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredOffers.map((offer) => {
-                      const aiResult = aiEvaluationResults[offer.id]; // Get AI result for this offer
+                  ) : table.getRowModel().rows?.length ? (
+                    // Actual Data Rows
+                    table.getRowModel().rows.map((row) => {
+                       const aiResult = aiEvaluationResults[row.original.id];
+                       const getRowRankClass = (rank?: number) => {
+                         switch (rank) {
+                           case 1: return "bg-yellow-50 hover:bg-yellow-100/80";
+                           case 2: return "bg-gray-100 hover:bg-gray-200/80";
+                           case 3: return "bg-orange-50 hover:bg-orange-100/80";
+                           default: return "hover:bg-muted/50";
+                         }
+                       };
+                       const rankClass = getRowRankClass(aiResult?.rank);
                       
-                      // Define rank colors for table row
-                      const getRowRankClass = (rank?: number) => {
-                        switch (rank) {
-                          case 1: return "bg-yellow-50 hover:bg-yellow-100/80"; // Gold
-                          case 2: return "bg-gray-100 hover:bg-gray-200/80"; // Silver
-                          case 3: return "bg-orange-50 hover:bg-orange-100/80"; // Bronze
-                          default: return "hover:bg-muted/50";
-                        }
-                      };
-
                       return (
-                        <Dialog key={offer.id}>
-                          <DialogTrigger asChild>
-                            {/* Add conditional background color and tooltip */} 
-                            <tr key={offer.id} className={`border-b cursor-pointer transition-colors ${getRowRankClass(aiResult?.rank)}`}>
-                              <td className="py-3 px-4 font-medium">
-                                <div className="flex items-center gap-2">
-                                  {offer.id}
-                                  {aiResult && (
-                                    <TooltipProvider>
-                                      <Tooltip delayDuration={100}>
-                                        <TooltipTrigger asChild>
-                                          {/* Simple Award icon indicator */} 
-                                          <Award 
-                                            className={`h-4 w-4 
-                                              ${aiResult.rank === 1 ? 'text-yellow-500' : ''}
-                                              ${aiResult.rank === 2 ? 'text-gray-500' : ''}
-                                              ${aiResult.rank === 3 ? 'text-orange-500' : ''}
-                                            `}
-                                          />
-                                        </TooltipTrigger>
-                                        <TooltipContent side="right" className="max-w-xs">
-                                          <p className="text-sm font-semibold mb-1">AI Rank #{aiResult.rank}</p>
-                                          <p className="text-xs">{aiResult.reason}</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="py-3 px-4">
-                                <div className="flex flex-col">
-                                  <div className="flex items-center">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500 mr-1.5"></span>
-                                    {offer.origin}
-                                  </div>
-                                  <div className="flex items-center mt-1">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 mr-1.5"></span>
-                                    {offer.destination}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="py-3 px-4">{offer.distance}</td>
-                              <td className="py-3 px-4 font-medium">{offer.price}</td>
-                              <td className="py-3 px-4">{offer.vehicle}</td>
-                              <td className="py-3 px-4">
-                                <div className="flex flex-col">
-                                  <span className="text-xs text-muted-foreground">Load: {offer.loadingDate}</span>
-                                  <span className="text-xs text-muted-foreground mt-1">Delivery: {offer.deliveryDate}</span>
-                                </div>
-                              </td>
-                              <td className="py-3 px-4">
-                                <div className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
-                                  ${
-                                    offer.status === "Available"
-                                      ? "bg-green-100 text-green-800"
-                                      : offer.status === "Pending"
-                                      ? "bg-orange-100 text-orange-800"
-                                      : "bg-neutral-100 text-neutral-800"
-                                  }
-                                `}>
-                                  {offer.status}
-                                </div>
-                              </td>
-                              <td className="py-3 px-4">{offer.platform}</td>
-                            </tr>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                              <DialogTitle>Transport Offer {offer.id}</DialogTitle>
-                            </DialogHeader>
-                            <TransportOfferDetails offer={offer} />
-                          </DialogContent>
-                        </Dialog>
+                        <TableRow
+                          key={row.id}
+                          data-state={row.getIsSelected() && "selected"}
+                          className={`${row.getIsSelected() ? 'bg-primary/5' : rankClass} transition-colors cursor-pointer`}
+                          onClick={() => handleOpenOfferDetails(row.original.id)} // Open details on row click
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id}>
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                              )}
+                              {/* Tooltip for AI Rank on ID column */}
+                               {cell.column.id === 'id' && aiResult && (
+                                 <TooltipProvider>
+                                   <Tooltip delayDuration={100}>
+                                     <TooltipTrigger asChild>
+                                       <Award 
+                                         className={`h-4 w-4 ml-2 inline-block align-middle
+                                           ${aiResult.rank === 1 ? 'text-yellow-500' : ''}
+                                           ${aiResult.rank === 2 ? 'text-gray-500' : ''}
+                                           ${aiResult.rank === 3 ? 'text-orange-500' : ''}
+                                         `}
+                                       />
+                                     </TooltipTrigger>
+                                     <TooltipContent side="right" className="max-w-xs">
+                                       <p className="text-sm font-semibold mb-1">AI Rank #{aiResult.rank}</p>
+                                       <p className="text-xs">{aiResult.reason}</p>
+                                     </TooltipContent>
+                                   </Tooltip>
+                                 </TooltipProvider>
+                               )}
+                            </TableCell>
+                          ))}
+                        </TableRow>
                       );
                     })
+                  ) : (
+                    // No Results Row
+                    <TableRow>
+                      <TableCell
+                        colSpan={columns.length}
+                        className="h-24 text-center"
+                      >
+                        No offers found matching your criteria.
+                      </TableCell>
+                    </TableRow>
                   )}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
+          </div>
+          
+          {/* Pagination Controls */}
+          <div className="flex items-center justify-between pt-2">
+             <div className="flex-1 text-sm text-muted-foreground">
+               {Object.keys(rowSelection).length} of{" "} {/* Use length of rowSelection state */}
+               {table.getFilteredRowModel().rows.length} row(s) selected.
+             </div>
+             <div className="flex items-center space-x-2">
+                <span className="text-sm text-muted-foreground">
+                  Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                  className="h-8"
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                  className="h-8"
+                >
+                  Next
+                </Button>
+              </div>
           </div>
         </TabsContent>
 
+        {/* Grid View Content (remains mostly the same) */}
         <TabsContent value="grid" className="space-y-4">
-          <div className="min-h-[600px]">
-            {isLoading ? (
+           <div className="min-h-[600px]">
+            {/* ... existing grid loading/empty/data states ... */}
+             {isLoading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 p-1">
-                {Array(8).fill(0).map((_, i) => (
-                  <Card key={`skeleton-${i}`} className="h-full flex flex-col overflow-hidden animate-pulse">
-                    <div className="bg-muted px-3 py-2 border-b flex items-center justify-between">
-                      <div className="h-5 bg-muted-foreground/20 rounded w-16"></div>
-                      <div className="h-4 bg-muted-foreground/20 rounded w-20"></div>
-                    </div>
-                    
-                    <CardHeader className="pb-1 pt-3">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-muted-foreground/20"></div>
-                          <div className="h-4 bg-muted-foreground/20 rounded w-28"></div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-muted-foreground/20"></div>
-                          <div className="h-4 bg-muted-foreground/20 rounded w-32"></div>
-                        </div>
-                        <div className="flex items-center justify-between pt-1">
-                          <div className="h-4 bg-muted-foreground/20 rounded w-20"></div>
-                          <div className="h-5 bg-muted-foreground/20 rounded w-16"></div>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    
-                    <CardContent className="flex-1 py-0">
-                      <div className="grid grid-cols-2 gap-y-2 gap-x-4 mb-4">
-                        <div>
-                          <div className="h-3 bg-muted-foreground/20 rounded w-8 mb-1"></div>
-                          <div className="h-5 bg-muted-foreground/20 rounded w-16"></div>
-                        </div>
-                        <div>
-                          <div className="h-3 bg-muted-foreground/20 rounded w-12 mb-1"></div>
-                          <div className="h-5 bg-muted-foreground/20 rounded w-14"></div>
-                        </div>
-                        <div>
-                          <div className="h-3 bg-muted-foreground/20 rounded w-10 mb-1"></div>
-                          <div className="h-5 bg-muted-foreground/20 rounded w-24"></div>
-                        </div>
-                        <div>
-                          <div className="h-3 bg-muted-foreground/20 rounded w-10 mb-1"></div>
-                          <div className="h-5 bg-muted-foreground/20 rounded w-24"></div>
-                        </div>
-                      </div>
-                      
-                      <div className="h-4 bg-muted-foreground/20 rounded w-full mb-2"></div>
-                      
-                      <div className="bg-muted/30 -mx-6 px-6 py-2 mt-auto border-t flex justify-between items-center">
-                        <div className="flex flex-col gap-1">
-                          <div className="h-3 bg-muted-foreground/20 rounded w-14"></div>
-                          <div className="h-4 bg-muted-foreground/20 rounded w-20"></div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <div className="h-3 bg-muted-foreground/20 rounded w-14"></div>
-                          <div className="h-4 bg-muted-foreground/20 rounded w-20"></div>
-                        </div>
-                      </div>
-                    </CardContent>
-                    
-                    <div className="p-3 border-t bg-background flex items-center justify-between gap-2">
-                      <div className="h-8 bg-muted-foreground/20 rounded w-full"></div>
-                    </div>
-                  </Card>
-                ))}
+                 {/* Skeleton Cards */}
+                {Array(8).fill(0).map((_, i) => ( <Card key={`skeleton-${i}`} className="h-full flex flex-col overflow-hidden animate-pulse"> <div className="bg-muted px-3 py-2 border-b flex items-center justify-between"> <div className="h-5 bg-muted-foreground/20 rounded w-16"></div> <div className="h-4 bg-muted-foreground/20 rounded w-20"></div> </div> <CardHeader className="pb-1 pt-3"> <div className="space-y-2"> <div className="flex items-center gap-2"> <div className="h-2 w-2 rounded-full bg-muted-foreground/20"></div> <div className="h-4 bg-muted-foreground/20 rounded w-28"></div> </div> <div className="flex items-center gap-2"> <div className="h-2 w-2 rounded-full bg-muted-foreground/20"></div> <div className="h-4 bg-muted-foreground/20 rounded w-32"></div> </div> <div className="flex items-center justify-between pt-1"> <div className="h-4 bg-muted-foreground/20 rounded w-20"></div> <div className="h-5 bg-muted-foreground/20 rounded w-16"></div> </div> </div> </CardHeader> <CardContent className="flex-1 py-0"> <div className="grid grid-cols-2 gap-y-2 gap-x-4 mb-4"> <div> <div className="h-3 bg-muted-foreground/20 rounded w-8 mb-1"></div> <div className="h-5 bg-muted-foreground/20 rounded w-16"></div> </div> <div> <div className="h-3 bg-muted-foreground/20 rounded w-12 mb-1"></div> <div className="h-5 bg-muted-foreground/20 rounded w-14"></div> </div> <div> <div className="h-3 bg-muted-foreground/20 rounded w-10 mb-1"></div> <div className="h-5 bg-muted-foreground/20 rounded w-24"></div> </div> <div> <div className="h-3 bg-muted-foreground/20 rounded w-10 mb-1"></div> <div className="h-5 bg-muted-foreground/20 rounded w-24"></div> </div> </div> <div className="h-4 bg-muted-foreground/20 rounded w-full mb-2"></div> <div className="bg-muted/30 -mx-6 px-6 py-2 mt-auto border-t flex justify-between items-center"> <div className="flex flex-col gap-1"> <div className="h-3 bg-muted-foreground/20 rounded w-14"></div> <div className="h-4 bg-muted-foreground/20 rounded w-20"></div> </div> <div className="flex flex-col items-end gap-1"> <div className="h-3 bg-muted-foreground/20 rounded w-14"></div> <div className="h-4 bg-muted-foreground/20 rounded w-20"></div> </div> </div> </CardContent> <div className="p-3 border-t bg-background flex items-center justify-between gap-2"> <div className="h-8 bg-muted-foreground/20 rounded w-full"></div> </div> </Card> ))}
               </div>
-            ) : filteredOffers.length === 0 ? (
+             ) : filteredOffers.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[600px]">
                 <p className="text-muted-foreground">No offers found matching your criteria.</p>
               </div>
-            ) : (
+             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 p-1">
                 {filteredOffers.map((offer) => (
                   <OfferCard 
                     key={offer.id} 
                     offer={offer} 
-                    onSelect={(id) => handleOpenOfferDetails(id)} 
-                    aiResult={aiEvaluationResults[offer.id]} // Pass AI result to OfferCard
+                    onSelect={(id) => handleOpenOfferDetails(id)} // Use the shared handler
+                    aiResult={aiEvaluationResults[offer.id]} 
                   />
                 ))}
               </div>
             )}
-          </div>
+           </div>
         </TabsContent>
 
+        {/* Map View Content (remains mostly the same) */}
         <TabsContent value="map" className="space-y-4">
           <div 
             ref={mapContainerRef}
             className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-[700px]"
           >
-            {/* Offers list sidebar */}
+            {/* Offers list sidebar (map view specific list) */}
             <div className="lg:col-span-1 border rounded-lg overflow-hidden shadow-sm bg-card h-[700px]">
               <div className="p-3 border-b flex items-center justify-between bg-muted/30">
                 <h3 className="font-medium">Available Routes</h3>
                 <div className="text-xs text-muted-foreground">
                   {isLoading ? (
                     <span className="flex items-center gap-1">
-                      <RefreshCw className="h-3 w-3 animate-spin" />
-                      Loading...
+                      <RefreshCw className="h-3 w-3 animate-spin" /> Loading...
                     </span>
                   ) : (
-                    `${filteredOffers.length} offers`
+                    `${filteredOffers.length} shown` // Use filteredOffers length
                   )}
                 </div>
               </div>
               <div className="overflow-y-auto h-[calc(700px-48px)]">
-                {isLoading ? (
-                  <div className="space-y-0">
-                    {Array(6).fill(0).map((_, i) => (
-                      <div key={`map-skeleton-${i}`} className="p-3 border-b animate-pulse">
+                 {/* Loading/Empty/Data states for map list */}
+                 {isLoading ? (
+                   <div className="space-y-0"> {Array(6).fill(0).map((_, i) => ( <div key={`map-skeleton-${i}`} className="p-3 border-b animate-pulse"> <div className="flex justify-between items-start mb-2"> <div className="h-5 bg-muted-foreground/20 rounded w-16"></div> <div className="h-5 bg-muted-foreground/20 rounded w-20"></div> </div> <div className="space-y-3"> <div className="grid grid-cols-[16px_1fr] gap-1.5"> <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/20 mt-1.5"></div> <div className="h-4 bg-muted-foreground/20 rounded w-28"></div> </div> <div className="grid grid-cols-[16px_1fr] gap-1.5"> <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/20 mt-1.5"></div> <div className="h-4 bg-muted-foreground/20 rounded w-32"></div> </div> </div> <div className="flex justify-between items-center mt-2 pt-2 border-t border-border/40"> <div className="h-5 bg-muted-foreground/20 rounded w-16"></div> <div className="h-4 bg-muted-foreground/20 rounded w-14"></div> </div> </div> ))} </div>
+                 ) : filteredOffers.length === 0 ? (
+                   <div className="flex flex-col items-center justify-center h-full"> <p className="text-sm text-muted-foreground">No offers found</p> </div>
+                 ) : (
+                   filteredOffers.map((offer) => (
+                     <div 
+                       key={offer.id}
+                       className={`p-3 border-b hover:bg-muted/50 cursor-pointer transition-colors ${selectedOffer === offer.id ? 'bg-muted' : ''}`}
+                       onClick={() => setSelectedOffer(selectedOffer === offer.id ? null : offer.id)}
+                     >
+                       {/* ... Map list item content ... */}
                         <div className="flex justify-between items-start mb-2">
-                          <div className="h-5 bg-muted-foreground/20 rounded w-16"></div>
-                          <div className="h-5 bg-muted-foreground/20 rounded w-20"></div>
-                        </div>
-                        <div className="space-y-3">
-                          <div className="grid grid-cols-[16px_1fr] gap-1.5">
-                            <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/20 mt-1.5"></div>
-                            <div className="h-4 bg-muted-foreground/20 rounded w-28"></div>
-                          </div>
-                          <div className="grid grid-cols-[16px_1fr] gap-1.5">
-                            <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/20 mt-1.5"></div>
-                            <div className="h-4 bg-muted-foreground/20 rounded w-32"></div>
-                          </div>
-                        </div>
-                        <div className="flex justify-between items-center mt-2 pt-2 border-t border-border/40">
-                          <div className="h-5 bg-muted-foreground/20 rounded w-16"></div>
-                          <div className="h-4 bg-muted-foreground/20 rounded w-14"></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : filteredOffers.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full">
-                    <p className="text-sm text-muted-foreground">No offers found</p>
-                  </div>
-                ) : (
-                  filteredOffers.map((offer) => (
-                    <div 
-                      key={offer.id}
-                      className={`p-3 border-b hover:bg-muted/50 cursor-pointer transition-colors ${selectedOffer === offer.id ? 'bg-muted' : ''}`}
-                      onClick={() => setSelectedOffer(selectedOffer === offer.id ? null : offer.id)}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="font-medium">{offer.id}</div>
-                        <Badge 
-                          variant="outline" 
-                          className="text-xs"
-                        >
-                          {offer.platform}
-                        </Badge>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="grid grid-cols-[16px_1fr] gap-1.5">
-                          <div className="h-2.5 w-2.5 rounded-full bg-blue-500 mt-1.5"></div>
-                          <div className="text-sm truncate">{offer.origin}</div>
-                        </div>
-                        <div className="grid grid-cols-[16px_1fr] gap-1.5">
-                          <div className="h-2.5 w-2.5 rounded-full bg-green-500 mt-1.5"></div>
-                          <div className="text-sm truncate">{offer.destination}</div>
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center mt-2 pt-2 border-t border-border/40">
-                        <div className="text-sm font-medium">{offer.price}</div>
-                        <div className="text-xs text-muted-foreground">{offer.distance}</div>
-                      </div>
-                    </div>
-                  ))
-                )}
+                          <div className="font-medium">{offer.id}</div>
+                          <Badge variant="outline" className="text-xs"> {offer.platform} </Badge>
+                       </div>
+                       <div className="space-y-2">
+                         <div className="grid grid-cols-[16px_1fr] gap-1.5">
+                           <div className="h-2.5 w-2.5 rounded-full bg-blue-500 mt-1.5"></div>
+                           <div className="text-sm truncate">{offer.origin}</div>
+                         </div>
+                         <div className="grid grid-cols-[16px_1fr] gap-1.5">
+                           <div className="h-2.5 w-2.5 rounded-full bg-green-500 mt-1.5"></div>
+                           <div className="text-sm truncate">{offer.destination}</div>
+                         </div>
+                       </div>
+                       <div className="flex justify-between items-center mt-2 pt-2 border-t border-border/40">
+                         <div className="text-sm font-medium">{offer.price}</div>
+                         <div className="text-xs text-muted-foreground">{offer.distance}</div>
+                       </div>
+                     </div>
+                   ))
+                 )}
               </div>
             </div>
             
@@ -1748,16 +1393,13 @@ export default function OffersPage() {
             <Card className="lg:col-span-3 h-[700px] p-0">
               <CardContent className="p-0 h-full">
                 {isLoading ? (
-                  <div className="flex flex-col items-center justify-center h-full space-y-3">
-                    <RefreshCw className="h-10 w-10 animate-spin text-primary/70" />
-                    <p className="text-muted-foreground">Loading map and routes...</p>
-                  </div>
-                ) : (
+                   <div className="flex flex-col items-center justify-center h-full space-y-3"> <RefreshCw className="h-10 w-10 animate-spin text-primary/70" /> <p className="text-muted-foreground">Loading map and routes...</p> </div>
+                 ) : (
                   <TransportMap 
-                    offers={filteredOffers} 
+                    offers={filteredOffers} // Pass filtered offers to map
                     selectedOfferId={selectedOffer} 
                     onRouteSelect={(offerId) => setSelectedOffer(selectedOffer === offerId ? null : offerId)} 
-                    onOpenDetails={handleOpenOfferDetails}
+                    onOpenDetails={handleOpenOfferDetails} // Use shared handler
                   />
                 )}
               </CardContent>
@@ -1766,7 +1408,7 @@ export default function OffersPage() {
         </TabsContent>
       </Tabs>
       
-      {/* Modal Dialog for offer details that can be triggered from map popups */}
+      {/* Modal Dialog for offer details (remains the same) */}
       {selectedOfferForModal && (
         <Dialog open={!!selectedOfferForModal} onOpenChange={(open) => !open && setSelectedOfferForModal(null)}>
           <DialogContent className="max-w-2xl">

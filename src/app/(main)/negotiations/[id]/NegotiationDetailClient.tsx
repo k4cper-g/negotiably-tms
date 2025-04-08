@@ -82,6 +82,10 @@ interface AgentSettingsModalProps {
   negotiation: any; // Type this more specifically based on your actual negotiation object
   targetPricePerKm: string;
   setTargetPricePerKm: (value: string) => void;
+  negotiationMode: "pricePerKm" | "percentage"; // Add negotiation mode
+  setNegotiationMode: (mode: "pricePerKm" | "percentage") => void; // Add setter for mode
+  targetPercentage: string; // Add target percentage field
+  setTargetPercentage: (value: string) => void; // Add setter for percentage
   isConfiguringAgent: boolean;
   agentStyle: "conservative" | "balanced" | "aggressive";
   setAgentStyle: React.Dispatch<React.SetStateAction<"conservative" | "balanced" | "aggressive">>;
@@ -95,6 +99,7 @@ interface AgentSettingsModalProps {
   setMaxAutoReplies: (value: number) => void;
   handleToggleAgent: (enabled: boolean) => Promise<void>;
   calculateCurrentPricePerKm: () => string | null;
+  calculateTargetPrice: () => string | null; // Add function to calculate total target price
 }
 
 // Extract the AgentSettingsModal component outside the main component
@@ -104,6 +109,10 @@ const AgentSettingsModal = memo(({
   negotiation,
   targetPricePerKm,
   setTargetPricePerKm,
+  negotiationMode,
+  setNegotiationMode,
+  targetPercentage,
+  setTargetPercentage,
   isConfiguringAgent,
   agentStyle,
   setAgentStyle,
@@ -116,7 +125,8 @@ const AgentSettingsModal = memo(({
   maxAutoReplies,
   setMaxAutoReplies,
   handleToggleAgent,
-  calculateCurrentPricePerKm
+  calculateCurrentPricePerKm,
+  calculateTargetPrice
 }: AgentSettingsModalProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -144,7 +154,35 @@ const AgentSettingsModal = memo(({
               {/* Price Target Section */}
               <div className="border-t pt-4 mt-2">
                 <h3 className="font-medium mb-3">Target Price Settings</h3>
+                
+                {/* Toggle between price/km and percentage modes */}
+                <div className="mb-4">
+                  <Label className="block mb-2">Negotiation Mode</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button 
+                      variant={negotiationMode === "pricePerKm" ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => setNegotiationMode("pricePerKm")}
+                      disabled={negotiation.isAgentActive}
+                      className="w-full"
+                    >
+                      Price per km
+                    </Button>
+                    <Button 
+                      variant={negotiationMode === "percentage" ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => setNegotiationMode("percentage")}
+                      disabled={negotiation.isAgentActive}
+                      className="w-full"
+                    >
+                      Percentage
+                    </Button>
+                  </div>
+                </div>
+                
                 <div className="space-y-3">
+                  {negotiationMode === "pricePerKm" ? (
+                    // Price per km input
                   <div className="space-y-1.5">
                     <Label htmlFor="modalTargetPrice">
                       Target Price per km (EUR/km)
@@ -159,15 +197,62 @@ const AgentSettingsModal = memo(({
                         value={targetPricePerKm}
                         onChange={(e) => setTargetPricePerKm(e.target.value)}
                         disabled={isConfiguringAgent || (negotiation.isAgentActive && negotiation.status === "pending")}
-                        className="w-full"
+                          className={cn(
+                            "w-full",
+                            targetPricePerKm && (isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0) && "border-red-500"
+                          )}
                       />
                     </div>
+                      {targetPricePerKm && (isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0) && (
+                        <p className="text-xs text-red-500 mt-1">
+                          Please enter a valid positive number
+                        </p>
+                      )}
                     {calculateCurrentPricePerKm() && (
                       <p className="text-xs text-muted-foreground">
                         Current: ~{calculateCurrentPricePerKm()} EUR/km
                       </p>
                     )}
                   </div>
+                  ) : (
+                    // Percentage input
+                    <div className="space-y-1.5">
+                      <Label htmlFor="targetPercentage">
+                        Target Percentage (from initial price)
+                      </Label>
+                      <div className="flex gap-2 items-center">
+                        <Input
+                          id="targetPercentage"
+                          type="number"
+                          step="1"
+                          min="-50"
+                          max="50"
+                          placeholder="e.g. -10 (10% below initial)"
+                          value={targetPercentage}
+                          onChange={(e) => setTargetPercentage(e.target.value)}
+                          disabled={isConfiguringAgent || (negotiation.isAgentActive && negotiation.status === "pending")}
+                          className={cn(
+                            "w-full",
+                            targetPercentage && (isNaN(parseFloat(targetPercentage))) && "border-red-500"
+                          )}
+                        />
+                        <span className="text-lg">%</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Use negative values for discount (e.g. -10 means 10% below initial price)
+                      </p>
+                      {targetPercentage && isNaN(parseFloat(targetPercentage)) && (
+                        <p className="text-xs text-red-500 mt-1">
+                          Please enter a valid number
+                        </p>
+                      )}
+                      {calculateTargetPrice() && (
+                        <p className="text-xs font-medium text-primary mt-1">
+                          Target price: {calculateTargetPrice()}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Negotiation Style Section */}
                   <div className="space-y-1.5 pt-2">
@@ -311,10 +396,20 @@ const AgentSettingsModal = memo(({
             <Button 
               type="button" 
               onClick={() => handleToggleAgent(true)}
-              disabled={isConfiguringAgent || !targetPricePerKm || isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0}
+              disabled={isConfiguringAgent || 
+                (negotiationMode === "pricePerKm" 
+                  ? (!targetPricePerKm || isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0)
+                  : (!targetPercentage || isNaN(parseFloat(targetPercentage))))
+              }
             >
-              {isConfiguringAgent ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
-              Activate Agent
+              {isConfiguringAgent ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Bot className="mr-2 h-4 w-4" />
+              )}
+              {negotiationMode === "pricePerKm" 
+                ? "Activate Agent with Target Price" 
+                : "Activate Agent with Target Percentage"}
             </Button>
           )}
         </DialogFooter>
@@ -340,6 +435,24 @@ export default function NegotiationDetailClient({
     negotiationId 
   });
   
+  // State for settings dialog
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [subjectInput, setSubjectInput] = useState('');
+  const [ccInput, setCcInput] = useState('');
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  
+  // AI Agent States
+  const [targetPricePerKm, setTargetPricePerKm] = useState("");
+  const [negotiationMode, setNegotiationMode] = useState<"pricePerKm" | "percentage">("pricePerKm");
+  const [targetPercentage, setTargetPercentage] = useState("");
+  const [agentStyle, setAgentStyle] = useState<"conservative" | "balanced" | "aggressive">("balanced");
+  const [notifyOnPriceIncrease, setNotifyOnPriceIncrease] = useState(true);
+  const [notifyOnNewTerms, setNotifyOnNewTerms] = useState(true);
+  const [maxAutoReplies, setMaxAutoReplies] = useState(3);
+  const [notifyAfterRounds, setNotifyAfterRounds] = useState(5);
+  const [isAgentSettingsOpen, setIsAgentSettingsOpen] = useState(false);
+  const [isConfiguringAgent, setIsConfiguringAgent] = useState(false);
+  
   // Get mutations
   const addMessage = useMutation(api.negotiations.addMessage);
   const updateNegotiationStatus = useMutation(api.negotiations.updateNegotiationStatus);
@@ -347,166 +460,61 @@ export default function NegotiationDetailClient({
   const configureAgent = useMutation(api.negotiations.configureAgent);
   const resumeAgentMutation = useMutation(api.negotiations.resumeAgent);
   
-  // State for settings dialog
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [subjectInput, setSubjectInput] = useState('');
-  const [ccInput, setCcInput] = useState('');
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  // Function for extracting a numeric value from a price string
+  const parseNumericPrice = useCallback((priceStr: string | null | undefined): number | null => {
+    if (!priceStr) return null;
+    const numericString = priceStr.replace(/[^0-9.,]/g, '').replace(',', '.');
+    const numeric = parseFloat(numericString);
+    return !isNaN(numeric) ? numeric : null;
+  }, []);
   
-  // State for AI agent
-  const [targetPricePerKm, setTargetPricePerKm] = useState<string>('');
-  const [isConfiguringAgent, setIsConfiguringAgent] = useState(false);
-  
-  // Advanced AI agent settings state
-  const [isAdvancedSettingsOpen, setIsAdvancedSettingsOpen] = useState(false);
-  const [notifyOnPriceIncrease, setNotifyOnPriceIncrease] = useState(true);
-  const [notifyOnNewTerms, setNotifyOnNewTerms] = useState(true);
-  const [notifyAfterRounds, setNotifyAfterRounds] = useState(5);
-  const [maxAutoReplies, setMaxAutoReplies] = useState(3);
-  const [agentStyle, setAgentStyle] = useState<"conservative" | "balanced" | "aggressive">("balanced");
-  
-  // Agent settings modal state
-  const [isAgentSettingsOpen, setIsAgentSettingsOpen] = useState(false);
+  // USE negotiation.currentPrice directly from the database where needed
+  const currentPrice = negotiation?.currentPrice; // This can be string | undefined
 
-  // Function to find the latest price from messages or counter-offers
-  const determineCurrentPrice = useCallback(() => {
-    if (!negotiation) return 'N/A'; // Return N/A if negotiation data isn't loaded
-
-    const initialPrice = negotiation.initialRequest.price || 'N/A';
-
-    // Find latest counter-offer (from anyone)
-    const latestCounterOffer = negotiation.counterOffers.length > 0
-      ? [...negotiation.counterOffers].sort((a, b) => b.timestamp - a.timestamp)[0] // Sort by timestamp descending
-      : null;
-    const latestCounterOfferTimestamp = latestCounterOffer?.timestamp || 0;
-
-    // Find latest message from counterparty
-    const counterpartyMessages = negotiation.messages
-      .filter(m => m.sender !== 'user' && m.sender !== 'agent' && m.sender !== 'system')
-      .sort((a, b) => b.timestamp - a.timestamp);
-    const latestMessage = counterpartyMessages.length > 0 ? counterpartyMessages[0] : null;
-    const latestMessageTimestamp = latestMessage?.timestamp || 0;
-
-    let currentPriceStr = initialPrice;
-    let priceSource = "initial";
-
-    // Use latest counter offer if it's the latest price indication
-    if (latestCounterOffer && latestCounterOfferTimestamp >= latestMessageTimestamp) {
-      currentPriceStr = latestCounterOffer.price;
-      priceSource = "counter_offer";
-    } 
-    // Otherwise, check the latest message if it's newer
-    else if (latestMessage && latestMessageTimestamp > latestCounterOfferTimestamp) {
-       const priceRegex = /(?:€|EUR)?\s*(\d+(?:[.,]\d+)?)(?:\s*EUR)?/i;
-       const priceMatch = latestMessage.content.match(priceRegex);
-       
-      if (priceMatch && priceMatch[1]) { 
-          const extractedPriceValue = priceMatch[1];
-          currentPriceStr = `€${extractedPriceValue.replace(",", ".")}`; // Example formatting
-          priceSource = "message";
-      } else if (latestCounterOffer) {
-         currentPriceStr = latestCounterOffer.price;
-         priceSource = "counter_offer_fallback";
-      }
-    }
-
-    return currentPriceStr;
-  }, [negotiation]); // Dependency array
-
-  // State for currentPrice (initialized using the memoized function)
-  const [currentPrice, setCurrentPrice] = useState<string>(() => determineCurrentPrice());
-
-  // Function to calculate price per km (memoized)
-  const calculateCurrentPricePerKm = useCallback(() => {
-    if (!negotiation || !negotiation.initialRequest.distance) return null;
-
-    try {
-      const currentPriceStr = currentPrice; // Use the state variable
-      const distanceStr = negotiation.initialRequest.distance;
-
-      // Parse using the robust helper function
-      const priceValue = parseNumericValue(currentPriceStr);
-      const distanceValue = parseNumericValue(distanceStr);
-
-      if (priceValue === null || distanceValue === null || isNaN(priceValue) || isNaN(distanceValue) || distanceValue === 0) {
-        console.warn(`[UI] Invalid EUR/km calculation inputs: price=${priceValue}, distance=${distanceValue} from strings '${currentPriceStr}', '${distanceStr}'`);
+  // Function to calculate target price based on percentage
+  const calculateTargetPrice = useCallback(() => {
+    if (!negotiation || negotiationMode !== "percentage" || !targetPercentage || isNaN(parseFloat(targetPercentage))) {
         return null;
       }
 
-      const pricePerKm = priceValue / distanceValue;
-      return pricePerKm.toFixed(2);
-
-    } catch (error) {
-      console.error("Error calculating price per km in UI:", error);
-      return null;
-    }
-  }, [negotiation, currentPrice]);
-
-  // Handle toggling the AI agent (memoized)
-  const handleToggleAgent = useCallback(async (enabled: boolean) => {
-    if (!negotiation) return;
+    // Get initial price
+    const initialPriceStr = negotiation.initialRequest.price;
+    const initialPrice = parseNumericPrice(initialPriceStr);
     
-    // Validation only needed when enabling
-    if (enabled && (!targetPricePerKm || isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0)) {
-      alert("Please enter a valid target price per km to activate the agent.");
-      return;
-    }
+    if (!initialPrice) return null;
     
-    setIsConfiguringAgent(true);
-    try {
-      const configPayload: any = {
-        negotiationId: negotiation._id,
-        isActive: enabled,
-      };
-      
-      // Only send full configuration when enabling or re-configuring
-      if (enabled) {
-        configPayload.targetPricePerKm = parseFloat(targetPricePerKm);
-        configPayload.agentSettings = {
-          style: agentStyle,
-          notifyOnPriceIncrease,
-          notifyOnNewTerms,
-          maxAutoReplies,
-          notifyAfterRounds,
-        };
-      }
-      // NOTE: When disabling (enabled=false), we *only* send isActive: false
-      // This prevents unintentionally clearing existing settings in the backend.
-      
-      await configureAgent(configPayload);
-      
-      console.log("Agent configuration submitted:", configPayload);
-      
-      // Close modal if activating successfully from within it
-      if (enabled && isAgentSettingsOpen) {
-        setIsAgentSettingsOpen(false);
-      }
-      
-      toast(
-        enabled ? "AI Agent Activated" : "AI Agent Deactivated",
-        {
-          description: enabled 
-            ? "The agent will now monitor the conversation."
-            : "The agent is paused. You can reactivate it later.",
-        }
-      );
-    } catch (error) {
-      console.error("Failed to configure agent:", error);
-      toast.error("Failed to configure agent");
-    } finally {
-      setIsConfiguringAgent(false);
-    }
-  }, [
-    negotiation, 
-    targetPricePerKm, 
-    configureAgent, 
-    agentStyle, 
-    notifyOnPriceIncrease, 
-    notifyOnNewTerms, 
-    maxAutoReplies, 
-    notifyAfterRounds, 
-    isAgentSettingsOpen
-  ]);
+    // Calculate target price based on percentage
+    const percentageValue = parseFloat(targetPercentage);
+    const multiplier = 1 + (percentageValue / 100);
+    const targetPrice = initialPrice * multiplier;
+    
+    // Format with proper currency symbol
+    return `€${targetPrice.toFixed(2)}`;
+  }, [negotiation, negotiationMode, targetPercentage, parseNumericPrice]);
+
+  // Function to calculate the current price per kilometer
+  const calculateCurrentPricePerKm = useCallback(() => {
+    if (!negotiation || !currentPrice) return null; // Use the direct currentPrice
+    
+    // Extract distance from the negotiation details
+    const distanceStr = negotiation.initialRequest.distance;
+    if (!distanceStr) return null;
+    
+    // Extract the numeric part of the distance (e.g. "150 km" -> 150)
+    const distanceMatch = distanceStr.match(/(\d+(?:[.,]\d+)?)/);
+    if (!distanceMatch) return null;
+    
+    const distance = parseFloat(distanceMatch[1].replace(',', '.'));
+    if (isNaN(distance) || distance === 0) return null;
+    
+    // Extract the numeric part of the current price
+    const priceNum = parseNumericPrice(currentPrice);
+    if (priceNum === null) return null;
+    
+    // Calculate and format the price per km
+    const pricePerKm = priceNum / distance;
+    return pricePerKm.toFixed(2);
+  }, [negotiation, currentPrice, parseNumericPrice]);
   
   // Create a stable callback for handling modal toggle (memoized)
   const handleOpenAgentSettings = useCallback((open: boolean) => {
@@ -570,11 +578,202 @@ export default function NegotiationDetailClient({
     }
   }, [negotiation, ccInput, subjectInput, updateEmailSettings]);
   
+  // Handle toggling the AI agent
+  const handleToggleAgent = useCallback(async (enabled: boolean) => {
+    if (!negotiation) return;
+    
+    setIsConfiguringAgent(true);
+    
+    try {
+      if (enabled) {
+        // Validation
+        if (negotiationMode === "pricePerKm") {
+          // Validate price per km
+          if (!targetPricePerKm || isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0) {
+            toast.error("Invalid target price", {
+              description: "Please enter a valid target price per kilometer."
+            });
+            return;
+          }
+          
+          // Convert to number for the API
+          const numericTarget = parseFloat(targetPricePerKm.replace(',', '.'));
+          
+          // Configure agent with price per km target
+          await configureAgent({
+            negotiationId: negotiation._id,
+            isActive: true,
+            targetPricePerKm: numericTarget,
+            agentSettings: {
+              style: agentStyle,
+              notifyOnPriceIncrease,
+              notifyOnNewTerms,
+              maxAutoReplies,
+              notifyAfterRounds
+            }
+          });
+          
+          // Show success notification
+          toast.success("AI Agent enabled", {
+            description: `Target price: ${numericTarget.toFixed(2)} EUR/km (${agentStyle} approach)`
+          });
+        } else {
+          // Percentage-based negotiation
+          if (!targetPercentage || isNaN(parseFloat(targetPercentage))) {
+            toast.error("Invalid percentage", {
+              description: "Please enter a valid percentage value."
+            });
+            return;
+          }
+          
+          // Calculate the target price per km based on percentage
+          const initialPriceStr = negotiation.initialRequest.price;
+          const initialPrice = parseNumericPrice(initialPriceStr);
+          const distanceStr = negotiation.initialRequest.distance;
+          
+          if (!initialPrice || !distanceStr) {
+            toast.error("Missing information", {
+              description: "Initial price or distance is missing or invalid."
+            });
+            return;
+          }
+          
+          // Extract distance value
+          const distanceMatch = distanceStr.match(/(\d+(?:[.,]\d+)?)/);
+          if (!distanceMatch) {
+            toast.error("Invalid distance format", {
+              description: "Could not extract numeric distance value."
+            });
+            return;
+          }
+          
+          const distance = parseFloat(distanceMatch[1].replace(',', '.'));
+          if (isNaN(distance) || distance === 0) {
+            toast.error("Invalid distance", {
+              description: "Distance must be a positive number."
+            });
+            return;
+          }
+          
+          // Calculate target price per km based on percentage adjustment
+          const percentageValue = parseFloat(targetPercentage);
+          const multiplier = 1 + (percentageValue / 100);
+          const targetTotalPrice = initialPrice * multiplier;
+          
+          // Round to 2 decimal places
+          const targetPricePerKmValue = parseFloat((targetTotalPrice / distance).toFixed(2));
+          
+          // Configure agent with the calculated price per km
+          await configureAgent({
+            negotiationId: negotiation._id,
+            isActive: true,
+            targetPricePerKm: targetPricePerKmValue,
+            agentSettings: {
+              style: agentStyle,
+              notifyOnPriceIncrease,
+              notifyOnNewTerms,
+              maxAutoReplies,
+              notifyAfterRounds
+            }
+          });
+          
+          // Show success notification with both percentage and calculated price
+          toast.success("AI Agent enabled", {
+            description: `Target: ${percentageValue > 0 ? '+' : ''}${percentageValue}% (${targetPricePerKmValue.toFixed(2)} EUR/km)`
+          });
+        }
+        
+        // Close settings dialog after activation
+        setIsAgentSettingsOpen(false);
+      } else {
+        // Disable agent
+        await configureAgent({
+          negotiationId: negotiation._id,
+          isActive: false
+        });
+        
+        toast.info("AI Agent disabled", {
+          description: "You're now in manual negotiation mode."
+        });
+      }
+    } catch (error) {
+      console.error("Error configuring agent:", error);
+      toast.error("Failed to configure AI agent", {
+        description: error instanceof Error ? error.message : "An unknown error occurred"
+      });
+    } finally {
+      setIsConfiguringAgent(false);
+    }
+  }, [
+    negotiation, 
+    targetPricePerKm,
+    negotiationMode,
+    targetPercentage, 
+    configureAgent, 
+    agentStyle, 
+    notifyOnPriceIncrease, 
+    notifyOnNewTerms, 
+    maxAutoReplies, 
+    notifyAfterRounds, 
+    isAgentSettingsOpen,
+    parseNumericPrice
+  ]);
+  
   // Handle resuming agent (memoized)
   const handleResumeAgent = useCallback(async (action: "continue" | "take_over") => {
     if (!negotiation?._id) return;
     
     try {
+      // Check if this is a target price reached notification and handle accordingly
+      const isTargetPriceReached = negotiation.agentMessage && 
+        (negotiation.agentMessage.includes("meets or beats your target price") || 
+         negotiation.agentMessage.includes("meets or exceeds your target price") ||
+         negotiation.agentMessage.includes("agreed to your offered price"));
+      
+      if (isTargetPriceReached) {
+        if (action === "continue") {
+          // "Accept" was clicked - update negotiation status to accepted
+          await updateNegotiationStatus({
+            negotiationId: negotiation._id,
+            status: "accepted",
+          });
+          
+          // Add a system message to record the acceptance
+          await addMessage({
+            negotiationId: negotiation._id,
+            message: `The negotiation has been accepted at ${currentPrice || 'the agreed price'}.`, // Use direct currentPrice
+            sender: "system",
+          });
+          
+          toast.success("Offer accepted", {
+            description: `You've accepted the price of ${currentPrice || 'the agreed price'}.` // Use direct currentPrice
+          });
+          
+          // We don't need to resume the agent in this case
+          return;
+        } else if (action === "take_over") {
+          // "Decline" was clicked - reject the current price but keep negotiating
+          await addMessage({
+            negotiationId: negotiation._id,
+            message: `The offer at ${currentPrice || 'the current price'} was declined.`, // Use direct currentPrice
+            sender: "system",
+          });
+          
+          toast("Offer declined", {
+            description: "The current price was declined. You've taken over the negotiation."
+          });
+          
+          // Deactivate the agent since we're taking over after declining
+          await configureAgent({
+            negotiationId: negotiation._id,
+            isActive: false
+          });
+          
+          return;
+        }
+      }
+      
+      // Default behavior for non-target-price notifications
       await resumeAgentMutation({
         negotiationId: negotiation._id,
         action
@@ -591,14 +790,14 @@ export default function NegotiationDetailClient({
         }
       );
     } catch (error) {
-      console.error("Error resuming agent:", error);
-      toast.error("Error resuming agent", {
+      console.error("Error processing action:", error);
+      toast.error("Error processing your request", {
         description: "There was a problem with your request. Please try again."
       });
     }
-  }, [negotiation, resumeAgentMutation]);
+  }, [negotiation, resumeAgentMutation, updateNegotiationStatus, addMessage, currentPrice, configureAgent]);
 
-  // --- EFFECTS (called after all other hooks) ---
+  // --- EFFECTS (continued) ---
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -649,10 +848,18 @@ export default function NegotiationDetailClient({
     }
   }, [negotiation]); // Re-run only when negotiation data changes
 
-  // Effect to update currentPrice state when underlying data changes
-  useEffect(() => {
-    setCurrentPrice(determineCurrentPrice());
-  }, [negotiation, determineCurrentPrice]); // Recalculate when negotiation data changes
+  // --- CALCULATIONS (Can safely use negotiation data now) ---
+  
+  // Calculate savings (safely handling nulls)
+  const initialNumeric = parseNumericPrice(negotiation?.initialRequest?.price) || 0;
+  const currentNumeric = parseNumericPrice(currentPrice) || 0; // Use direct currentPrice
+  let savings = 0;
+  let savingsPercentage = 0;
+  
+  if (initialNumeric > 0 && currentNumeric > 0 && initialNumeric > currentNumeric) {
+    savings = initialNumeric - currentNumeric;
+    savingsPercentage = (savings / initialNumeric) * 100;
+  }
 
   // --- CONDITIONAL RETURN (Now safe, after all hooks) --- 
   if (!negotiation) {
@@ -662,23 +869,6 @@ export default function NegotiationDetailClient({
         <p className="mt-4 text-muted-foreground">Loading negotiation details...</p>
       </div>
     );
-  }
-  
-  // --- CALCULATIONS (Can safely use negotiation data now) ---
-  const getNumericPrice = (price: string | null | undefined) => {
-    if (!price) return NaN;
-    const parsed = parseNumericValue(price);
-    return parsed === null ? NaN : parsed;
-  };
-  
-  const initialNumeric = getNumericPrice(negotiation?.initialRequest?.price);
-  const currentNumeric = getNumericPrice(currentPrice);
-  let savings = 0;
-  let savingsPercentage = 0;
-
-  if (!isNaN(initialNumeric) && !isNaN(currentNumeric) && initialNumeric > currentNumeric) {
-    savings = initialNumeric - currentNumeric;
-    savingsPercentage = (savings / initialNumeric) * 100;
   }
 
   // --- RETURN JSX --- 
@@ -975,10 +1165,10 @@ export default function NegotiationDetailClient({
                   </div>
                 )} */}
                 
-                {/* Agent needs review notification - MOVED HERE FROM INPUT AREA */}
-                {negotiation.isAgentActive && negotiation.agentStatus === "needs_review" && (
-                  <div className="flex justify-center items-center my-3">
-                    <div className="border rounded-xl px-4 py-3 text-sm max-w-md w-full shadow-sm ">
+                {/* Needs review notification */}
+                {negotiation.isAgentActive && negotiation.agentState === "needs_review" && (
+                  <div className="flex justify-center my-3">
+                    <div className=" border  rounded-xl px-4 py-3 text-sm max-w-md w-full shadow-sm">
                       <div className="flex items-center justify-center gap-3">
                         {/* <div className="bg-amber-100 rounded-full p-2 mt-0.5">
                           <Info className="h-5 w-5 text-amber-600" />
@@ -987,19 +1177,35 @@ export default function NegotiationDetailClient({
                         <div className="flex-1 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <Info className="h-5 w-5 " />
-                            <p className="font-semibold text-sm ">Review needed</p>
+                            {negotiation.agentMessage && negotiation.agentMessage.includes("meets or beats your target price") ? (
+                              <p className="font-semibold text-sm">Target price reached</p>
+                            ) : (
+                              <p className="font-semibold text-sm">Review needed</p>
+                            )}
                           </div>
-                          <p className="text-sm  mt-1 mb-3 ">
-                          The agent has paused and needs your decision on how to proceed.
+                          <p className="text-sm mt-1 mb-3">
+                            {negotiation.agentMessage && negotiation.agentMessage.includes("meets or beats your target price") ? (
+                              "The agent has reached your target price. Do you want to accept the offer?"
+                            ) : (
+                              negotiation.agentMessage 
+                                ? `The agent has paused and needs your decision on how to proceed. Reason: ${negotiation.agentMessage}`
+                                : "The agent has paused and needs your decision on how to proceed."
+                            )}
                           </p>
                           <div className="flex gap-2 justify-center">
                             <Button
                               size="sm"
-                              className="text-xs h-8"
+                              className={
+                                negotiation.agentMessage && negotiation.agentMessage.includes("meets or beats your target price") 
+                                ? "text-xs h-8 bg-green-600 hover:bg-green-700" 
+                                : "text-xs h-8"
+                              }
                               onClick={() => handleResumeAgent("continue")}
                             >
-                        
-                              Continue
+                              {negotiation.agentMessage && negotiation.agentMessage.includes("meets or beats your target price") 
+                                ? "Accept" 
+                                : "Continue"
+                              }
                             </Button>
                             <Button
                               variant="outline"
@@ -1007,8 +1213,10 @@ export default function NegotiationDetailClient({
                               className="border-blue-200 text-xs h-8"
                               onClick={() => handleResumeAgent("take_over")}
                             >
-                       
-                              Take over
+                              {negotiation.agentMessage && negotiation.agentMessage.includes("meets or beats your target price") 
+                                ? "Decline" 
+                                : "Take over"
+                              }
                             </Button>
                           </div>
                         </div>
@@ -1018,7 +1226,7 @@ export default function NegotiationDetailClient({
                 )}
                 
                 {/* Agent error notification - MOVED HERE FROM INPUT AREA */}
-                {negotiation.isAgentActive && negotiation.agentStatus === "error" && (
+                {negotiation.isAgentActive && negotiation.agentState === "error" && (
                   <div className="flex justify-center my-3">
                     <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm max-w-xl w-full shadow-sm">
                       <div className="flex items-start gap-3">
@@ -1128,44 +1336,43 @@ export default function NegotiationDetailClient({
                             {/* Status Card */}
                             <div className={cn(
                             "rounded-md p-2 flex items-start gap-2.5",
-                            negotiation.agentStatus === "negotiating" ? "bg-green-50" 
-                            : negotiation.agentStatus === "needs_review" ? "bg-amber-50"
-                            : negotiation.agentStatus === "error" ? "bg-red-50"
-                            : "bg-gray-50"
+                            negotiation.agentState === "needs_review" ? "bg-amber-50"
+                            : negotiation.agentState === "error" ? "bg-red-50"
+                            : "bg-green-50" // Default to green when undefined (actively negotiating)
                             )}>
                             <div className={cn(
                                 "mt-0.5 rounded-full p-1",
-                                negotiation.agentStatus === "negotiating" 
-                                ? "bg-green-100 text-green-600" 
-                                : negotiation.agentStatus === "needs_review" 
+                                negotiation.agentState === "needs_review" 
                                     ? "bg-amber-100 text-amber-600"
-                                    : "bg-red-100 text-red-600"
+                                    : negotiation.agentState === "error"
+                                        ? "bg-red-100 text-red-600"
+                                        : "bg-green-100 text-green-600" // Default when undefined
                             )}>
-                                {negotiation.agentStatus === "negotiating" 
-                                ? <Bot className="h-3 w-3" /> 
-                                : negotiation.agentStatus === "needs_review" 
-                                    ? <Info className="h-3 w-3" />
-                                    : <X className="h-3 w-3" />
+                                {negotiation.agentState === "needs_review" 
+                                ? <Info className="h-3 w-3" />
+                                : negotiation.agentState === "error"
+                                    ? <X className="h-3 w-3" />
+                                    : <Bot className="h-3 w-3" /> // Default when undefined
                                 }
                             </div>
                             
                             <div className="flex-1 min-w-0">
                                 <p className={cn(
                                 "text-sm font-medium",
-                                negotiation.agentStatus === "negotiating" ? "text-green-800" 
-                                : negotiation.agentStatus === "needs_review" ? "text-amber-800"
-                                : "text-red-800"
+                                negotiation.agentState === "needs_review" ? "text-amber-800"
+                                : negotiation.agentState === "error" ? "text-red-800"
+                                : "text-green-800" // Default when undefined
                                 )}>
-                                {negotiation.agentStatus === "negotiating" ? "Actively Negotiating" 
-                                : negotiation.agentStatus === "needs_review" ? "Needs Your Review"
-                                : "Agent Error"}
+                                {negotiation.agentState === "needs_review" ? "Needs Your Review"
+                                : negotiation.agentState === "error" ? "Agent Error"
+                                : "Actively Negotiating"} {/* Default when undefined */}
                                 </p>
                                 <p className="text-xs mt-0.5 text-muted-foreground line-clamp-2">
-                                {negotiation.agentStatus === "negotiating" 
-                                    ? "The AI agent is working to reach your target price." 
-                                    : negotiation.agentStatus === "needs_review" 
+                                {negotiation.agentState === "needs_review" 
                                     ? "The agent has paused and needs your decision on how to proceed."
-                                    : "The agent encountered an error. You may need to reconfigure it."}
+                                    : negotiation.agentState === "error" 
+                                    ? "The agent encountered an error. You may need to reconfigure it."
+                                    : "The AI agent is working to reach your target price."} {/* Default when undefined */}
                                 </p>
                             </div>
                             </div>
@@ -1178,7 +1385,9 @@ export default function NegotiationDetailClient({
                                 <div className="flex justify-between items-center">
                                 <span className="text-sm text-muted-foreground">Target price:</span>
                                 <Badge variant="outline" className="font-mono bg-white">
-                                    {negotiation.agentTargetPricePerKm} EUR/km
+                                    {typeof negotiation.agentTargetPricePerKm === 'number' 
+                                      ? negotiation.agentTargetPricePerKm.toFixed(2) 
+                                      : negotiation.agentTargetPricePerKm} EUR/km
                                 </Badge>
                                 </div>
                             )}
@@ -1258,13 +1467,13 @@ export default function NegotiationDetailClient({
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Current Price:</span>
-                        <span className="font-medium">{currentPrice}</span>
+                        <span className="font-medium">{currentPrice || "N/A"}</span> {/* Display direct currentPrice */}
                       </div>
                       {savings > 0 && (
                         <div className="flex justify-between text-green-700 bg-green-50 px-2 py-1 rounded">
                           <span className="font-medium">Potential Savings:</span>
                           <span className="font-medium">
-                            ${savings.toFixed(2)} ({savingsPercentage.toFixed(1)}%)
+                            €{savings.toFixed(2).replace('.', ',')} ({savingsPercentage.toFixed(1).replace('.', ',')}%)
                           </span>
                         </div>
                       )}
@@ -1351,6 +1560,10 @@ export default function NegotiationDetailClient({
         negotiation={negotiation}
         targetPricePerKm={targetPricePerKm}
         setTargetPricePerKm={setTargetPricePerKm}
+        negotiationMode={negotiationMode}
+        setNegotiationMode={setNegotiationMode}
+        targetPercentage={targetPercentage}
+        setTargetPercentage={setTargetPercentage}
         isConfiguringAgent={isConfiguringAgent}
         agentStyle={agentStyle}
         setAgentStyle={setAgentStyle}
@@ -1364,6 +1577,7 @@ export default function NegotiationDetailClient({
         setMaxAutoReplies={setMaxAutoReplies}
         handleToggleAgent={handleToggleAgent}
         calculateCurrentPricePerKm={calculateCurrentPricePerKm}
+        calculateTargetPrice={calculateTargetPrice}
       />
     </div>
   );

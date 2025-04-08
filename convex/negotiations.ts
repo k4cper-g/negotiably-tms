@@ -46,6 +46,7 @@ export const createNegotiation = mutation({
       offerId: args.offerId,
       status: "pending", // initial status
       initialRequest: args.initialRequest, // Use the object directly from args
+      currentPrice: args.initialRequest.price, // Initialize currentPrice
       messages: [],
       counterOffers: [],
       createdAt: Date.now(),
@@ -235,6 +236,7 @@ export const submitCounterOffer = mutation({
 
     await ctx.db.patch(args.negotiationId, {
       counterOffers: [...negotiation.counterOffers, newCounterOffer],
+      currentPrice: args.price,
       updatedAt: Date.now(),
     });
 
@@ -277,13 +279,48 @@ export const updateNegotiationStatus = mutation({
       throw new Error("Unauthorized access to negotiation");
     }
 
-    // Update status
+    // When accepting, capture the most recent price as the final price
+    let finalPrice = undefined;
+    if (args.status === "accepted") {
+      // Try to extract current price from messages and counter-offers
+      // First check counter offers (newest first)
+      const counterOffers = [...negotiation.counterOffers].reverse();
+      const latestCounterOffer = counterOffers[0]; 
+      
+      if (latestCounterOffer) {
+        finalPrice = latestCounterOffer.price;
+      } else {
+        // If no counter offers, search in messages for price mentions
+        const messages = [...negotiation.messages].reverse();
+        for (const msg of messages) {
+          if (msg.sender !== 'system') {  // Skip system messages
+            const priceRegex = /(?:€|EUR)?\s*(\d+(?:[.,]\d+)?)/i;
+            const match = msg.content.match(priceRegex);
+            if (match && match[1]) {
+              finalPrice = `€${match[1].replace(",", ".")}`;
+              break;
+            }
+          }
+        }
+      }
+      
+      // If still no price found, use the initial price
+      if (!finalPrice && negotiation.initialRequest && negotiation.initialRequest.price) {
+        finalPrice = negotiation.initialRequest.price;
+      }
+    }
+
+    // Update status and finalPrice if accepting
     await ctx.db.patch(args.negotiationId, {
       status: args.status,
+      ...(finalPrice ? { finalPrice } : {}),
       updatedAt: Date.now(),
     });
 
-    return { success: true };
+    return { 
+      success: true,
+      finalPrice 
+    };
   },
 });
 
@@ -783,6 +820,33 @@ export const resumeAgent = mutation({
         }
         
         return { success: true, action: "continue" };
+    }
+});
+
+// --- Internal Mutation to Update Current Price --- 
+// Used by the agent to persist its analyzed price
+export const updateCurrentPriceInternal = internalMutation({
+    args: {
+        negotiationId: v.id("negotiations"),
+        newCurrentPrice: v.union(v.string(), v.null()), // Allow null to be passed
+    },
+    handler: async (ctx, args) => {
+        const negotiation = await ctx.db.get(args.negotiationId);
+        if (!negotiation) {
+            console.error(`[updateCurrentPriceInternal] Negotiation ${args.negotiationId} not found.`);
+            return; // Stop if negotiation doesn't exist
+        }
+
+        // Only update if the price has actually changed to avoid unnecessary writes/triggers
+        if (negotiation.currentPrice !== args.newCurrentPrice) {
+            await ctx.db.patch(args.negotiationId, {
+                currentPrice: args.newCurrentPrice === null ? undefined : args.newCurrentPrice, // Convert null to undefined for the schema
+                updatedAt: Date.now(), // Update timestamp
+            });
+            console.log(`[updateCurrentPriceInternal] Updated currentPrice for ${args.negotiationId} to: ${args.newCurrentPrice}`);
+        } else {
+            // console.log(`[updateCurrentPriceInternal] currentPrice for ${args.negotiationId} is already ${args.newCurrentPrice}. No update needed.`);
+        }
     }
 });
 

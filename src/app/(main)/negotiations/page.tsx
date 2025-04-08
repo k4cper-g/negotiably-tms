@@ -120,22 +120,27 @@ function NegotiationRow({ neg, onDelete }: { neg: Negotiation; onDelete?: () => 
       <td className="py-3 px-4 text-sm">{neg.currentPrice || neg.initialPrice}</td>
       <td className="py-3 px-4 text-sm">
         <div className="flex items-center">
-          {neg.savings && neg.savings.startsWith('+') ? (
-            <>
-              <span className="text-green-600 font-medium">{neg.savings}</span>
-              {neg.savingsPercentage && (
-                <span className="text-xs text-green-500 ml-1">({neg.savingsPercentage})</span>
-              )}
-            </>
-          ) : neg.savings && neg.savings.startsWith('-') ? (
-            <>
-              <span className="text-red-600 font-medium">{neg.savings}</span>
-              {neg.savingsPercentage && (
-                 <span className="text-xs text-red-500 ml-1">({neg.savingsPercentage})</span>
-              )}
-            </>
-          ) : neg.savings === "€0.00" ? (
-            <span className="text-muted-foreground">{neg.savings}</span>
+          {neg.savings ? (
+            neg.savings.startsWith('-') ? (
+              // Negative savings (price increased)
+              <>
+                <span className="text-red-600 font-medium">{neg.savings}</span>
+                {neg.savingsPercentage && (
+                  <span className="text-xs text-red-500 ml-1">({neg.savingsPercentage})</span>
+                )}
+              </>
+            ) : neg.savings === "€0.00" ? (
+              // No change
+              <span className="text-muted-foreground">{neg.savings}</span>
+            ) : (
+              // Positive savings (price decreased)
+              <>
+                <span className="text-green-600 font-medium">{neg.savings}</span>
+                {neg.savingsPercentage && (
+                  <span className="text-xs text-green-500 ml-1">({neg.savingsPercentage})</span>
+                )}
+              </>
+            )
           ) : (
             <span className="text-muted-foreground">-</span>
           )}
@@ -247,9 +252,12 @@ export default function NegotiationsPage() {
   
   // Helper to determine the effective current price for the list view
   const determineCurrentPriceForList = (neg: Doc<"negotiations">): string => {
-      // The function should ALWAYS find the latest actual offer/message price.
-      // The savings calculation below handles the 'accepted' status.
+      // If the negotiation has been accepted, use the finalPrice
+      if (neg.status === "accepted" && neg.finalPrice) {
+          return neg.finalPrice;
+      }
       
+      // For non-accepted negotiations, find the latest price
       const initialPrice = neg.initialRequest.price || 'N/A';
   
       // Find latest counter-offer (from anyone)
@@ -300,39 +308,25 @@ export default function NegotiationsPage() {
       
       // --- Only calculate savings/gain if status is 'accepted' --- 
       if (neg.status === "accepted") {
-        const initialPriceStr = neg.initialRequest.price;
-        const currentPriceStr = determineCurrentPriceForList(neg); // This is the accepted price
-        const distanceStr = neg.initialRequest.distance;
-        const targetPricePerKm = neg.agentTargetPricePerKm; // Target set by user
-
         const initialNumeric = getNumericPrice(initialPriceStr);
-        const acceptedNumeric = getNumericPrice(currentPriceStr);
-        const distanceNumeric = parseNumericValue(distanceStr);
-
-        // Check if all necessary values are valid numbers
-        if (!isNaN(initialNumeric) && !isNaN(acceptedNumeric) && 
-            distanceNumeric !== null && distanceNumeric > 0 && 
-            targetPricePerKm !== null && targetPricePerKm !== undefined) 
-        {
-          const initialPricePerKm = initialNumeric / distanceNumeric;
-          const wasAimingDown = targetPricePerKm < initialPricePerKm;
+        const finalNumeric = getNumericPrice(currentPriceStr); // Using current price from determineCurrentPriceForList
+        
+        // If we have both numeric values, calculate the difference
+        if (!isNaN(initialNumeric) && !isNaN(finalNumeric)) {
+          // Calculate the raw difference (savings if price went down, cost if price went up)
+          const difference = initialNumeric - finalNumeric;
           
-          let difference = 0;
-          if (wasAimingDown) {
-            difference = initialNumeric - acceptedNumeric; // Positive if price went down (good)
-          } else {
-            difference = acceptedNumeric - initialNumeric; // Positive if price went up (good)
-          }
-
           // Format the result
           if (difference > 0) {
-            savings = `+€${difference.toFixed(2)}`;
-            savingsPercentage = `+${((difference / initialNumeric) * 100).toFixed(1)}%`;
+            // Positive difference means price went down (savings)
+            savings = `€${difference.toFixed(2)}`;
+            savingsPercentage = `${((difference / initialNumeric) * 100).toFixed(1)}%`;
           } else if (difference < 0) {
-            // Show the negative outcome relative to the goal
-            savings = `-€${(-difference).toFixed(2)}`; 
-            savingsPercentage = `${((difference / initialNumeric) * 100).toFixed(1)}%`; // Will be negative
+            // Negative difference means price went up (increased cost)
+            savings = `-€${Math.abs(difference).toFixed(2)}`;
+            savingsPercentage = `-${(Math.abs(difference) / initialNumeric * 100).toFixed(1)}%`;
           } else {
+            // No change in price
             savings = "€0.00";
             savingsPercentage = "0.0%";
           }

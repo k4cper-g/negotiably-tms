@@ -18,6 +18,7 @@ export default defineSchema({
         userId: v.id("users"),
         offerId: v.string(),
         status: v.string(),
+        currentPrice: v.optional(v.string()),
         initialRequest: v.object({
             origin: v.string(),
             destination: v.string(),
