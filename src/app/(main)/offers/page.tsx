@@ -36,7 +36,11 @@ import {
   Settings,
   Eraser,
   RemoveFormatting,
-  MessagesSquare, // Added
+  MessagesSquare,
+  ChevronFirst,
+  ChevronLeft,
+  ChevronRight,
+  ChevronLast, // Added
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -1076,6 +1080,30 @@ export default function OffersPage() {
                 </div>
               </div>
             )}
+
+            {/* Page Size Select for Grid and Map Views */}
+            {(activeTab === 'grid' || activeTab === 'map') && (
+              <div className="flex items-center gap-2 justify-end flex-wrap ml-auto">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Items per page:</span>
+                  <Select
+                    value={pageSize.toString()}
+                    onValueChange={(value) => setPageSize(parseInt(value))}
+                  >
+                    <SelectTrigger id="page-size-select" className="h-8 w-[70px]">
+                      <SelectValue placeholder={pageSize} />
+                    </SelectTrigger>
+                    <SelectContent side="top">
+                      {[10, 20, 50, 100].map((size) => (
+                        <SelectItem key={size} value={size.toString()}>
+                          {size}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1209,26 +1237,48 @@ export default function OffersPage() {
                 <Button
                   variant="outline"
                   size="sm"
+                  onClick={() => table.setPageIndex(0)}
+                  disabled={!table.getCanPreviousPage()}
+                  className="h-8 px-2"
+                  title="First page"
+                >
+                  <ChevronFirst className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => table.previousPage()}
                   disabled={!table.getCanPreviousPage()}
-                  className="h-8"
+                  className="h-8 px-2"
+                  title="Previous page"
                 >
-                  Previous
+                  <ChevronLeft className="h-3 w-3" />
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => table.nextPage()}
                   disabled={!table.getCanNextPage()}
-                  className="h-8"
+                  className="h-8 px-2"
+                  title="Next page"
                 >
-                  Next
+                  <ChevronRight className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                  disabled={!table.getCanNextPage()}
+                  className="h-8 px-2"
+                  title="Last page"
+                >
+                  <ChevronLast className="h-3 w-3" />
                 </Button>
               </div>
           </div>
         </TabsContent>
 
-        {/* Grid View Content (remains mostly the same) */}
+        {/* Grid View Content */}
         <TabsContent value="grid" className="space-y-4">
            <div className="min-h-[600px]">
             {/* ... existing grid loading/empty/data states ... */}
@@ -1254,16 +1304,68 @@ export default function OffersPage() {
               </div>
             )}
            </div>
+
+          {/* Pagination Controls for Grid View */}
+          <div className="flex items-center justify-between pt-2">
+            <div className="flex-1 text-sm text-muted-foreground">
+              Showing {filteredOffers.length} of {totalCount} offers
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-muted-foreground">
+                Page {currentPage} of {pageCount}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage <= 1 || isLoading}
+                className="h-8 px-2"
+                title="First page"
+              >
+                <ChevronFirst className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage > 1 ? currentPage - 1 : 1)}
+                disabled={currentPage <= 1 || isLoading}
+                className="h-8 px-2"
+                title="Previous page"
+              >
+                <ChevronLeft className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage < pageCount ? currentPage + 1 : pageCount)}
+                disabled={currentPage >= pageCount || isLoading}
+                className="h-8 px-2"
+                title="Next page"
+              >
+                <ChevronRight className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(pageCount)}
+                disabled={currentPage >= pageCount || isLoading}
+                className="h-8 px-2"
+                title="Last page"
+              >
+                <ChevronLast className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
         </TabsContent>
 
-        {/* Map View Content (remains mostly the same) */}
+        {/* Map View Content */}
         <TabsContent value="map" className="space-y-4">
           <div 
             ref={mapContainerRef}
-            className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-[700px]"
+            className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-[705px]"
           >
             {/* Offers list sidebar (map view specific list) */}
-            <div className="lg:col-span-1 border rounded-lg overflow-hidden shadow-sm bg-card h-[700px]">
+            <div className="lg:col-span-1 border rounded-lg overflow-hidden shadow-sm bg-card">
               <div className="p-3 border-b flex items-center justify-between bg-muted/30">
                 <h3 className="font-medium">Available Routes</h3>
                 <div className="text-xs text-muted-foreground">
@@ -1272,11 +1374,11 @@ export default function OffersPage() {
                       <RefreshCw className="h-3 w-3 animate-spin" /> Loading...
                     </span>
                   ) : (
-                    `${filteredOffers.length} shown` // Use filteredOffers length
+                    `${filteredOffers.length} of ${totalCount} shown` // Show total count too
                   )}
                 </div>
               </div>
-              <div className="overflow-y-auto h-[calc(700px-48px)]">
+              <div className="overflow-y-auto h-[calc(700px-48px-40px)]"> {/* Adjust height for pagination */}
                  {/* Loading/Empty/Data states for map list */}
                  {isLoading ? (
                    <div className="space-y-0"> {Array(6).fill(0).map((_, i) => ( <div key={`map-skeleton-${i}`} className="p-3 border-b animate-pulse"> <div className="flex justify-between items-start mb-2"> <div className="h-5 bg-muted-foreground/20 rounded w-16"></div> <div className="h-5 bg-muted-foreground/20 rounded w-20"></div> </div> <div className="space-y-3"> <div className="grid grid-cols-[16px_1fr] gap-1.5"> <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/20 mt-1.5"></div> <div className="h-4 bg-muted-foreground/20 rounded w-28"></div> </div> <div className="grid grid-cols-[16px_1fr] gap-1.5"> <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/20 mt-1.5"></div> <div className="h-4 bg-muted-foreground/20 rounded w-32"></div> </div> </div> <div className="flex justify-between items-center mt-2 pt-2 border-t border-border/40"> <div className="h-5 bg-muted-foreground/20 rounded w-16"></div> <div className="h-4 bg-muted-foreground/20 rounded w-14"></div> </div> </div> ))} </div>
@@ -1312,13 +1414,64 @@ export default function OffersPage() {
                    ))
                  )}
               </div>
+              
+              {/* Pagination Controls for Map View Sidebar */}
+              <div className="p-2 border-t bg-muted/30 flex justify-between items-center">
+                <div className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage <= 1 || isLoading}
+                    className="h-7 px-1 text-xs"
+                    title="First page"
+                  >
+                    <ChevronFirst className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage > 1 ? currentPage - 1 : 1)}
+                    disabled={currentPage <= 1 || isLoading}
+                    className="h-7 px-1 text-xs"
+                    title="Previous page"
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                  </Button>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {currentPage}/{pageCount}
+                </span>
+                <div className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage < pageCount ? currentPage + 1 : pageCount)}
+                    disabled={currentPage >= pageCount || isLoading}
+                    className="h-7 px-1 text-xs"
+                    title="Next page"
+                  >
+                    <ChevronRight className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(pageCount)}
+                    disabled={currentPage >= pageCount || isLoading}
+                    className="h-7 px-1 text-xs"
+                    title="Last page"
+                  >
+                    <ChevronLast className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
             </div>
             
             {/* Map container */}
             <Card className="lg:col-span-3 h-[700px] p-0">
               <CardContent className="p-0 h-full">
                 {isLoading ? (
-                   <div className="flex flex-col items-center justify-center h-full space-y-3"> <RefreshCw className="h-10 w-10 animate-spin text-primary/70" /> <p className="text-muted-foreground">Loading map and routes...</p> </div>
+                   <div className="flex flex-col items-center justify-center h-full space-y-3"> <Loader2 className="h-10 w-10 animate-spin text-primary/70" /> </div>
                  ) : (
                   <TransportMap 
                     offers={filteredOffers} // Pass filtered offers to map

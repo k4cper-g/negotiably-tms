@@ -224,17 +224,16 @@ function FullscreenButton() {
   return (
     <div 
       onClick={toggleFullscreen}
-      className="leaflet-control leaflet-bar cursor-pointer bg-white dark:bg-gray-800"
-      style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 1000 }}
+      className="leaflet-control cursor-pointer shadow-md rounded-md overflow-hidden"
+      style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 1000 }}
     >
-      <a 
-        href="#" 
-        onClick={(e) => e.preventDefault()} 
-        className="flex items-center justify-center h-8 w-8 hover:bg-gray-100 dark:hover:bg-gray-700"
-        title="Toggle fullscreen"
+      <button 
+        className="flex items-center justify-center h-9 w-9 bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
+        title="Toggle fullscreen map view"
+        onClick={(e) => e.preventDefault()}
       >
-        <Map className="h-4 w-4" />
-      </a>
+        <Map className="h-5 w-5 text-primary" />
+      </button>
     </div>
   );
 }
@@ -550,8 +549,7 @@ export default function TransportMap({
               );
             })}
             
-            {/* Map controls */}
-            <ZoomControl position="topright" />
+            {/* Only show fullscreen button in the top right corner */}
             <FullscreenButton />
             
             {/* Adjust bounds to fit all markers */}
