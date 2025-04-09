@@ -334,7 +334,7 @@ export async function analyzeLatestMessage(state: NegotiationAgentState): Promis
                     f) The conversation seems stalled, confused, or requires strategic input only a human can provide.
                     g) The carrier's intent is 'refusal' and it seems final.
                     h) There's no latest message from the carrier, but it's the agent's turn to start the negotiation (no messages or last message was ours). In this initial case, review is NOT needed unless rules trigger.
-                6.  "reviewReason": A concise explanation (string, max 15 words) ONLY if "needsReview" is true. Example: "Target price met.", "Carrier agreed to price.", "New terms require review.", "Max replies reached.", "Price moving away from target."
+                6.  "reviewReason": A concise explanation (string, max 15 words) ONLY if "needsReview" is true. Example: "Target price met.", "Carrier agreed to price.", "New terms require review.", "Max replies reached.", "Proposed price has changed."
 
                 Example Output:
                 {

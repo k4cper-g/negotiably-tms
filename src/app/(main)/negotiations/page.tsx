@@ -205,7 +205,7 @@ function NegotiationRow({ neg, onDelete }: { neg: Negotiation; onDelete?: () => 
                 <AlertDialogAction 
                   onClick={(e: React.MouseEvent<HTMLButtonElement>) => handleDelete(e)}
                   disabled={isDeleting}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  className="bg-black text-white hover:bg-black/80 cursor-pointer"
                 >
                   {isDeleting ? 'Deleting...' : 'Delete'}
                 </AlertDialogAction>
@@ -386,12 +386,6 @@ export default function NegotiationsPage() {
             )}
             <span>Refresh</span>
           </Button>
-          
-          <Link href="/offers">
-            <Button size="sm" className="gap-1">
-              <span>New Negotiation</span>
-            </Button>
-          </Link>
         </div>
       </div>
       

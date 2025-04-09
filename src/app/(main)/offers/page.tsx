@@ -35,7 +35,8 @@ import {
   CogIcon,
   Settings,
   Eraser,
-  RemoveFormatting, // Added
+  RemoveFormatting,
+  MessagesSquare, // Added
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -835,7 +836,7 @@ export default function OffersPage() {
 
       {/* Search and Filters */}
       <Card className="overflow-hidden">
-        <CardContent className="p-4"> {/* Adjusted padding */}
+        <CardContent className="px-4"> {/* Adjusted padding */}
           <div className="space-y-4"> {/* Use space-y for better structure */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end"> {/* Adjusted gap */}
               {/* Search, Origin, Destination */}
@@ -951,67 +952,7 @@ export default function OffersPage() {
               </div>
               
               {/* Buttons */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 md:col-span-12 pt-4 border-t mt-2"> {/* Added border */}
-                <div className="flex items-center gap-1 self-start"> {/* AI Search + Popover */}
-                  <Button 
-                    size="sm" 
-                    onClick={handleAiSearchClick}
-                    disabled={isLoading}
-                    className="h-9 px-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 relative overflow-hidden min-w-[110px] flex items-center justify-center gap-1.5"
-                  >
-                    {isAiLoading ? ( // Use isAiLoading state
-                      <Loader2 className="h-4 w-4 animate-spin" /> 
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4" /> 
-                        <span>AI Rank</span> {/* Changed Text */}
-                      </>
-                    )}
-                  </Button>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-9 w-9" disabled={isLoading}>
-                        <Wand2 className="h-4 w-4" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-64 p-4">
-                      {/* ... (Popover content remains the same) ... */}
-                      <div className="space-y-4">
-                        <p className="text-sm font-medium leading-none">AI Agent Tools</p>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="weather-tool"
-                            checked={useWeatherTool}
-                            onCheckedChange={(checked) => setUseWeatherTool(Boolean(checked))}
-                          />
-                          <Label htmlFor="weather-tool" className="text-sm font-normal cursor-pointer">
-                            Weather Forecast
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="route-tool"
-                            checked={useRouteTool}
-                            onCheckedChange={(checked) => setUseRouteTool(Boolean(checked))}
-                          />
-                          <Label htmlFor="route-tool" className="text-sm font-normal cursor-pointer">
-                            Optimal Route & Time
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="toll-tool"
-                            checked={useTollsTool}
-                            onCheckedChange={(checked) => setUseTollsTool(Boolean(checked))}
-                          />
-                          <Label htmlFor="toll-tool" className="text-sm font-normal cursor-pointer">
-                            Toll Costs
-                          </Label>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 md:col-span-12 pt-2"> {/* Added border */}
                 <div className="flex items-end gap-2 self-end"> {/* Reset + Manual Search */}
                   <Button variant="outline" size="sm" onClick={handleResetFilters} className="h-9">
                     Reset Filters
@@ -1023,22 +964,6 @@ export default function OffersPage() {
                 </div>
               </div>
             </div>
-            
-            {/* Active filters display - Needs adjustment if desired */}
-            {Object.values(filters).some(v => v !== undefined) && ( // Check active filters from hook
-              <div className="flex flex-wrap gap-2 pt-3 border-t mt-3">
-                <span className="text-sm text-muted-foreground mr-1 pt-0.5">Active filters:</span>
-                {/* This part now reflects the ACTUAL applied filters, not pending ones */} 
-                {Object.entries(filters)
-                  .filter(([_, value]) => value !== undefined)
-                  .map(([key, value]) => (
-                    <Badge key={key} variant="secondary" className="gap-1">
-                      <span className="capitalize">{key.replace(/([A-Z])/g, ' $1')}:</span> {String(value)}
-                      {/* Add individual remove buttons here if needed, linking to setFilters */}
-                    </Badge>
-                ))}
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -1091,8 +1016,8 @@ export default function OffersPage() {
                       </>
                     ) : (
                       <>
-                        <MessageSquare className="h-3.5 w-3.5" />
-                        <span>Negotiate</span>
+                        <MessagesSquare className="h-3.5 w-3.5" />
+                        {/* <span>Negotiate</span> */}
                       </>
                     )}
                   </Button>

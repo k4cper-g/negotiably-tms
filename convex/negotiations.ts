@@ -409,6 +409,18 @@ export const deleteNegotiation = mutation({
       throw new Error("Negotiation not found");
     }
     
+    // Check if there's an agent configuration for this negotiation
+    const agentConfig = await ctx.db
+      .query("agentConfigurations")
+      .withIndex("by_negotiationId", q => q.eq("negotiationId", args.negotiationId))
+      .first();
+      
+    // Delete the agent configuration if it exists
+    if (agentConfig) {
+      console.log(`Deleting agent configuration for negotiation ${args.negotiationId}`);
+      await ctx.db.delete(agentConfig._id);
+    }
+    
     // Delete the negotiation
     await ctx.db.delete(args.negotiationId);
     
