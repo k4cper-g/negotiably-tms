@@ -25,6 +25,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useClerk, useUser } from "@clerk/nextjs";
 import { clerkClient } from "@clerk/nextjs/server";
+import { useTheme } from 'next-themes';
 
 export default function Sidebar() {
   const [isMounted, setIsMounted] = useState(false);
@@ -32,6 +33,7 @@ export default function Sidebar() {
   const { signOut } = useClerk()
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const router = useRouter();
+  const { theme, resolvedTheme } = useTheme();
   
   // Fetch user data
   const convexUser = useQuery(api.users.getCurrentUser);
@@ -80,29 +82,34 @@ export default function Sidebar() {
   const userImageUrl = convexUser?.imageUrl || clerkUser?.imageUrl || "";
   const userInitials = userDisplayName.split(' ').map((n: string) => n[0]).join('').toUpperCase();
   
+  // Determine logo based on the *resolved* theme
+  const logoSrc = resolvedTheme === 'dark'
+    ? '/alterionlogo-small-light.png'
+    : '/alterionlogo-small-dark.png';
+
   return (
-    <div className="fixed left-0 top-0 z-20 flex h-screen w-64 flex-col border-r bg-white">
+    <div className="fixed left-0 top-0 z-20 flex h-screen w-64 flex-col border-r bg-card">
       {/* Logo section */}
-      <div className="p-4 border-b border-gray-100 flex items-center space-x-2 justify-center">
+      <div className="p-4 border-b flex items-center space-x-2 justify-center">
         <div className="h-8 w-8">
           <a href="/">
-            <Image src="/alterionlogo-small-dark.png" alt="logo" width={32} height={32} />
+            <Image src={logoSrc} alt="logo" width={32} height={32} />
           </a>
         </div>
       </div>
 
       {/* User profile section */}
-      <div className="p-4 border-b border-gray-100">
+      <div className="p-4 border-b">
         <div className="flex items-center space-x-3">
           <Avatar>
             <AvatarImage src={userImageUrl} alt={userDisplayName} />
-            <AvatarFallback className="bg-gray-200 text-gray-500">
+            <AvatarFallback className="bg-muted text-muted-foreground">
               {userInitials}
             </AvatarFallback>
           </Avatar>
           <div>
             <p className="text-sm font-medium">{userDisplayName}</p>
-            <p className="text-xs text-gray-500">{userEmail}</p>
+            <p className="text-xs text-muted-foreground">{userEmail}</p>
           </div>
         </div>
       </div>
@@ -114,7 +121,7 @@ export default function Sidebar() {
             variant={isActive("/dashboard") ? "secondary" : "ghost"}
             className={cn(
               "w-full justify-start transition-none",
-              isActive("/dashboard") ? "font-medium" : "font-normal text-gray-600"
+              isActive("/dashboard") ? "font-medium" : "font-normal text-muted-foreground"
             )}
           >
             <Home className="h-4 w-4 mr-3" />
@@ -127,7 +134,7 @@ export default function Sidebar() {
             variant={isActive("/offers") ? "secondary" : "ghost"}
             className={cn(
               "w-full justify-start transition-none",
-              isActive("/offers") ? "font-medium" : "font-normal text-gray-600"
+              isActive("/offers") ? "font-medium" : "font-normal text-muted-foreground"
             )}
           >
             <Package className="h-4 w-4 mr-3" />
@@ -140,7 +147,7 @@ export default function Sidebar() {
             variant={isActive("/negotiations") ? "secondary" : "ghost"}
             className={cn(
               "w-full justify-start transition-none",
-              isActive("/negotiations") ? "font-medium" : "font-normal text-gray-600"
+              isActive("/negotiations") ? "font-medium" : "font-normal text-muted-foreground"
             )}
           >
             <FileText className="h-4 w-4 mr-3" />
@@ -148,7 +155,7 @@ export default function Sidebar() {
           </Button>
         </Link>
         
-        <Link href="/routes" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/routes")}>
+        {/* <Link href="/routes" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/routes")}>
           <Button 
             variant={isActive("/routes") ? "secondary" : "ghost"}
             className={cn(
@@ -211,7 +218,7 @@ export default function Sidebar() {
             <Users className="h-4 w-4 mr-3" />
             Partners
           </Button>
-        </Link>
+        </Link> */}
 
         <Separator className="my-3" />
 
@@ -220,7 +227,7 @@ export default function Sidebar() {
             variant={isActive("/notifications") ? "secondary" : "ghost"}
             className={cn(
               "w-full justify-start transition-none relative",
-              isActive("/notifications") ? "font-medium" : "font-normal text-gray-600"
+              isActive("/notifications") ? "font-medium" : "font-normal text-muted-foreground"
             )}
           >
             <Bell className="h-4 w-4 mr-3" />
@@ -232,7 +239,7 @@ export default function Sidebar() {
             )}
           </Button>
         </Link>
-        
+{/*         
         <Link href="/compliance" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/compliance")}>
           <Button 
             variant={isActive("/compliance") ? "secondary" : "ghost"}
@@ -244,14 +251,14 @@ export default function Sidebar() {
             <Shield className="h-4 w-4 mr-3" />
             Compliance
           </Button>
-        </Link>
+        </Link> */}
         
         <Link href="/settings" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/settings")}>
           <Button 
             variant={isActive("/settings") ? "secondary" : "ghost"}
             className={cn(
               "w-full justify-start transition-none",
-              isActive("/settings") ? "font-medium" : "font-normal text-gray-600"
+              isActive("/settings") ? "font-medium" : "font-normal text-muted-foreground"
             )}
           >
             <Settings className="h-4 w-4 mr-3" />
@@ -261,10 +268,10 @@ export default function Sidebar() {
       </nav>
 
       {/* Sign out section */}
-      <div className="p-4 border-t border-gray-100">
+      <div className="p-4 border-t">
         <Button 
           variant="ghost" 
-          className="w-full justify-start text-gray-600 font-normal"
+          className="w-full justify-start text-muted-foreground font-normal"
           onClick={() => { router.push("/"); signOut(); }}
         >
           <LogOut className="h-4 w-4 mr-3" />

@@ -84,6 +84,7 @@ import {
 } from "@/components/ui/dropdown-menu"; // Added
 import { mockOffers } from "@/data/mockOffers"; // Import the mock data
 import { useOffers, OfferFilters } from '@/lib/offers/useOffers';
+import { cn } from "@/lib/utils";
 
 // Dynamic import of map components to avoid SSR issues with Leaflet
 const TransportMap = dynamic(() => import('@/components/TransportMap'), {
@@ -190,7 +191,9 @@ function TransportOfferDetails({ offer }: { offer: TransportOffer }) {
           <Badge variant="outline">{offer.platform}</Badge>
           <Badge variant="outline">{offer.loadType}</Badge>
         </div>
-        <Badge variant={offer.status === "Available" ? "secondary" : "outline"}>
+        <Badge 
+          variant={offer.status === "Available" ? "secondary" : offer.status === "Pending" ? "secondary" : "outline"}
+        >
           {offer.status}
         </Badge>
       </div>
@@ -345,27 +348,34 @@ function OfferCard({
     }
   };
   
-  const getRankColor = (rank: number) => {
+  // Function to get adaptive rank colors
+  const getRankColorClasses = (rank: number): string => {
     switch (rank) {
-      case 1: return "border-yellow-400 bg-yellow-50 text-yellow-700"; // Gold
-      case 2: return "border-gray-400 bg-gray-100 text-gray-700"; // Silver
-      case 3: return "border-orange-400 bg-orange-50 text-orange-700"; // Bronze
+      // Use more adaptive/neutral colors that work in both modes
+      // Using border color for the rank indication, background for subtle highlight
+      case 1: return "border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-950"; 
+      case 2: return "border-slate-400 dark:border-slate-600 bg-slate-100 dark:bg-slate-900"; 
+      case 3: return "border-orange-400 dark:border-orange-600 bg-orange-50 dark:bg-orange-950"; 
       default: return "border-transparent";
     }
   };
+  
+  const rankClasses = getRankColorClasses(aiResult?.rank ?? 0);
 
   return (
-    <Card className={`h-full flex flex-col overflow-hidden hover:shadow-md transition-shadow duration-200 border-2 ${getRankColor(aiResult?.rank ?? 0)}`}>
+    <Card className={cn(
+        "h-full flex flex-col overflow-hidden hover:shadow-lg transition-shadow duration-200 border-2 bg-muted",
+        rankClasses
+      )}>
       <div className="bg-gradient-to-r from-primary/10 to-primary/5 px-3 py-2 border-b flex items-center justify-between">
         <Badge variant="outline" className="bg-background/80 font-medium text-xs">
           {offer.id}
         </Badge>
-        {/* AI Rank Badge */} 
         {aiResult && (
           <TooltipProvider>
             <Tooltip delayDuration={100}>
               <TooltipTrigger asChild>
-                <Badge variant="outline" className={`font-bold text-xs ${getRankColor(aiResult.rank)}`}>
+                <Badge variant="outline" className={cn("font-bold text-xs", rankClasses)}> 
                   <Award className="h-3 w-3 mr-1" />
                   Rank #{aiResult.rank}
                 </Badge>
@@ -395,13 +405,8 @@ function OfferCard({
           <div className="flex items-center justify-between mt-2 pt-1">
             <p className="text-sm text-muted-foreground">{offer.distance}</p>
             <Badge 
-              className={`text-xs ${
-                offer.status === "Available" 
-                  ? "bg-green-100 text-green-800 hover:bg-green-100" 
-                  : offer.status === "Pending" 
-                  ? "bg-orange-100 text-orange-800 hover:bg-orange-100" 
-                  : "bg-neutral-100 text-neutral-800 hover:bg-neutral-100"
-              }`}
+              variant={offer.status === "Available" ? "success" : offer.status === "Pending" ? "secondary" : "outline"}
+              className="text-xs"
             >
               {offer.status}
             </Badge>
@@ -441,19 +446,19 @@ function OfferCard({
           {offer.description}
         </div>
         
-        <div className="bg-muted/30 -mx-6 px-6 py-2 mt-auto border-t text-xs flex justify-between items-center">
+        <div className="bg-background/50 -mx-6 px-6 py-2 mt-auto border-t text-xs flex justify-between items-center">
           <div className="flex flex-col">
             <span className="text-muted-foreground">Loading:</span>
-            <span className="font-medium">{offer.loadingDate}</span>
+            <span className="font-medium text-foreground">{offer.loadingDate}</span>
           </div>
           <div className="flex flex-col items-end">
             <span className="text-muted-foreground">Delivery:</span>
-            <span className="font-medium">{offer.deliveryDate}</span>
+            <span className="font-medium text-foreground">{offer.deliveryDate}</span>
           </div>
         </div>
       </CardContent>
       
-      <div className="p-3 border-t bg-background flex items-center justify-between gap-2">
+      <div className="p-3 border-t bg-muted flex items-center justify-between gap-2">
         <Button variant="outline" size="sm" onClick={() => onSelect(offer.id)} className="w-full">
           <Info className="h-3.5 w-3.5 mr-1" />
           Details
@@ -588,7 +593,7 @@ const columns: ColumnDef<TransportOffer>[] = [
              status === "Available"
                ? "bg-green-100 text-green-800"
                : status === "Pending"
-               ? "bg-orange-100 text-orange-800"
+               ? "bg-neutral-100 text-neutral-800"
                : "bg-neutral-100 text-neutral-800"
            }
          `}>
@@ -1162,10 +1167,12 @@ export default function OffersPage() {
                        const aiResult = aiEvaluationResults[row.original.id];
                        const getRowRankClass = (rank?: number) => {
                          switch (rank) {
-                           case 1: return "bg-yellow-50 hover:bg-yellow-100/80";
-                           case 2: return "bg-gray-100 hover:bg-gray-200/80";
-                           case 3: return "bg-orange-50 hover:bg-orange-100/80";
-                           default: return "hover:bg-muted/50";
+                            // Apply dark variants for background colors
+                           case 1: return "bg-yellow-50 dark:bg-yellow-950 hover:bg-yellow-100/80 dark:hover:bg-yellow-900/60";
+                           case 2: return "bg-slate-100 dark:bg-slate-900 hover:bg-slate-200/80 dark:hover:bg-slate-800/60";
+                           case 3: return "bg-orange-50 dark:bg-orange-950 hover:bg-orange-100/80 dark:hover:bg-orange-900/60";
+                           // Use hover:bg-muted/50 for default hover
+                           default: return "hover:bg-muted/50"; 
                          }
                        };
                        const rankClass = getRowRankClass(aiResult?.rank);
@@ -1174,7 +1181,11 @@ export default function OffersPage() {
                         <TableRow
                           key={row.id}
                           data-state={row.getIsSelected() && "selected"}
-                          className={`${row.getIsSelected() ? 'bg-primary/5' : rankClass} transition-colors cursor-pointer`}
+                           // Apply rankClass and selected state background
+                          className={cn(
+                             row.getIsSelected() ? 'bg-primary/5' : rankClass,
+                             "transition-colors cursor-pointer"
+                           )}
                           onClick={() => handleOpenOfferDetails(row.original.id)} // Open details on row click
                         >
                           {row.getVisibleCells().map((cell) => (
@@ -1183,17 +1194,18 @@ export default function OffersPage() {
                                 cell.column.columnDef.cell,
                                 cell.getContext()
                               )}
-                              {/* Tooltip for AI Rank on ID column */}
+                              {/* Tooltip for AI Rank on ID column - text colors should adapt */}
                                {cell.column.id === 'id' && aiResult && (
                                  <TooltipProvider>
                                    <Tooltip delayDuration={100}>
                                      <TooltipTrigger asChild>
                                        <Award 
-                                         className={`h-4 w-4 ml-2 inline-block align-middle
-                                           ${aiResult.rank === 1 ? 'text-yellow-500' : ''}
-                                           ${aiResult.rank === 2 ? 'text-gray-500' : ''}
-                                           ${aiResult.rank === 3 ? 'text-orange-500' : ''}
-                                         `}
+                                         className={cn(
+                                           "h-4 w-4 ml-2 inline-block align-middle",
+                                           aiResult.rank === 1 && 'text-yellow-500 dark:text-yellow-400',
+                                           aiResult.rank === 2 && 'text-slate-500 dark:text-slate-400',
+                                           aiResult.rank === 3 && 'text-orange-500 dark:text-orange-400'
+                                         )}
                                        />
                                      </TooltipTrigger>
                                      <TooltipContent side="right" className="max-w-xs">

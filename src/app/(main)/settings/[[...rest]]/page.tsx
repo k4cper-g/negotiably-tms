@@ -5,13 +5,16 @@ import React, { useState } from 'react';
 // import Link from 'next/link'; 
 import { useUser, UserProfile } from '@clerk/nextjs'; // Import UserProfile
 import { useQuery, useMutation } from "convex/react"; // Import Convex hooks
-import { api } from "../../../../convex/_generated/api"; // Import Convex API
-import { Doc, Id } from "../../../../convex/_generated/dataModel"; // Import Convex Id type
+import { api } from "../../../../../convex/_generated/api"; // Import Convex API
+import { Doc, Id } from "../../../../../convex/_generated/dataModel"; // Import Convex Id type
 import { Button } from '@/components/ui/button'; // Keep Button for Connections
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator'; // Keep Separator for Connections
 import { toast } from 'sonner';
-import { Loader2, Trash2, Mail, Radio } from 'lucide-react'; // Added icons
+import { Loader2, Trash2, Mail, Radio, Sun, Moon, Laptop } from 'lucide-react'; // Added icons and theme icons
+import { useTheme } from "next-themes"; // Import useTheme hook
+import { dark } from "@clerk/themes"; // Use the standard import path now that the package is installed
+import { cn } from "@/lib/utils"; // Import cn utility
 // Remove unused imports
 // import { Input } from '@/components/ui/input';
 // import { Label } from '@/components/ui/label';
@@ -39,6 +42,7 @@ const SUPPORTED_PROVIDERS = [
 
 const SettingsPage = () => {
   const [currentSection, setCurrentSection] = useState('connections'); // Default to connections
+  const { setTheme, theme, resolvedTheme } = useTheme(); // Get theme state, setter, and resolvedTheme
   
   // Fetch connections
   const connections = useQuery(api.connections.listConnections);
@@ -118,7 +122,7 @@ const SettingsPage = () => {
 
   return (
     <div className="flex min-h-screen w-full flex-col">
-      <main className="flex min-h-[calc(100vh_-_theme(spacing.16))] flex-1 flex-col gap-4 bg-muted/40 p-4 md:gap-8 md:p-10">
+      <main className="flex min-h-[calc(100vh_-_theme(spacing.16))] flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
         <div className="mx-auto grid w-full max-w-6xl gap-2">
           <h1 className="text-3xl font-semibold">Settings</h1>
         </div>
@@ -128,6 +132,7 @@ const SettingsPage = () => {
             <a onClick={() => setCurrentSection('connections')} className={getNavLinkClass('connections')}>Connections</a>
             <a onClick={() => setCurrentSection('profile')} className={getNavLinkClass('profile')}>Profile</a>
             <a onClick={() => setCurrentSection('notifications')} className={getNavLinkClass('notifications')}>Notifications</a>
+            <a onClick={() => setCurrentSection('theme')} className={getNavLinkClass('theme')}>Theme</a>
           </nav>
 
           <div className="grid gap-6">
@@ -210,18 +215,18 @@ const SettingsPage = () => {
               </Card>
             )}
 
-            {/* Profile Section - Embed Clerk UserProfile */}
+            {/* Profile Section - Remove Card wrapper */}
             {currentSection === 'profile' && (
-              <div> {/* Optional: Wrap if needed for spacing/styling */} 
+              <div> {/* Basic div wrapper is fine if needed for grid layout */}
                 <UserProfile 
-                  path="/settings" // Tells Clerk component where it's mounted
-                  routing="path"    // Use path-based routing within the component
-                  appearance={{ /* TODO: Customize appearance to match shadcn/ui if desired */ 
+                  path="/settings" 
+                  routing="path"    
+                  appearance={{ 
+                    baseTheme: resolvedTheme === 'dark' ? dark : undefined,
                     elements: {
-                      card: "shadow-none border-none", // Example: remove card shadow if it clashes
+                      // Keep these overrides so it blends
+                      card: "shadow-none border-none bg-transparent", 
                       rootBox: "w-full",
-                      // headerTitle: "text-2xl font-semibold",
-                      // pageScrollBox: "p-0", 
                     }
                   }}
                 />
@@ -239,6 +244,107 @@ const SettingsPage = () => {
                 </CardHeader>
                 <CardContent>
                   <p>Notification settings content goes here...</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Theme Section - Updated UI */}
+            {currentSection === 'theme' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Theme</CardTitle>
+                  <CardDescription>
+                    Select the theme for the application.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                     {/* New Theme Preview Grid */}
+                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                       {/* Light Theme Preview */}
+                       <div className="flex flex-col items-center">
+                         <div // Add w-full to prevent horizontal squishing
+                           onClick={() => setTheme('light')}
+                           className={cn(
+                             "w-full border-2 rounded-lg p-1 transition-colors cursor-pointer", // Added w-full
+                             theme === 'light' ? "border-primary" : "border-transparent hover:border-muted-foreground/30"
+                           )}
+                         >
+                           <div className="space-y-2 rounded-sm bg-zinc-100 p-2"> 
+                             <div className="space-y-2 rounded-md bg-white p-2 shadow-sm">
+                               <div className="h-2 w-4/5 rounded-lg bg-zinc-200" />
+                               <div className="h-2 w-full rounded-lg bg-zinc-200" />
+                             </div>
+                             <div className="flex items-center space-x-2 rounded-md bg-white p-2 shadow-sm">
+                               <div className="h-4 w-4 rounded-full bg-zinc-200" />
+                               <div className="h-2 w-full rounded-lg bg-zinc-200" />
+                             </div>
+                             <div className="flex items-center space-x-2 rounded-md bg-white p-2 shadow-sm">
+                               <div className="h-4 w-4 rounded-full bg-zinc-200" />
+                               <div className="h-2 w-full rounded-lg bg-zinc-200" />
+                             </div>
+                           </div>
+                         </div>
+                         <span className="block w-full pt-2 text-center font-normal text-muted-foreground">Light</span> 
+                       </div>
+
+                       {/* Dark Theme Preview */}
+                       <div className="flex flex-col items-center">
+                         <div // Add w-full to prevent horizontal squishing
+                           onClick={() => setTheme('dark')}
+                           className={cn(
+                             "w-full border-2 rounded-lg p-1 transition-colors cursor-pointer", // Added w-full
+                             theme === 'dark' ? "border-primary" : "border-transparent hover:border-muted-foreground/30"
+                           )}
+                         >
+                           <div className="space-y-2 rounded-sm bg-gray-950 p-2">
+                            <div className="space-y-2 rounded-md bg-zinc-800 p-2 shadow-sm">
+                               <div className="h-2 w-4/5 rounded-lg bg-zinc-700" />
+                               <div className="h-2 w-full rounded-lg bg-zinc-700" />
+                             </div>
+                             <div className="flex items-center space-x-2 rounded-md bg-zinc-800 p-2 shadow-sm">
+                               <div className="h-4 w-4 rounded-full bg-zinc-700" />
+                               <div className="h-2 w-full rounded-lg bg-zinc-700" />
+                             </div>
+                             <div className="flex items-center space-x-2 rounded-md bg-zinc-800 p-2 shadow-sm">
+                               <div className="h-4 w-4 rounded-full bg-zinc-700" />
+                               <div className="h-2 w-full rounded-lg bg-zinc-700" />
+                             </div>
+                           </div>
+                         </div>
+                         <span className="block w-full pt-2 text-center font-normal text-muted-foreground">Dark</span>
+                       </div>
+                       
+                       {/* System Theme Preview */} 
+                       <div className="flex flex-col items-center">
+                         <div // Add w-full to prevent horizontal squishing
+                           onClick={() => setTheme("system")}
+                           className={cn(
+                             "w-full border-2 rounded-lg p-1 transition-colors cursor-pointer", // Added w-full
+                             theme === "system"
+                               ? "border-primary"
+                               : "border-transparent hover:border-muted-foreground/30"
+                           )}
+                         >
+                           <div className="space-y-2 rounded-sm bg-gradient-to-r from-zinc-100 to-gray-950 p-2">
+                            <div className="space-y-2 rounded-md bg-gradient-to-r from-white to-zinc-800 p-2 shadow-sm">
+                               <div className="h-2 w-4/5 rounded-lg bg-gradient-to-r from-zinc-200 to-zinc-700" />
+                               <div className="h-2 w-full rounded-lg bg-gradient-to-r from-zinc-200 to-zinc-700" />
+                             </div>
+                             <div className="flex items-center space-x-2 rounded-md bg-gradient-to-r from-white to-zinc-800 p-2 shadow-sm">
+                               <div className="h-4 w-4 rounded-full bg-gradient-to-r from-zinc-200 to-zinc-700" />
+                               <div className="h-2 w-full rounded-lg bg-gradient-to-r from-zinc-200 to-zinc-700" />
+                             </div>
+                             <div className="flex items-center space-x-2 rounded-md bg-gradient-to-r from-white to-zinc-800 p-2 shadow-sm">
+                               <div className="h-4 w-4 rounded-full bg-gradient-to-r from-zinc-200 to-zinc-700" />
+                               <div className="h-2 w-full rounded-lg bg-gradient-to-r from-zinc-200 to-zinc-700" />
+                             </div>
+                           </div>
+                         </div>
+                         <span className="block w-full pt-2 text-center font-normal text-muted-foreground">System</span>
+                       </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             )}

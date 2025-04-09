@@ -544,6 +544,50 @@ export const updateEmailSettings = mutation({
   },
 });
 
+// --- Mutation to Update Current Price Manually ---
+export const updateCurrentPrice = mutation({
+  args: {
+    negotiationId: v.id("negotiations"),
+    newPrice: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const negotiation = await ctx.db.get(args.negotiationId);
+    if (!negotiation) {
+      throw new Error("Negotiation not found");
+    }
+
+    // Authorization check
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user || negotiation.userId !== user._id) {
+      throw new Error("Unauthorized to update price for this negotiation");
+    }
+
+    // Add a system message about the price update
+    const newMessage = {
+      sender: "system",
+      content: `Price manually updated to ${args.newPrice}`,
+      timestamp: Date.now(),
+    };
+
+    // Update the current price and add the system message
+    await ctx.db.patch(args.negotiationId, {
+      currentPrice: args.newPrice,
+      messages: [...negotiation.messages, newMessage],
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
 // --- Mutation to Update AI Agent Settings --- 
 export const configureAgent = mutation({
   args: {

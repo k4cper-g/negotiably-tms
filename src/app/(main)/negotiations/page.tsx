@@ -18,6 +18,14 @@ import {
   Trash2,
   RefreshCw,
   ArrowRight,
+  ChevronFirst,
+  ChevronLast,
+  MoreHorizontal,
+  ArrowUpDown,
+  ChevronDown,
+  Eraser,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -38,6 +46,46 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger 
 } from "@/components/ui/alert-dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+} from "@/components/ui/dropdown-menu";
+import {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
+  VisibilityState,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+  RowSelectionState,
+} from "@tanstack/react-table";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 // Define interface for negotiation
 interface Negotiation {
@@ -70,55 +118,99 @@ const formatCurrency = (value: number): string => {
 // Define the NegotiationStatus type
 type NegotiationStatus = "In Progress" | "Accepted" | "Rejected" | "Completed" | "Expired" | "pending";
 
-// Create a separate client component for the negotiation rows
-function NegotiationRow({ neg, onDelete }: { neg: Negotiation; onDelete?: () => void }) {
-  const { openNegotiation } = useNegotiationModal();
-  const router = useRouter();
-  const [isDeleting, setIsDeleting] = useState(false);
-  const deleteNegotiation = useMutation(api.negotiations.deleteNegotiation);
-  
-  const handleRowClick = () => {
-    router.push(`/negotiations/${neg.id}`);
-  };
-  
-  const handleOpenModal = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent row click
-    openNegotiation(neg.id as unknown as Id<"negotiations">);
-  };
-  
-  const handleDelete = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation(); // Prevent row click
-    
-    try {
-      setIsDeleting(true);
-      await deleteNegotiation({
-        negotiationId: neg.id as unknown as Id<"negotiations">
-      });
-      if (onDelete) onDelete();
-    } catch (error) {
-      console.error("Error deleting negotiation:", error);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-  
-  return (
-    <tr 
-      className="border-b hover:bg-muted/30 cursor-pointer transition-colors" 
-      onClick={handleRowClick}
-    >
-      <td className="py-3 px-4 font-medium text-sm">{neg.id.substring(0, 8)}</td>
-      <td className="py-3 px-4 text-sm">
-        <div className="flex items-center gap-1">
-          <span className="font-medium">{neg.origin}</span>
-          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-          <span className="font-medium">{neg.destination}</span>
+// Define columns for the table
+const columns: ColumnDef<Negotiation>[] = [
+  {
+    id: "select",
+    header: ({ table }) => (
+      <Checkbox
+        checked={
+          table.getIsAllPageRowsSelected() ||
+          (table.getIsSomePageRowsSelected() && "indeterminate")
+        }
+        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+        aria-label="Select all"
+        className="translate-y-[2px]"
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        checked={row.getIsSelected()}
+        onCheckedChange={(value) => row.toggleSelected(!!value)}
+        aria-label="Select row"
+        className="translate-y-[2px]"
+        onClick={(e) => e.stopPropagation()} // Prevent row click from triggering when clicking checkbox
+      />
+    ),
+    enableSorting: false,
+    enableHiding: false,
+  },
+  {
+    accessorKey: "id",
+    header: "ID",
+    cell: ({ row }) => <div className="font-medium text-sm">{row.original.id.substring(0, 8)}</div>,
+  },
+  {
+    accessorKey: "route",
+    header: "Route",
+    cell: ({ row }) => (
+      <div className="flex flex-col">
+        <div className="flex items-center">
+          <span className="h-1.5 w-1.5 rounded-full bg-blue-500 mr-1.5"></span>
+          {row.original.origin}
         </div>
-      </td>
-      <td className="py-3 px-4 text-sm">{neg.carrier || "Unknown"}</td>
-      <td className="py-3 px-4 text-sm">{neg.initialPrice}</td>
-      <td className="py-3 px-4 text-sm">{neg.currentPrice || neg.initialPrice}</td>
-      <td className="py-3 px-4 text-sm">
+        <div className="flex items-center mt-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-green-500 mr-1.5"></span>
+          {row.original.destination}
+        </div>
+      </div>
+    ),
+    sortingFn: (rowA, rowB) => {
+      // Sort by origin + destination
+      const routeA = `${rowA.original.origin}-${rowA.original.destination}`.toLowerCase();
+      const routeB = `${rowB.original.origin}-${rowB.original.destination}`.toLowerCase();
+      return routeA.localeCompare(routeB);
+    },
+  },
+  {
+    accessorKey: "carrier",
+    header: "Carrier",
+    cell: ({ row }) => <div>{row.original.carrier || "Unknown"}</div>,
+  },
+  {
+    accessorKey: "initialPrice",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        className="-ml-4 h-8 data-[state=open]:bg-accent"
+      >
+        Initial Price
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+    cell: ({ row }) => <div>{row.original.initialPrice}</div>,
+  },
+  {
+    accessorKey: "currentPrice",
+    header: "Current Price",
+    cell: ({ row }) => <div>{row.original.currentPrice || row.original.initialPrice}</div>,
+  },
+  {
+    accessorKey: "savings",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        className="-ml-4 h-8 data-[state=open]:bg-accent"
+      >
+        Savings
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+    cell: ({ row }) => {
+      const neg = row.original;
+      return (
         <div className="flex items-center">
           {neg.savings ? (
             neg.savings.startsWith('-') ? (
@@ -145,78 +237,235 @@ function NegotiationRow({ neg, onDelete }: { neg: Negotiation; onDelete?: () => 
             <span className="text-muted-foreground">-</span>
           )}
         </div>
-      </td>
-      <td className="py-3 px-4 text-sm">
+      );
+    },
+    sortingFn: (rowA, rowB) => {
+      // Custom sorting function for savings
+      const getSavingsValue = (savings: string | null | undefined) => {
+        if (!savings) return 0;
+        if (savings === "€0.00") return 0;
+        
+        // Extract numeric value, considering negative values
+        const isNegative = savings.startsWith('-');
+        const numStr = savings.replace(/[^0-9.,]/g, '');
+        const value = parseFloat(numStr);
+        return isNegative ? -value : value;
+      };
+      
+      return getSavingsValue(rowA.original.savings) - getSavingsValue(rowB.original.savings);
+    },
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ row }) => {
+      const status = row.original.status;
+      return (
         <Badge 
           variant={
-            neg.status === "In Progress" || neg.status === "pending" ? "secondary" :
-            neg.status === "Accepted" ? "success" :
-            neg.status === "Completed" ? "success" :
-            neg.status === "Rejected" ? "destructive" :
+            status === "In Progress" || status === "pending" ? "secondary" :
+            status === "Accepted" ? "success" :
+            status === "Completed" ? "success" :
+            status === "Rejected" ? "destructive" :
             "outline"
           }
           className="font-normal"
         >
-          {neg.status === "pending" ? "In Progress" : neg.status}
+          {status === "pending" ? "In Progress" : status}
         </Badge>
-      </td>
-      <td className="py-3 px-4 text-xs text-muted-foreground">
-        {neg.lastActivity || formatDistanceToNow(new Date(neg.dateCreated), { addSuffix: true })}
-      </td>
-      <td className="py-3 px-4 text-sm">
+      );
+    },
+  },
+  {
+    accessorKey: "lastActivity",
+    header: "Last Activity",
+    cell: ({ row }) => <div className="text-xs text-muted-foreground">{row.original.lastActivity}</div>,
+  },
+  {
+    accessorKey: "messages",
+    header: "Messages",
+    cell: ({ row }) => (
         <div className="flex items-center gap-1">
           <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-          <span>{neg.messages}</span>
+        <span>{row.original.messages}</span>
         </div>
-      </td>
-      <td className="py-3 px-4 text-sm">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleOpenModal}
-            className="h-7 w-7"
-            title="Open as floating chat"
-          >
-            <Pin className="h-3.5 w-3.5 text-muted-foreground" />
-          </Button>
-          
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+    ),
+  },
+  {
+    id: "actions",
+    header: "",
+    cell: ({ row }) => {
+      const neg = row.original;
+      const router = useRouter();
+      const { openNegotiation } = useNegotiationModal();
+      const deleteNegotiation = useMutation(api.negotiations.deleteNegotiation);
+      const updateNegotiationPrice = useMutation(api.negotiations.updateCurrentPrice);
+      const [isDeleting, setIsDeleting] = useState(false);
+      const [isUpdatingPrice, setIsUpdatingPrice] = useState(false);
+      const [newPrice, setNewPrice] = useState("");
+      const [editDialogOpen, setEditDialogOpen] = useState(false);
+      
+      const handleOpenModal = (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent row click
+        openNegotiation(neg.id as unknown as Id<"negotiations">);
+      };
+
+      const handleDelete = async (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent row click
+        
+        try {
+          setIsDeleting(true);
+          await deleteNegotiation({
+            negotiationId: neg.id as unknown as Id<"negotiations">
+          });
+        } catch (error) {
+          console.error("Error deleting negotiation:", error);
+        } finally {
+          setIsDeleting(false);
+        }
+      };
+      
+      const handleUpdatePrice = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newPrice.trim()) return;
+        
+        try {
+          setIsUpdatingPrice(true);
+          await updateNegotiationPrice({
+            negotiationId: neg.id as unknown as Id<"negotiations">,
+            newPrice: newPrice
+          });
+          setEditDialogOpen(false);
+        } catch (error) {
+          console.error("Error updating price:", error);
+        } finally {
+          setIsUpdatingPrice(false);
+        }
+      };
+      
+      return (
+        <>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                title="Delete negotiation"
-                onClick={(e) => e.stopPropagation()}
+                className="h-8 w-8 p-0"
+                onClick={(e) => e.stopPropagation()} // Prevent row click
               >
-                <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
               </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/negotiations/${neg.id}`);
+              }}>
+                View Details
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => handleOpenModal(e)}>
+                Open as Floating Chat
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setNewPrice(neg.currentPrice || neg.initialPrice);
+                  setEditDialogOpen(true);
+                }}
+              >
+                Edit Price
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                className="text-red-600 focus:text-red-600"
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+                disabled={isDeleting}
+                asChild
+              >
+                <AlertDialog>
+                  <AlertDialogTrigger className="w-full text-left px-2 py-1.5 text-sm text-red-600 focus:text-red-600">
+                    {isDeleting ? 'Deleting...' : 'Delete'}
             </AlertDialogTrigger>
             <AlertDialogContent onClick={(e) => e.stopPropagation()}>
               <AlertDialogHeader>
-                <AlertDialogTitle>Delete Negotiation</AlertDialogTitle>
+                      <AlertDialogTitle>Delete negotiation?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you sure you want to delete this negotiation? This action cannot be undone.
+                        This action cannot be undone. This will permanently delete the negotiation and remove it from our servers.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
                 <AlertDialogAction 
-                  onClick={(e: React.MouseEvent<HTMLButtonElement>) => handleDelete(e)}
-                  disabled={isDeleting}
-                  className="bg-black text-white hover:bg-black/80 cursor-pointer"
-                >
-                  {isDeleting ? 'Deleting...' : 'Delete'}
+                        className="bg-red-600 hover:bg-red-700"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(e);
+                        }}
+                      >
+                        Delete
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+            <DialogContent className="sm:max-w-[425px]" onClick={(e) => e.stopPropagation()}>
+              <DialogHeader>
+                <DialogTitle>Edit Current Price</DialogTitle>
+                <DialogDescription>
+                  Update the current negotiated price. This will be recorded in the chat history.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleUpdatePrice}>
+                <div className="grid gap-4 py-4">
+                  <div className="flex flex-col space-y-1.5">
+                    <label htmlFor="price" className="text-sm font-medium">
+                      Current Price
+                    </label>
+                    <Input
+                      id="price"
+                      placeholder="€1000.00"
+                      value={newPrice}
+                      onChange={(e) => setNewPrice(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      autoFocus
+                    />
+                  </div>
         </div>
-      </td>
-    </tr>
-  );
-}
+                <DialogFooter>
+                  <Button 
+                    variant="outline" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditDialogOpen(false);
+                    }}
+                    type="button"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={isUpdatingPrice}
+                  >
+                    {isUpdatingPrice ? 'Updating...' : 'Update Price'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </>
+      );
+    },
+    enableSorting: false,
+    enableHiding: false,
+  },
+];
 
 // --- Add Helper Function --- 
 const parseNumericValue = (str: string | null | undefined): number | null => {
@@ -236,12 +485,19 @@ const parseNumericValue = (str: string | null | undefined): number | null => {
 export default function NegotiationsPage() {
   // State for search and filters
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sortOrder, setSortOrder] = useState("newest");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+  
+  // Tanstack Table state
+  const [sorting, setSorting] = useState<SortingState>([{ id: "lastActivity", desc: true }]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   
   // Fetch negotiations from Convex
   const convexNegotiations = useQuery(api.negotiations.getUserNegotiations);
+  const deleteNegotiation = useMutation(api.negotiations.deleteNegotiation);
   
   // Helper to get numeric price
   const getNumericPrice = (price: string | null | undefined): number => {
@@ -310,48 +566,48 @@ export default function NegotiationsPage() {
     });
   };
   
-  // Filter and sort the negotiations
-  const getFilteredNegotiations = () => {
-    const formatted = formatNegotiations();
-    
-    // Apply status filter
-    let filtered = formatted;
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(n => 
-        statusFilter === "active" 
-          ? (n.status === "In Progress" || n.status === "pending")
-          : n.status === statusFilter
-      );
-    }
-    
-    // Apply search filter
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(n => 
-        n.id.toLowerCase().includes(term) ||
-        n.offerId.toLowerCase().includes(term) ||
-        n.origin.toLowerCase().includes(term) ||
-        n.destination.toLowerCase().includes(term) ||
-        (n.carrier && n.carrier.toLowerCase().includes(term))
-      );
-    }
-    
-    // Apply sorting
-    return filtered.sort((a, b) => {
-      if (sortOrder === "newest") {
-        return new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime();
-      } else if (sortOrder === "oldest") {
-        return new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime();
-      } else if (sortOrder === "highest") {
-        return getNumericPrice(b.initialPrice) - getNumericPrice(a.initialPrice);
-      } else if (sortOrder === "lowest") {
-        return getNumericPrice(a.initialPrice) - getNumericPrice(b.initialPrice);
-      }
-      return 0;
-    });
-  };
+  const allNegotiations = formatNegotiations();
   
-  const filteredNegotiations = getFilteredNegotiations();
+  // Initialize the table
+  const table = useReactTable({
+    data: allNegotiations,
+    columns,
+    state: {
+      sorting,
+      columnVisibility,
+      columnFilters,
+      rowSelection,
+      pagination: {
+        pageIndex: currentPage - 1,
+        pageSize,
+      },
+    },
+    enableRowSelection: true,
+    onRowSelectionChange: setRowSelection,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
+    onPaginationChange: (updater) => {
+      if (typeof updater === 'function') {
+        const newState = updater({ pageIndex: currentPage - 1, pageSize });
+        setCurrentPage(newState.pageIndex + 1);
+        setPageSize(newState.pageSize);
+      }
+    },
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+  
+  // Apply search filter whenever searchTerm changes
+  useEffect(() => {
+    if (searchTerm) {
+      table.getColumn("route")?.setFilterValue(searchTerm);
+    } else {
+      table.getColumn("route")?.setFilterValue(undefined);
+    }
+  }, [searchTerm, table]);
   
   // Simple refresh function that adds a loading indicator
   const refreshNegotiations = () => {
@@ -390,7 +646,7 @@ export default function NegotiationsPage() {
       </div>
       
       <div className="mb-6">
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex flex-col md:flex-row gap-4 items-center">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -400,39 +656,122 @@ export default function NegotiationsPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="flex gap-3">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="Accepted">Accepted</SelectItem>
-                <SelectItem value="Rejected">Rejected</SelectItem>
-                <SelectItem value="Completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
+          
+          <div className="flex items-center gap-2">
+            {/* Selection Controls - Only shown when rows are selected */}
+            {Object.keys(rowSelection).length > 0 && (
+              <div className="flex items-center gap-2 py-1 px-2 bg-muted/50 border rounded-md">
+                <span className="text-sm">
+                  {Object.keys(rowSelection).length} selected
+                </span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => table.resetRowSelection()}
+                  className="h-8 px-2 text-xs"
+                >
+                  <Eraser className="h-4 w-4" />
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete selected negotiations?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete the
+                        {Object.keys(rowSelection).length === 1 
+                          ? " selected negotiation." 
+                          : ` ${Object.keys(rowSelection).length} selected negotiations.`}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction 
+                        className="bg-red-600 hover:bg-red-700"
+                        onClick={async () => {
+                          const deleteSelectedNegotiations = async () => {
+                            try {
+                              setIsRefreshing(true);
+                              // Delete each selected negotiation
+                              const promises = Object.keys(rowSelection).map(index => {
+                                const negotiationId = table.getRow(index).original.id;
+                                return deleteNegotiation({
+                                  negotiationId: negotiationId as unknown as Id<"negotiations">
+                                });
+                              });
+                              await Promise.all(promises);
+                              // Reset selection after deletion
+                              table.resetRowSelection();
+                            } catch (error) {
+                              console.error("Error deleting negotiations:", error);
+                            } finally {
+                              setIsRefreshing(false);
+                            }
+                          };
+                          
+                          deleteSelectedNegotiations();
+                        }}
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            )}
             
-            <Select value={sortOrder} onValueChange={setSortOrder}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Sort by" />
+            {/* Column Visibility Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8">
+                  Columns <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {table
+                  .getAllColumns()
+                  .filter((column) => column.getCanHide())
+                  .map((column) => {
+                    return (
+                      <DropdownMenuCheckboxItem
+                        key={column.id}
+                        className="capitalize"
+                        checked={column.getIsVisible()}
+                        onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                      >
+                        {column.id}
+                      </DropdownMenuCheckboxItem>
+                    );
+                  })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Page Size Select */}
+            <div className="flex items-center space-x-2">
+              <Select
+                value={pageSize.toString()}
+                onValueChange={(value) => setPageSize(parseInt(value))}
+              >
+                <SelectTrigger id="page-size-select" className="h-8 w-[70px]">
+                  <SelectValue placeholder={pageSize} />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="newest">
-                  Newest First
+                <SelectContent side="top">
+                  {[10, 20, 50, 100].map((size) => (
+                    <SelectItem key={size} value={size.toString()}>
+                      {size}
                 </SelectItem>
-                <SelectItem value="oldest">
-                  Oldest First
-                </SelectItem>
-                <SelectItem value="highest">
-                  Highest Price
-                </SelectItem>
-                <SelectItem value="lowest">
-                  Lowest Price
-                </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
+            </div>
           </div>
         </div>
       </div>
@@ -442,7 +781,7 @@ export default function NegotiationsPage() {
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="mt-4 text-muted-foreground">Loading negotiations...</p>
         </div>
-      ) : filteredNegotiations.length === 0 ? (
+      ) : allNegotiations.length === 0 ? (
         <div className="text-center py-12 border rounded-lg bg-muted/5">
           <h3 className="text-lg font-medium mb-2">No negotiations found</h3>
           <p className="text-muted-foreground mb-6">Start by requesting transport for an offer</p>
@@ -452,40 +791,134 @@ export default function NegotiationsPage() {
         </div>
       ) : (
         <>
-          <div className="rounded-lg overflow-hidden border">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-muted/30 text-xs text-muted-foreground font-medium">
-                  <th className="text-left py-3 px-4">ID</th>
-                  <th className="text-left py-3 px-4">Route</th>
-                  <th className="text-left py-3 px-4">Carrier</th>
-                  <th className="text-left py-3 px-4">Initial Price</th>
-                  <th className="text-left py-3 px-4">Current Price</th>
-                  <th className="text-left py-3 px-4">Savings</th>
-                  <th className="text-left py-3 px-4">Status</th>
-                  <th className="text-left py-3 px-4">Last Activity</th>
-                  <th className="text-left py-3 px-4">Messages</th>
-                  <th className="text-left py-3 px-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredNegotiations.map((neg) => (
-                  <NegotiationRow 
-                    key={neg.id} 
-                    neg={neg} 
-                    onDelete={refreshNegotiations}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex justify-between items-center mt-4 text-sm text-muted-foreground">
-            <div>
-              Showing {filteredNegotiations.length} of {filteredNegotiations.length} negotiations
+          <div className="rounded-md border overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <TableHead key={header.id} colSpan={header.colSpan}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    // Skeleton Loading Rows
+                    Array(5).fill(0).map((_, i) => (
+                      <TableRow key={`loading-${i}`} className="animate-pulse">
+                        <TableCell><div className="h-4 bg-muted rounded w-16"></div></TableCell>
+                        <TableCell>
+                          <div className="space-y-2">
+                            <div className="flex items-center">
+                              <div className="h-1.5 w-1.5 rounded-full bg-muted mr-1.5"></div>
+                              <div className="h-4 bg-muted rounded w-28"></div>
+                            </div>
+                            <div className="flex items-center">
+                              <div className="h-1.5 w-1.5 rounded-full bg-muted mr-1.5"></div>
+                              <div className="h-4 bg-muted rounded w-28"></div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell><div className="h-4 bg-muted rounded w-20"></div></TableCell>
+                        <TableCell><div className="h-4 bg-muted rounded w-16"></div></TableCell>
+                        <TableCell><div className="h-4 bg-muted rounded w-16"></div></TableCell>
+                        <TableCell><div className="h-4 bg-muted rounded w-14"></div></TableCell>
+                        <TableCell><div className="h-6 bg-muted rounded w-20"></div></TableCell>
+                        <TableCell><div className="h-4 bg-muted rounded w-24"></div></TableCell>
+                        <TableCell><div className="h-4 bg-muted rounded w-8"></div></TableCell>
+                        <TableCell><div className="h-7 bg-muted rounded w-16"></div></TableCell>
+                      </TableRow>
+                    ))
+                  ) : table.getRowModel().rows?.length ? (
+                    // Render actual rows
+                    table.getRowModel().rows.map((row) => (
+                      <TableRow 
+                        key={row.id}
+                        className="hover:bg-muted/50 cursor-pointer transition-colors"
+                        onClick={() => window.location.href = `/negotiations/${row.original.id}`}
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id}>
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : (
+                    // No results found
+                    <TableRow>
+                      <TableCell colSpan={columns.length} className="h-24 text-center">
+                        No negotiations found.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled>Previous</Button>
-              <Button variant="outline" size="sm" disabled>Next</Button>
+          </div>
+          
+          {/* Pagination Controls */}
+          <div className="flex items-center justify-between mt-4">
+            <div className="flex-1 text-sm text-muted-foreground">
+              {Object.keys(rowSelection).length} of{" "}
+              {table.getFilteredRowModel().rows.length} row(s) selected.
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-muted-foreground">
+                Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.setPageIndex(0)}
+                disabled={!table.getCanPreviousPage()}
+                className="h-8 px-2"
+                title="First page"
+              >
+               <ChevronFirst className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+                className="h-8 px-2"
+                title="Previous page"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+                className="h-8 px-2"
+                title="Next page"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                disabled={!table.getCanNextPage()}
+                className="h-8 px-2"
+                title="Last page"
+              >
+                <ChevronLast className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </>

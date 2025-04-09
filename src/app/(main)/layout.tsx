@@ -43,7 +43,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto relative">
+        <main className="flex-1 overflow-y-auto relative bg-card">
           <div 
             className={cn(
               "absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center z-10 transition-opacity duration-300",

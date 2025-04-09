@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import { ConvexClerkClientProvider } from "@/providers/ConvexClerkClientProvider";
 import { SyncUserWithConvex } from "@/providers/syncuser";
 import { NegotiationModalProvider } from '@/context/NegotiationModalContext';
+import { ThemeProvider } from "@/providers/theme-provider";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
 import { Analytics } from "@vercel/analytics/react"
@@ -56,15 +57,22 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={cn("min-h-screen bg-background font-sans antialiased", inter.variable)}>
         <Analytics />
-        <ConvexClerkClientProvider>
-          <SyncUserWithConvex />
-          <NegotiationModalProvider>
-              <div className="relative flex min-h-screen flex-col">
-                <div className="flex-1">{children}</div>
-              </div>
-              <Toaster />
-          </NegotiationModalProvider>
-        </ConvexClerkClientProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <ConvexClerkClientProvider>
+            <SyncUserWithConvex />
+            <NegotiationModalProvider>
+                <div className="relative flex min-h-screen flex-col">
+                  <div className="flex-1">{children}</div>
+                </div>
+                <Toaster />
+            </NegotiationModalProvider>
+          </ConvexClerkClientProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

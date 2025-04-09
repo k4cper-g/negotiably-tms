@@ -5,9 +5,11 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, ZoomControl }
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import Link from "next/link";
+import { useTheme } from 'next-themes';
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Loader2, ExternalLink, Map } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // Define the structure for a transport offer
 interface TransportOffer {
@@ -228,11 +230,11 @@ function FullscreenButton() {
       style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 1000 }}
     >
       <button 
-        className="flex items-center justify-center h-9 w-9 bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
+        className="flex items-center justify-center h-9 w-9 bg-card hover:bg-muted transition-colors"
         title="Toggle fullscreen map view"
         onClick={(e) => e.preventDefault()}
       >
-        <Map className="h-5 w-5 text-primary" />
+        <Map className="h-5 w-5 text-foreground" />
       </button>
     </div>
   );
@@ -258,6 +260,7 @@ export default function TransportMap({
   const [showRoutes, setShowRoutes] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [processingRoutes, setProcessingRoutes] = useState<string[]>([]);
+  const { resolvedTheme } = useTheme();
 
   useEffect(() => {
     // Process the offers to extract coordinates for markers and routes
@@ -367,7 +370,7 @@ export default function TransportMap({
   
   // Create custom icons with enhanced styling
   const originIcon = L.divIcon({
-    className: "custom-div-icon",
+    className: "custom-div-icon origin-icon",
     html: `
       <div class="marker-pin" style="
         background-color: #3b82f6;
@@ -393,7 +396,7 @@ export default function TransportMap({
   });
   
   const destinationIcon = L.divIcon({
-    className: "custom-div-icon",
+    className: "custom-div-icon destination-icon",
     html: `
       <div class="marker-pin" style="
         background-color: #10b981;
@@ -433,16 +436,36 @@ export default function TransportMap({
     return <div className="h-[60vh] flex items-center justify-center bg-muted">Loading map...</div>;
   }
 
+  // Determine map theme based on the *resolved* theme
+  const mapTheme = resolvedTheme === 'dark' ? 'dark' : 'light'; 
+  
+  // Define Tile Layer URLs (using the correct light_all)
+  const tileLayers = {
+    light: {
+      url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", 
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    },
+    dark: {
+      url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    }
+  };
+
+  const currentTileLayer = tileLayers[mapTheme];
+
   return (
     <>
       
       {isLoaded && (
-        <div className="relative w-full h-full min-h-[500px] rounded-lg overflow-hidden shadow-md border">
+        <div className={cn(
+             "relative w-full h-full min-h-[500px] rounded-lg overflow-hidden shadow-md border", 
+             mapTheme === 'dark' ? 'dark-map' : 'light-map'
+           )}>
           {isCalculatingRoutes && (
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm py-2 px-4 rounded-full shadow-lg">
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] bg-card/90 backdrop-blur-sm py-2 px-4 rounded-full shadow-lg">
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                <span className="text-sm font-medium">Calculating routes ({processedRoutes.filter(r => !r.isProcessing).length}/{routes.length})</span>
+                <span className="text-sm font-medium text-foreground">Calculating routes ({processedRoutes.filter(r => !r.isProcessing).length}/{routes.length})</span>
               </div>
             </div>
           )}
@@ -454,10 +477,11 @@ export default function TransportMap({
             zoomControl={false}
             className="z-0"
           >
-            {/* Add the desired TileLayer */}
+            {/* Conditionally render TileLayer based on theme */}
             <TileLayer 
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" 
+              key={mapTheme}
+              attribution={currentTileLayer.attribution}
+              url={currentTileLayer.url} 
             />
             
             {/* Routes - only show when all are processed */}
@@ -558,6 +582,28 @@ export default function TransportMap({
           
           {/* Add custom CSS for route animations and highlighting */}
           <style jsx global>{`
+            /* Basic dark mode adjustments for map controls/popups if needed */
+            .dark-map .leaflet-control-attribution {
+              background: rgba(0, 0, 0, 0.7) !important;
+              color: #ccc !important;
+            }
+            .dark-map .leaflet-popup-content-wrapper, 
+            .dark-map .leaflet-popup-tip {
+              background: #333 !important; /* Example dark background */
+              color: #eee !important; /* Example dark text color */
+              box-shadow: 0 3px 14px rgba(0,0,0,0.4);
+            }
+            .dark-map .leaflet-popup-close-button {
+              color: #ccc !important;
+            }
+             /* Style marker pins for dark mode */
+            .dark-map .marker-pin {
+               border-color: #444; /* Darker border */ 
+            }
+            .dark-map .marker-pin > div {
+               background-color: #bbb; /* Adjust inner dot */ 
+            }
+            
             .route-line {
               transition: all 0.3s ease;
               stroke-dasharray: none;
