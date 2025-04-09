@@ -302,7 +302,11 @@ export async function analyzeLatestMessage(state: NegotiationAgentState): Promis
                 - Agent Style: ${config.style}
                 - Agent Max Replies Rule: ${config.maxAutoReplies} (Current count: ${negotiation.agentReplyCount || 0})
                 - Agent Notify on New Terms Rule: ${config.notifyOnNewTerms}
-                - Agent Notify on Price Increase Rule: ${config.notifyOnPriceIncrease} (i.e., price moving away from target)
+                - Agent Notify on Price Change Rule: ${config.notifyOnPriceChange} (i.e., when price is different from last offer)
+                - Agent Notify on Target Price Reached Rule: ${config.notifyOnTargetPriceReached}
+                - Agent Notify on Agreement Rule: ${config.notifyOnAgreement}
+                - Agent Notify on Confusion Rule: ${config.notifyOnConfusion}
+                - Agent Notify on Refusal Rule: ${config.notifyOnRefusal}
 
                 Conversation History (Last 10 messages):
                 ${historySummary}
@@ -316,8 +320,12 @@ export async function analyzeLatestMessage(state: NegotiationAgentState): Promis
 
                 Agent Configuration Context (relevant bypass flags):
                 - bypassNewTermsCheck: ${config.bypassNewTermsCheck || false}
-                - bypassPriceIncreaseCheck: ${config.bypassPriceIncreaseCheck || false}
+                - bypassPriceChangeCheck: ${config.bypassPriceChangeCheck || false}
                 - bypassMaxRepliesCheck: ${config.bypassMaxRepliesCheck || false}
+                - bypassTargetPriceCheck: ${config.bypassTargetPriceCheck || false}
+                - bypassAgreementCheck: ${config.bypassAgreementCheck || false}
+                - bypassConfusionCheck: ${config.bypassConfusionCheck || false}
+                - bypassRefusalCheck: ${config.bypassRefusalCheck || false}
 
                 Provide your analysis ONLY as a JSON object with the following fields:
 
@@ -326,13 +334,13 @@ export async function analyzeLatestMessage(state: NegotiationAgentState): Promis
                 3.  "currentNegotiationPrice": The *current operative price* (EUR number only) of the negotiation after considering the latest message and history. This is the price currently "on the table". If the carrier agreed to our last offer, use that price. If they made a counter-offer, use that. If they refused without a counter, the previous price might still stand or be unclear (use null). If no price established yet, use the initial price.
                 4.  "newTermsDetected": Boolean indicating if the *latest* carrier message introduced new conditions (delivery times, payment terms, etc.).
                 5.  "needsReview": Boolean indicating if the human user *must* review this negotiation *before* the agent replies. Set to true if:
-                    a) The negotiation goal (target price) seems to have been met or exceeded based on the "currentNegotiationPrice".
-                    b) The carrier explicitly agreed ("intent" is 'agreement') to a price.
+                    a) The negotiation goal (target price) seems to have been met or exceeded based on the "currentNegotiationPrice" AND the 'notifyOnTargetPriceReached' setting is true AND the 'bypassTargetPriceCheck' flag is false.
+                    b) The carrier explicitly agreed ("intent" is 'agreement') to a price AND the 'notifyOnAgreement' setting is true AND the 'bypassAgreementCheck' flag is false.
                     c) "newTermsDetected" is true AND the 'notifyOnNewTerms' rule is enabled AND the 'bypassNewTermsCheck' flag (see context above) is false.
-                    d) The carrier's latest response proposes a price significantly moving away from the target direction AND the 'notifyOnPriceIncrease' rule is enabled AND the 'bypassPriceIncreaseCheck' flag is false. (Your judgment needed on "significantly").
+                    d) The carrier's latest response proposes a different price than what was previously discussed AND the 'notifyOnPriceChange' rule is enabled AND the 'bypassPriceChangeCheck' flag is false.
                     e) The agent reply count (${negotiation.agentReplyCount || 0}) has reached or exceeded the 'maxAutoReplies' rule (${config.maxAutoReplies}) AND the 'bypassMaxRepliesCheck' flag is false.
-                    f) The conversation seems stalled, confused, or requires strategic input only a human can provide.
-                    g) The carrier's intent is 'refusal' and it seems final.
+                    f) The conversation seems stalled, confused, or requires strategic input only a human can provide AND the 'notifyOnConfusion' setting is true AND the 'bypassConfusionCheck' flag is false.
+                    g) The carrier's intent is 'refusal' and it seems final AND the 'notifyOnRefusal' setting is true AND the 'bypassRefusalCheck' flag is false.
                     h) There's no latest message from the carrier, but it's the agent's turn to start the negotiation (no messages or last message was ours). In this initial case, review is NOT needed unless rules trigger.
                 6.  "reviewReason": A concise explanation (string, max 15 words) ONLY if "needsReview" is true. Example: "Target price met.", "Carrier agreed to price.", "New terms require review.", "Max replies reached.", "Proposed price has changed."
 

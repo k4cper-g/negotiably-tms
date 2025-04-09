@@ -110,10 +110,15 @@ const OPENAI_CHAT_COMPLETION_URL = "https://api.openai.com/v1/chat/completions";
 // Default Agent Settings
 const defaultAgentSettings = {
   style: "balanced" as const,
-  notifyOnPriceIncrease: true,
+  notifyOnPriceChange: true,
   notifyOnNewTerms: true,
   maxAutoReplies: 3,
   notifyAfterRounds: 5,
+  // New notification settings
+  notifyOnTargetPriceReached: true,
+  notifyOnAgreement: true,
+  notifyOnConfusion: true,
+  notifyOnRefusal: true,
 };
 
 // --- Core Agent Action --- 
@@ -123,7 +128,12 @@ export const runAgentNegotiation = internalAction({
         bypassNewTermsCheck: v.optional(v.boolean()),
         bypassMaxRepliesCheck: v.optional(v.boolean()),
         bypassRoundsCheck: v.optional(v.boolean()),
-        bypassPriceIncreaseCheck: v.optional(v.boolean()),
+        bypassPriceChangeCheck: v.optional(v.boolean()),
+        // Add new bypass flags for remaining review conditions
+        bypassTargetPriceCheck: v.optional(v.boolean()),
+        bypassAgreementCheck: v.optional(v.boolean()),
+        bypassConfusionCheck: v.optional(v.boolean()),
+        bypassRefusalCheck: v.optional(v.boolean()),
     },
     handler: async (ctx: ActionCtx, args) => {
         console.log(`[Agent] Running for negotiation: ${args.negotiationId}`);
@@ -177,7 +187,12 @@ export const runAgentNegotiation = internalAction({
             bypassNewTermsCheck: args.bypassNewTermsCheck || false,
             bypassMaxRepliesCheck: args.bypassMaxRepliesCheck || false,
             bypassRoundsCheck: args.bypassRoundsCheck || false,
-            bypassPriceIncreaseCheck: args.bypassPriceIncreaseCheck || false,
+            bypassPriceChangeCheck: args.bypassPriceChangeCheck || false,
+            // Include the new bypass flags
+            bypassTargetPriceCheck: args.bypassTargetPriceCheck || false,
+            bypassAgreementCheck: args.bypassAgreementCheck || false,
+            bypassConfusionCheck: args.bypassConfusionCheck || false,
+            bypassRefusalCheck: args.bypassRefusalCheck || false,
         };
 
         try {

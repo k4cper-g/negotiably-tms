@@ -78,10 +78,18 @@ export default defineSchema({
             v.literal("balanced"),
             v.literal("aggressive")
         ),
-        notifyOnPriceIncrease: v.boolean(),
+        notifyOnPriceChange: v.boolean(),
         notifyOnNewTerms: v.boolean(),
         maxAutoReplies: v.number(),
         notifyAfterRounds: v.number(),
+        notifyOnTargetPriceReached: v.optional(v.boolean()),
+        notifyOnAgreement: v.optional(v.boolean()),
+        notifyOnConfusion: v.optional(v.boolean()),
+        notifyOnRefusal: v.optional(v.boolean()),
+        bypassTargetPriceCheck: v.optional(v.boolean()),
+        bypassAgreementCheck: v.optional(v.boolean()),
+        bypassConfusionCheck: v.optional(v.boolean()),
+        bypassRefusalCheck: v.optional(v.boolean()),
     }).index("by_negotiationId", ["negotiationId"]).index("by_userId", ["userId"]),
     
     notifications: defineTable({

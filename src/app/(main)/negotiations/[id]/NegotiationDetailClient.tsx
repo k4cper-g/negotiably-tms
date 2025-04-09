@@ -89,14 +89,32 @@ interface AgentSettingsModalProps {
   isConfiguringAgent: boolean;
   agentStyle: "conservative" | "balanced" | "aggressive";
   setAgentStyle: React.Dispatch<React.SetStateAction<"conservative" | "balanced" | "aggressive">>;
-  notifyOnPriceIncrease: boolean;
-  setNotifyOnPriceIncrease: (value: boolean) => void;
+  notifyOnPriceChange: boolean;
+  setNotifyOnPriceChange: (value: boolean) => void;
   notifyOnNewTerms: boolean;
   setNotifyOnNewTerms: (value: boolean) => void;
   notifyAfterRounds: number;
   setNotifyAfterRounds: (value: number) => void;
   maxAutoReplies: number;
   setMaxAutoReplies: (value: number) => void;
+  // New notification settings
+  notifyOnTargetPriceReached: boolean;
+  setNotifyOnTargetPriceReached: (value: boolean) => void;
+  notifyOnAgreement: boolean;
+  setNotifyOnAgreement: (value: boolean) => void;
+  notifyOnConfusion: boolean;
+  setNotifyOnConfusion: (value: boolean) => void;
+  notifyOnRefusal: boolean;
+  setNotifyOnRefusal: (value: boolean) => void;
+  // Bypass flags
+  bypassTargetPriceCheck: boolean;
+  setBypassTargetPriceCheck: (value: boolean) => void;
+  bypassAgreementCheck: boolean;
+  setBypassAgreementCheck: (value: boolean) => void;
+  bypassConfusionCheck: boolean;
+  setBypassConfusionCheck: (value: boolean) => void;
+  bypassRefusalCheck: boolean;
+  setBypassRefusalCheck: (value: boolean) => void;
   handleToggleAgent: (enabled: boolean) => Promise<void>;
   calculateCurrentPricePerKm: () => string | null;
   calculateTargetPrice: () => string | null; // Add function to calculate total target price
@@ -116,14 +134,30 @@ const AgentSettingsModal = memo(({
   isConfiguringAgent,
   agentStyle,
   setAgentStyle,
-  notifyOnPriceIncrease,
-  setNotifyOnPriceIncrease,
+  notifyOnPriceChange,
+  setNotifyOnPriceChange,
   notifyOnNewTerms,
   setNotifyOnNewTerms,
   notifyAfterRounds,
   setNotifyAfterRounds,
   maxAutoReplies,
   setMaxAutoReplies,
+  notifyOnTargetPriceReached,
+  setNotifyOnTargetPriceReached,
+  notifyOnAgreement,
+  setNotifyOnAgreement,
+  notifyOnConfusion,
+  setNotifyOnConfusion,
+  notifyOnRefusal,
+  setNotifyOnRefusal,
+  bypassTargetPriceCheck,
+  setBypassTargetPriceCheck,
+  bypassAgreementCheck,
+  setBypassAgreementCheck,
+  bypassConfusionCheck,
+  setBypassConfusionCheck,
+  bypassRefusalCheck,
+  setBypassRefusalCheck,
   handleToggleAgent,
   calculateCurrentPricePerKm,
   calculateTargetPrice
@@ -304,12 +338,12 @@ const AgentSettingsModal = memo(({
                     
                     <div className="flex items-center justify-between mt-2">
                       <div className="space-y-1">
-                        <span className="text-sm">Price increases (moves away from target)</span>
-                        <p className="text-xs text-muted-foreground">Alert when the carrier proposes a higher price</p>
+                        <span className="text-sm">Price changed</span>
+                        <p className="text-xs text-muted-foreground">Alert when the carrier proposes a different price</p>
                       </div>
                       <Switch 
-                        checked={notifyOnPriceIncrease} 
-                        onCheckedChange={setNotifyOnPriceIncrease}
+                        checked={notifyOnPriceChange} 
+                        onCheckedChange={setNotifyOnPriceChange}
                         disabled={negotiation.isAgentActive}
                       />
                     </div>
@@ -322,6 +356,54 @@ const AgentSettingsModal = memo(({
                       <Switch 
                         checked={notifyOnNewTerms} 
                         onCheckedChange={setNotifyOnNewTerms}
+                        disabled={negotiation.isAgentActive}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                      <div className="space-y-1">
+                        <span className="text-sm">Target price is reached</span>
+                        <p className="text-xs text-muted-foreground">Alert when carrier meets or exceeds target price</p>
+                      </div>
+                      <Switch 
+                        checked={notifyOnTargetPriceReached} 
+                        onCheckedChange={setNotifyOnTargetPriceReached}
+                        disabled={negotiation.isAgentActive}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                      <div className="space-y-1">
+                        <span className="text-sm">Carrier agrees to price</span>
+                        <p className="text-xs text-muted-foreground">Alert when the carrier explicitly accepts an offer</p>
+                      </div>
+                      <Switch 
+                        checked={notifyOnAgreement} 
+                        onCheckedChange={setNotifyOnAgreement}
+                        disabled={negotiation.isAgentActive}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                      <div className="space-y-1">
+                        <span className="text-sm">Conversation appears confused</span>
+                        <p className="text-xs text-muted-foreground">Alert when exchange seems stalled or confusing</p>
+                      </div>
+                      <Switch 
+                        checked={notifyOnConfusion} 
+                        onCheckedChange={setNotifyOnConfusion}
+                        disabled={negotiation.isAgentActive}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                      <div className="space-y-1">
+                        <span className="text-sm">Carrier firmly refuses</span>
+                        <p className="text-xs text-muted-foreground">Alert when carrier gives a firm rejection</p>
+                      </div>
+                      <Switch 
+                        checked={notifyOnRefusal} 
+                        onCheckedChange={setNotifyOnRefusal}
                         disabled={negotiation.isAgentActive}
                       />
                     </div>
@@ -446,10 +528,20 @@ export default function NegotiationDetailClient({
   const [negotiationMode, setNegotiationMode] = useState<"pricePerKm" | "percentage">("pricePerKm");
   const [targetPercentage, setTargetPercentage] = useState("");
   const [agentStyle, setAgentStyle] = useState<"conservative" | "balanced" | "aggressive">("balanced");
-  const [notifyOnPriceIncrease, setNotifyOnPriceIncrease] = useState(true);
+  const [notifyOnPriceChange, setNotifyOnPriceChange] = useState(true);
   const [notifyOnNewTerms, setNotifyOnNewTerms] = useState(true);
   const [maxAutoReplies, setMaxAutoReplies] = useState(3);
   const [notifyAfterRounds, setNotifyAfterRounds] = useState(5);
+  // New notification settings
+  const [notifyOnTargetPriceReached, setNotifyOnTargetPriceReached] = useState(true);
+  const [notifyOnAgreement, setNotifyOnAgreement] = useState(true);
+  const [notifyOnConfusion, setNotifyOnConfusion] = useState(true);
+  const [notifyOnRefusal, setNotifyOnRefusal] = useState(true);
+  // Bypass flags (should not be exposed in UI directly)
+  const [bypassTargetPriceCheck, setBypassTargetPriceCheck] = useState(false);
+  const [bypassAgreementCheck, setBypassAgreementCheck] = useState(false);
+  const [bypassConfusionCheck, setBypassConfusionCheck] = useState(false);
+  const [bypassRefusalCheck, setBypassRefusalCheck] = useState(false);
   const [isAgentSettingsOpen, setIsAgentSettingsOpen] = useState(false);
   const [isConfiguringAgent, setIsConfiguringAgent] = useState(false);
   
@@ -606,10 +698,20 @@ export default function NegotiationDetailClient({
             targetPricePerKm: numericTarget,
             agentSettings: {
               style: agentStyle,
-              notifyOnPriceIncrease,
+              notifyOnPriceChange,
               notifyOnNewTerms,
               maxAutoReplies,
-              notifyAfterRounds
+              notifyAfterRounds,
+              // New notification settings
+              notifyOnTargetPriceReached,
+              notifyOnAgreement,
+              notifyOnConfusion,
+              notifyOnRefusal,
+              // Bypass flags (not exposed in UI)
+              bypassTargetPriceCheck: false,
+              bypassAgreementCheck: false,
+              bypassConfusionCheck: false,
+              bypassRefusalCheck: false
             }
           });
           
@@ -670,10 +772,20 @@ export default function NegotiationDetailClient({
             targetPricePerKm: targetPricePerKmValue,
             agentSettings: {
               style: agentStyle,
-              notifyOnPriceIncrease,
+              notifyOnPriceChange,
               notifyOnNewTerms,
               maxAutoReplies,
-              notifyAfterRounds
+              notifyAfterRounds,
+              // New notification settings
+              notifyOnTargetPriceReached,
+              notifyOnAgreement,
+              notifyOnConfusion,
+              notifyOnRefusal,
+              // Bypass flags (not exposed in UI)
+              bypassTargetPriceCheck: false,
+              bypassAgreementCheck: false,
+              bypassConfusionCheck: false,
+              bypassRefusalCheck: false
             }
           });
           
@@ -711,10 +823,14 @@ export default function NegotiationDetailClient({
     targetPercentage, 
     configureAgent, 
     agentStyle, 
-    notifyOnPriceIncrease, 
+    notifyOnPriceChange, 
     notifyOnNewTerms, 
     maxAutoReplies, 
-    notifyAfterRounds, 
+    notifyAfterRounds,
+    bypassTargetPriceCheck,
+    bypassAgreementCheck,
+    bypassConfusionCheck,
+    bypassRefusalCheck,
     isAgentSettingsOpen,
     parseNumericPrice
   ]);
@@ -824,16 +940,36 @@ export default function NegotiationDetailClient({
       const agentSettings = (negotiation as any)?.agentSettings;
       if (agentSettings) {
         setAgentStyle(agentSettings.style || "balanced");
-        setNotifyOnPriceIncrease(agentSettings.notifyOnPriceIncrease !== false); 
+        setNotifyOnPriceChange(agentSettings.notifyOnPriceChange !== false); 
         setNotifyOnNewTerms(agentSettings.notifyOnNewTerms !== false); 
         setNotifyAfterRounds(agentSettings.notifyAfterRounds || 5); 
         setMaxAutoReplies(agentSettings.maxAutoReplies || 3); 
+        // Initialize notification settings
+        setNotifyOnTargetPriceReached(agentSettings.notifyOnTargetPriceReached !== false);
+        setNotifyOnAgreement(agentSettings.notifyOnAgreement !== false);
+        setNotifyOnConfusion(agentSettings.notifyOnConfusion !== false);
+        setNotifyOnRefusal(agentSettings.notifyOnRefusal !== false);
+        // Initialize bypass flags (these should not be exposed in UI directly)
+        setBypassTargetPriceCheck(agentSettings.bypassTargetPriceCheck || false);
+        setBypassAgreementCheck(agentSettings.bypassAgreementCheck || false);
+        setBypassConfusionCheck(agentSettings.bypassConfusionCheck || false);
+        setBypassRefusalCheck(agentSettings.bypassRefusalCheck || false);
       } else {
         setAgentStyle("balanced");
-        setNotifyOnPriceIncrease(true);
+        setNotifyOnPriceChange(true);
         setNotifyOnNewTerms(true);
         setNotifyAfterRounds(5);
         setMaxAutoReplies(3);
+        // Reset notification settings
+        setNotifyOnTargetPriceReached(true);
+        setNotifyOnAgreement(true);
+        setNotifyOnConfusion(true);
+        setNotifyOnRefusal(true);
+        // Reset bypass flags
+        setBypassTargetPriceCheck(false);
+        setBypassAgreementCheck(false);
+        setBypassConfusionCheck(false);
+        setBypassRefusalCheck(false);
       }
     } else {
       // Reset state if negotiation becomes null (safer than the previous version)
@@ -841,7 +977,7 @@ export default function NegotiationDetailClient({
       setCcInput('');
       setTargetPricePerKm('');
       setAgentStyle("balanced");
-      setNotifyOnPriceIncrease(true);
+      setNotifyOnPriceChange(true);
       setNotifyOnNewTerms(true);
       setNotifyAfterRounds(5);
       setMaxAutoReplies(3);
@@ -1567,14 +1703,30 @@ export default function NegotiationDetailClient({
         isConfiguringAgent={isConfiguringAgent}
         agentStyle={agentStyle}
         setAgentStyle={setAgentStyle}
-        notifyOnPriceIncrease={notifyOnPriceIncrease}
-        setNotifyOnPriceIncrease={setNotifyOnPriceIncrease}
+        notifyOnPriceChange={notifyOnPriceChange}
+        setNotifyOnPriceChange={setNotifyOnPriceChange}
         notifyOnNewTerms={notifyOnNewTerms}
         setNotifyOnNewTerms={setNotifyOnNewTerms}
         notifyAfterRounds={notifyAfterRounds}
         setNotifyAfterRounds={setNotifyAfterRounds}
         maxAutoReplies={maxAutoReplies}
         setMaxAutoReplies={setMaxAutoReplies}
+        notifyOnTargetPriceReached={notifyOnTargetPriceReached}
+        setNotifyOnTargetPriceReached={setNotifyOnTargetPriceReached}
+        notifyOnAgreement={notifyOnAgreement}
+        setNotifyOnAgreement={setNotifyOnAgreement}
+        notifyOnConfusion={notifyOnConfusion}
+        setNotifyOnConfusion={setNotifyOnConfusion}
+        notifyOnRefusal={notifyOnRefusal}
+        setNotifyOnRefusal={setNotifyOnRefusal}
+        bypassTargetPriceCheck={bypassTargetPriceCheck}
+        setBypassTargetPriceCheck={setBypassTargetPriceCheck}
+        bypassAgreementCheck={bypassAgreementCheck}
+        setBypassAgreementCheck={setBypassAgreementCheck}
+        bypassConfusionCheck={bypassConfusionCheck}
+        setBypassConfusionCheck={setBypassConfusionCheck}
+        bypassRefusalCheck={bypassRefusalCheck}
+        setBypassRefusalCheck={setBypassRefusalCheck}
         handleToggleAgent={handleToggleAgent}
         calculateCurrentPricePerKm={calculateCurrentPricePerKm}
         calculateTargetPrice={calculateTargetPrice}

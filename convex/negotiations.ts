@@ -556,10 +556,20 @@ export const configureAgent = mutation({
         v.literal("balanced"),
         v.literal("aggressive")
       ),
-      notifyOnPriceIncrease: v.boolean(),
+      notifyOnPriceChange: v.boolean(),
       notifyOnNewTerms: v.boolean(),
       maxAutoReplies: v.number(),
       notifyAfterRounds: v.number(),
+      // New notification settings
+      notifyOnTargetPriceReached: v.optional(v.boolean()),
+      notifyOnAgreement: v.optional(v.boolean()),
+      notifyOnConfusion: v.optional(v.boolean()),
+      notifyOnRefusal: v.optional(v.boolean()),
+      // Add bypass flags
+      bypassTargetPriceCheck: v.optional(v.boolean()),
+      bypassAgreementCheck: v.optional(v.boolean()),
+      bypassConfusionCheck: v.optional(v.boolean()),
+      bypassRefusalCheck: v.optional(v.boolean()),
     }))
   },
   handler: async (ctx, args) => {
@@ -590,10 +600,15 @@ export const configureAgent = mutation({
     // Define default settings
     const defaults = {
       style: "balanced" as const,
-      notifyOnPriceIncrease: true,
+      notifyOnPriceChange: true,
       notifyOnNewTerms: true,
       maxAutoReplies: 3,
       notifyAfterRounds: 5,
+      // New notification settings
+      notifyOnTargetPriceReached: true,
+      notifyOnAgreement: true,
+      notifyOnConfusion: true,
+      notifyOnRefusal: true,
     };
 
     // Update negotiation table (basic status)
@@ -827,7 +842,12 @@ export const resumeAgent = mutation({
                 bypassNewTermsCheck: true,     
                 bypassMaxRepliesCheck: true,   
                 bypassRoundsCheck: true,       
-                bypassPriceIncreaseCheck: true
+                bypassPriceChangeCheck: true,
+                // Include the new bypass flags
+                bypassTargetPriceCheck: true,
+                bypassAgreementCheck: true,
+                bypassConfusionCheck: true,
+                bypassRefusalCheck: true
             });
         }
         
