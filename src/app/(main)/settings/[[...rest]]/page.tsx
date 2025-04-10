@@ -129,10 +129,10 @@ const SettingsPage = () => {
         <div className="mx-auto grid w-full max-w-6xl items-start gap-6 md:grid-cols-[180px_1fr] lg:grid-cols-[250px_1fr]">
           {/* Sidebar Navigation (remains the same) */}
           <nav className="grid gap-4 text-sm">
-            <a onClick={() => setCurrentSection('connections')} className={getNavLinkClass('connections')}>Connections</a>
             <a onClick={() => setCurrentSection('profile')} className={getNavLinkClass('profile')}>Profile</a>
-            <a onClick={() => setCurrentSection('notifications')} className={getNavLinkClass('notifications')}>Notifications</a>
+            <a onClick={() => setCurrentSection('connections')} className={getNavLinkClass('connections')}>Connections</a>
             <a onClick={() => setCurrentSection('theme')} className={getNavLinkClass('theme')}>Theme</a>
+            <a onClick={() => setCurrentSection('notifications')} className={getNavLinkClass('notifications')}>Notifications</a>
           </nav>
 
           <div className="grid gap-6">

@@ -148,7 +148,7 @@ const columns: ColumnDef<Negotiation>[] = [
   {
     accessorKey: "id",
     header: "ID",
-    cell: ({ row }) => <div className="font-medium text-sm">{row.original.id.substring(0, 8)}</div>,
+    cell: ({ row }) => <div className="text-sm">{row.original.id.substring(0, 8)}</div>,
   },
   {
     accessorKey: "route",
@@ -543,8 +543,7 @@ export default function NegotiationsPage() {
       
       // Get last activity time
       const lastMessageTimestamp = neg.messages.length > 0 ? neg.messages[neg.messages.length - 1].timestamp : 0;
-      const lastCounterOfferTimestamp = neg.counterOffers.length > 0 ? neg.counterOffers[neg.counterOffers.length - 1].timestamp : 0;
-      const lastUpdateTime = Math.max(neg.updatedAt || 0, lastMessageTimestamp, lastCounterOfferTimestamp, neg.createdAt);
+      const lastUpdateTime = Math.max(neg.updatedAt || 0, lastMessageTimestamp, neg.createdAt);
       const lastActivity = formatDistanceToNow(new Date(lastUpdateTime), { addSuffix: true });
 
       return {
@@ -621,7 +620,7 @@ export default function NegotiationsPage() {
   const isLoading = convexNegotiations === undefined;
   
   return (
-    <div className="w-full px-4 py-6">
+    <div className="w-full px-4 py-6 lg:px-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight mb-1">Transport Negotiations</h1>
@@ -776,110 +775,106 @@ export default function NegotiationsPage() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-12 border rounded-lg bg-muted/5">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="mt-4 text-muted-foreground">Loading negotiations...</p>
-        </div>
-      ) : allNegotiations.length === 0 ? (
-        <div className="text-center py-12 border rounded-lg bg-muted/5">
-          <h3 className="text-lg font-medium mb-2">No negotiations found</h3>
-          <p className="text-muted-foreground mb-6">Start by requesting transport for an offer</p>
-          <Link href="/offers">
-            <Button>Find Transport Offers</Button>
-          </Link>
-        </div>
-      ) : (
-        <>
-          <div className="rounded-md border overflow-hidden">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <TableRow key={headerGroup.id}>
-                      {headerGroup.headers.map((header) => (
-                        <TableHead key={header.id} colSpan={header.colSpan}>
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
-                        </TableHead>
-                      ))}
-                    </TableRow>
+      <div className="rounded-md border overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id} colSpan={header.colSpan}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
                   ))}
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    // Skeleton Loading Rows
-                    Array(5).fill(0).map((_, i) => (
-                      <TableRow key={`loading-${i}`} className="animate-pulse">
-                        <TableCell><div className="h-4 bg-muted rounded w-16"></div></TableCell>
-                        <TableCell>
-                          <div className="space-y-2">
-                            <div className="flex items-center">
-                              <div className="h-1.5 w-1.5 rounded-full bg-muted mr-1.5"></div>
-                              <div className="h-4 bg-muted rounded w-28"></div>
-                            </div>
-                            <div className="flex items-center">
-                              <div className="h-1.5 w-1.5 rounded-full bg-muted mr-1.5"></div>
-                              <div className="h-4 bg-muted rounded w-28"></div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell><div className="h-4 bg-muted rounded w-20"></div></TableCell>
-                        <TableCell><div className="h-4 bg-muted rounded w-16"></div></TableCell>
-                        <TableCell><div className="h-4 bg-muted rounded w-16"></div></TableCell>
-                        <TableCell><div className="h-4 bg-muted rounded w-14"></div></TableCell>
-                        <TableCell><div className="h-6 bg-muted rounded w-20"></div></TableCell>
-                        <TableCell><div className="h-4 bg-muted rounded w-24"></div></TableCell>
-                        <TableCell><div className="h-4 bg-muted rounded w-8"></div></TableCell>
-                        <TableCell><div className="h-7 bg-muted rounded w-16"></div></TableCell>
-                      </TableRow>
-                    ))
-                  ) : table.getRowModel().rows?.length ? (
-                    // Render actual rows
-                    table.getRowModel().rows.map((row) => (
-                      <TableRow 
-                        key={row.id}
-                        className="hover:bg-muted/50 cursor-pointer transition-colors"
-                        onClick={() => window.location.href = `/negotiations/${row.original.id}`}
-                      >
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id}>
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))
-                  ) : (
-                    // No results found
-                    <TableRow>
-                      <TableCell colSpan={columns.length} className="h-24 text-center">
-                        No negotiations found.
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                // Skeleton Loading Rows - Render based on pageSize
+                Array(pageSize).fill(0).map((_, i) => (
+                  <TableRow key={`loading-${i}`} className="animate-pulse">
+                    {/* Checkbox Skeleton */}
+                    <TableCell><div className="h-5 w-5 bg-muted rounded"></div></TableCell> 
+                    {/* ID Skeleton */}
+                    <TableCell><div className="h-4 bg-muted rounded w-16"></div></TableCell> 
+                    {/* Route Skeleton */}
+                    <TableCell>
+                      <div className="space-y-2">
+                        <div className="flex items-center">
+                          <div className="h-1.5 w-1.5 rounded-full bg-muted mr-1.5"></div>
+                          <div className="h-4 bg-muted rounded w-28"></div>
+                        </div>
+                        <div className="flex items-center">
+                          <div className="h-1.5 w-1.5 rounded-full bg-muted mr-1.5"></div>
+                          <div className="h-4 bg-muted rounded w-28"></div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    {/* Carrier Skeleton */}
+                    <TableCell><div className="h-4 bg-muted rounded w-20"></div></TableCell> 
+                    {/* Initial Price Skeleton */}
+                    <TableCell><div className="h-4 bg-muted rounded w-16"></div></TableCell> 
+                    {/* Current Price Skeleton */}
+                    <TableCell><div className="h-4 bg-muted rounded w-16"></div></TableCell> 
+                    {/* Savings Skeleton */}
+                    <TableCell><div className="h-4 bg-muted rounded w-20"></div></TableCell> 
+                    {/* Status Skeleton */}
+                    <TableCell><div className="h-6 bg-muted rounded w-20"></div></TableCell> 
+                    {/* Last Activity Skeleton */}
+                    <TableCell><div className="h-4 bg-muted rounded w-24"></div></TableCell> 
+                    {/* Actions Skeleton */}
+                    <TableCell><div className="h-7 bg-muted rounded w-16"></div></TableCell> 
+                  </TableRow>
+                ))
+              ) : table.getRowModel().rows?.length ? (
+                // Render actual rows (no change here)
+                table.getRowModel().rows.map((row) => (
+                  <TableRow 
+                    key={row.id}
+                    className="hover:bg-muted/50 cursor-pointer transition-colors"
+                    onClick={() => window.location.href = `/negotiations/${row.original.id}`}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
                       </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                // No results found (no change here)
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-24 text-center">
+                    No negotiations found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+      
+      {/* Render Pagination only if not loading AND there are items OR page count > 0 */}
+      {!isLoading && table.getPageCount() > 0 && (
+        <div className="flex items-center justify-between mt-4">
+          <div className="flex-1 text-sm text-muted-foreground">
+            {Object.keys(rowSelection).length} of{" "}
+            {table.getFilteredRowModel().rows.length} row(s) selected.
           </div>
-          
-          {/* Pagination Controls */}
-          <div className="flex items-center justify-between mt-4">
-            <div className="flex-1 text-sm text-muted-foreground">
-              {Object.keys(rowSelection).length} of{" "}
-              {table.getFilteredRowModel().rows.length} row(s) selected.
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-muted-foreground">
-                Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-              </span>
-              <Button
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-muted-foreground">
+              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+            </span>
+            <Button
                 variant="outline"
                 size="sm"
                 onClick={() => table.setPageIndex(0)}
@@ -919,9 +914,19 @@ export default function NegotiationsPage() {
               >
                 <ChevronLast className="h-4 w-4" />
               </Button>
-            </div>
           </div>
-        </>
+        </div>
+      )}
+
+      {/* Show No Results message only if not loading AND length is 0 */}
+      {!isLoading && allNegotiations.length === 0 && (
+        <div className="text-center py-12 border rounded-lg bg-muted/5 mt-4">
+          <h3 className="text-lg font-medium mb-2">No negotiations found</h3>
+          <p className="text-muted-foreground mb-6">Start by requesting transport for an offer</p>
+          <Link href="/offers">
+            <Button>Find Transport Offers</Button>
+          </Link>
+        </div>
       )}
     </div>
   );

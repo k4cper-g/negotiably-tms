@@ -41,12 +41,14 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronLast, // Added
+  X,
+  ChevronUp,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import Link from "next/link";
-import { useState, useEffect, useRef, ChangeEvent } from "react";
+import { useState, useEffect, useRef, ChangeEvent, useCallback, memo } from "react";
 import dynamic from 'next/dynamic';
 import { useRouter } from "next/navigation";
 import { useMutation, useAction } from "convex/react";
@@ -85,6 +87,7 @@ import {
 import { mockOffers } from "@/data/mockOffers"; // Import the mock data
 import { useOffers, OfferFilters } from '@/lib/offers/useOffers';
 import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 
 // Dynamic import of map components to avoid SSR issues with Leaflet
 const TransportMap = dynamic(() => import('@/components/TransportMap'), {
@@ -648,10 +651,394 @@ const columns: ColumnDef<TransportOffer>[] = [
   },
 ];
 
+// Define interface for agent settings modal props
+interface AgentSettingsModalProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  negotiationMode: "pricePerKm" | "percentage";
+  setNegotiationMode: (mode: "pricePerKm" | "percentage") => void;
+  targetPricePerKm: string;
+  setTargetPricePerKm: (value: string) => void;
+  targetPercentage: string;
+  setTargetPercentage: (value: string) => void;
+  agentStyle: "conservative" | "balanced" | "aggressive";
+  setAgentStyle: React.Dispatch<React.SetStateAction<"conservative" | "balanced" | "aggressive">>;
+  notifyOnPriceChange: boolean;
+  setNotifyOnPriceChange: (value: boolean) => void;
+  notifyOnNewTerms: boolean;
+  setNotifyOnNewTerms: (value: boolean) => void;
+  notifyAfterRounds: number;
+  setNotifyAfterRounds: (value: number) => void;
+  maxAutoReplies: number;
+  setMaxAutoReplies: (value: number) => void;
+  notifyOnTargetPriceReached: boolean;
+  setNotifyOnTargetPriceReached: (value: boolean) => void;
+  notifyOnAgreement: boolean;
+  setNotifyOnAgreement: (value: boolean) => void;
+  notifyOnConfusion: boolean;
+  setNotifyOnConfusion: (value: boolean) => void;
+  notifyOnRefusal: boolean;
+  setNotifyOnRefusal: (value: boolean) => void;
+  isAgentActive: boolean;
+  setIsAgentActive: (value: boolean) => void;
+}
+
+// Extract the AgentSettingsModal component
+const AgentSettingsModal = memo(({
+  isOpen,
+  onOpenChange,
+  negotiationMode,
+  setNegotiationMode,
+  targetPricePerKm,
+  setTargetPricePerKm,
+  targetPercentage,
+  setTargetPercentage,
+  agentStyle,
+  setAgentStyle,
+  notifyOnPriceChange,
+  setNotifyOnPriceChange,
+  notifyOnNewTerms,
+  setNotifyOnNewTerms,
+  notifyAfterRounds,
+  setNotifyAfterRounds,
+  maxAutoReplies,
+  setMaxAutoReplies,
+  notifyOnTargetPriceReached,
+  setNotifyOnTargetPriceReached,
+  notifyOnAgreement,
+  setNotifyOnAgreement,
+  notifyOnConfusion,
+  setNotifyOnConfusion,
+  notifyOnRefusal,
+  setNotifyOnRefusal,
+  isAgentActive,
+  setIsAgentActive
+}: AgentSettingsModalProps) => {
+  const calculateTargetPrice = (offer: any) => {
+    if (negotiationMode === "percentage" && targetPercentage) {
+      const percentageValue = parseFloat(targetPercentage);
+      if (!isNaN(percentageValue)) {
+        const initialPrice = parseNumericPrice(offer?.price) || 0;
+        if (initialPrice > 0) {
+          const targetPrice = initialPrice * (1 + percentageValue / 100);
+          return `€${targetPrice.toFixed(2)}`;
+        }
+      }
+    }
+    return null;
+  };
+
+  const parseNumericPrice = (priceString?: string) => {
+    if (!priceString) return null;
+    // Extract digits and decimal point/comma from the price string
+    const match = priceString.match(/(\d+[.,]?\d*)/);
+    if (match && match[1]) {
+      // Convert to a normalized format with dot as decimal separator
+      const normalizedNumber = match[1].replace(',', '.');
+      return parseFloat(normalizedNumber);
+    }
+    return null;
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden bg-card">
+        <DialogHeader className="px-6 pt-6 pb-2 border-b">
+          <DialogTitle className="flex items-center text-xl text-card-foreground">
+            <Bot className="mr-2 h-5 w-5 text-primary" />
+            AI Agent Settings
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="px-6 py-4 overflow-y-auto max-h-[70vh]">
+          <div className="space-y-6">
+            {/* Main Settings */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-medium">Enable AI Agent</Label>
+                <Switch
+                  checked={isAgentActive}
+                  onCheckedChange={setIsAgentActive}
+                />
+              </div>
+              
+              {/* Price Target Section */}
+              <div className="border-t pt-4 mt-2">
+                <h3 className="font-medium mb-3">Target Price Settings</h3>
+                
+                {/* Toggle between price/km and percentage modes */}
+                <div className="mb-4">
+                  <Label className="block mb-2">Negotiation Mode</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button 
+                      variant={negotiationMode === "pricePerKm" ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => setNegotiationMode("pricePerKm")}
+                      className="w-full"
+                    >
+                      Price per km
+                    </Button>
+                    <Button 
+                      variant={negotiationMode === "percentage" ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => setNegotiationMode("percentage")}
+                      className="w-full"
+                    >
+                      Percentage
+                    </Button>
+                  </div>
+                </div>
+                
+                {negotiationMode === "pricePerKm" ? (
+                  // Price per km input
+                  <div className="space-y-1.5">
+                    <Label htmlFor="targetPricePerKm">
+                      Target Price per km (EUR/km)
+                    </Label>
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        id="targetPricePerKm"
+                        type="text"
+                        placeholder="e.g. 1.25"
+                        value={targetPricePerKm}
+                        onChange={(e) => setTargetPricePerKm(e.target.value)}
+                        className={cn(
+                          "w-full",
+                          targetPricePerKm && (isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0) && "border-red-500"
+                        )}
+                      />
+                      <span className="text-lg">€</span>
+                    </div>
+                    {targetPricePerKm && (isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0) && (
+                      <p className="text-xs text-red-500 mt-1">
+                        Please enter a valid positive number
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  // Percentage input
+                  <div className="space-y-1.5">
+                    <Label htmlFor="targetPercentage">
+                      Target Percentage (from initial price)
+                    </Label>
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        id="targetPercentage"
+                        type="number"
+                        step="1"
+                        min="-50"
+                        max="50"
+                        placeholder="e.g. -10 (10% below initial)"
+                        value={targetPercentage}
+                        onChange={(e) => setTargetPercentage(e.target.value)}
+                        className={cn(
+                          "w-full",
+                          targetPercentage && (isNaN(parseFloat(targetPercentage))) && "border-red-500"
+                        )}
+                      />
+                      <span className="text-lg">%</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Use negative values for discount (e.g. -10 means 10% below initial price)
+                    </p>
+                    {targetPercentage && isNaN(parseFloat(targetPercentage)) && (
+                      <p className="text-xs text-red-500 mt-1">
+                        Please enter a valid number
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Negotiation Style Section */}
+                <div className="space-y-1.5 pt-2">
+                  <Label className="block mb-2">Negotiation Style</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button 
+                      variant={agentStyle === "conservative" ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => setAgentStyle("conservative")}
+                      className="w-full"
+                    >
+                      Conservative
+                    </Button>
+                    <Button 
+                      variant={agentStyle === "balanced" ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => setAgentStyle("balanced")}
+                      className="w-full"
+                    >
+                      Balanced
+                    </Button>
+                    <Button 
+                      variant={agentStyle === "aggressive" ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => setAgentStyle("aggressive")}
+                      className="w-full"
+                    >
+                      Aggressive
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {agentStyle === "conservative" ? "Cautious approach, prioritizes maintaining relationship." :
+                     agentStyle === "balanced" ? "Balanced approach, seeks fair terms for both sides." :
+                     "Assertive approach, focuses strongly on reaching target price."}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Notification Settings Section */}
+              <div className="border-t pt-4 mt-2">
+                <h3 className="font-medium mb-3">Notification Settings</h3>
+                <div className="space-y-3">
+                  <div className="bg-muted p-3 rounded-md space-y-3">
+                    <Label className="block">Notify me when:</Label>
+                    
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="space-y-1">
+                        <span className="text-sm">Price changed</span>
+                        <p className="text-xs text-muted-foreground">Alert when the carrier proposes a different price</p>
+                      </div>
+                      <Switch 
+                        checked={notifyOnPriceChange} 
+                        onCheckedChange={setNotifyOnPriceChange}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between border-t border-gray-200 pt-3 mt-1">
+                      <div className="space-y-1">
+                        <span className="text-sm">New terms mentioned</span>
+                        <p className="text-xs text-muted-foreground">Alert when carrier mentions terms not in the initial offer</p>
+                      </div>
+                      <Switch 
+                        checked={notifyOnNewTerms} 
+                        onCheckedChange={setNotifyOnNewTerms}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                      <div className="space-y-1">
+                        <span className="text-sm">Target price is reached</span>
+                        <p className="text-xs text-muted-foreground">Alert when carrier meets or exceeds target price</p>
+                      </div>
+                      <Switch 
+                        checked={notifyOnTargetPriceReached} 
+                        onCheckedChange={setNotifyOnTargetPriceReached}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                      <div className="space-y-1">
+                        <span className="text-sm">Carrier agrees to price</span>
+                        <p className="text-xs text-muted-foreground">Alert when the carrier explicitly accepts an offer</p>
+                      </div>
+                      <Switch 
+                        checked={notifyOnAgreement} 
+                        onCheckedChange={setNotifyOnAgreement}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                      <div className="space-y-1">
+                        <span className="text-sm">Conversation appears confused</span>
+                        <p className="text-xs text-muted-foreground">Alert when exchange seems stalled or confusing</p>
+                      </div>
+                      <Switch 
+                        checked={notifyOnConfusion} 
+                        onCheckedChange={setNotifyOnConfusion}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                      <div className="space-y-1">
+                        <span className="text-sm">Carrier firmly refuses</span>
+                        <p className="text-xs text-muted-foreground">Alert when carrier gives a firm rejection</p>
+                      </div>
+                      <Switch 
+                        checked={notifyOnRefusal} 
+                        onCheckedChange={setNotifyOnRefusal}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 mt-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="maxRounds">
+                        Maximum automatic replies
+                      </Label>
+                      <Select 
+                        value={maxAutoReplies.toString()}
+                        onValueChange={(value) => setMaxAutoReplies(parseInt(value))}
+                      >
+                        <SelectTrigger className="w-full" id="maxRounds">
+                          <SelectValue placeholder="Select max replies" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 reply</SelectItem>
+                          <SelectItem value="2">2 replies</SelectItem>
+                          <SelectItem value="3">3 replies</SelectItem>
+                          <SelectItem value="5">5 replies</SelectItem>
+                          <SelectItem value="10">10 replies</SelectItem>
+                          <SelectItem value="999">Unlimited</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Agent will notify you after this many exchanges
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                      <Label>Notify after rounds</Label>
+                      <div className="flex items-center mt-2 gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="icon"
+                          onClick={() => setNotifyAfterRounds(Math.max(1, notifyAfterRounds - 1))}
+                          disabled={notifyAfterRounds <= 1}
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                        <div className="border rounded-md text-center py-2 flex-1">
+                          {notifyAfterRounds}
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="icon"
+                          onClick={() => setNotifyAfterRounds(notifyAfterRounds + 1)}
+                        >
+                          <ChevronUp className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Rounds of negotiation before notification
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <DialogFooter className="bg-muted px-6 py-4 border-t">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button 
+            type="button" 
+            onClick={() => onOpenChange(false)}
+          >
+            Save Settings
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+});
 
 export default function OffersPage() {
   const router = useRouter();
   const createNegotiation = useMutation(api.negotiations.createNegotiation);
+  const configureAgent = useMutation(api.negotiations.configureAgent);
   const { openNegotiation } = useNegotiationModal();
   const evaluateOffersAction = useAction(api.offers.evaluateOffers);
 
@@ -692,6 +1079,22 @@ export default function OffersPage() {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+
+  // AI Agent Settings State
+  const [isAgentSettingsOpen, setIsAgentSettingsOpen] = useState(false);
+  const [isAgentActive, setIsAgentActive] = useState(false);
+  const [targetPricePerKm, setTargetPricePerKm] = useState("");
+  const [negotiationMode, setNegotiationMode] = useState<"pricePerKm" | "percentage">("pricePerKm");
+  const [targetPercentage, setTargetPercentage] = useState("");
+  const [agentStyle, setAgentStyle] = useState<"conservative" | "balanced" | "aggressive">("balanced");
+  const [notifyOnPriceChange, setNotifyOnPriceChange] = useState(true);
+  const [notifyOnNewTerms, setNotifyOnNewTerms] = useState(true);
+  const [maxAutoReplies, setMaxAutoReplies] = useState(3);
+  const [notifyAfterRounds, setNotifyAfterRounds] = useState(5);
+  const [notifyOnTargetPriceReached, setNotifyOnTargetPriceReached] = useState(true);
+  const [notifyOnAgreement, setNotifyOnAgreement] = useState(true);
+  const [notifyOnConfusion, setNotifyOnConfusion] = useState(true);
+  const [notifyOnRefusal, setNotifyOnRefusal] = useState(true);
 
   // Filter handlers - update pending filters
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -821,10 +1224,140 @@ export default function OffersPage() {
     }
   };
 
+  // Helper function to parse price
+  const parseNumericPrice = (priceString?: string) => {
+    if (!priceString) return null;
+    // Extract digits and decimal point/comma from the price string
+    const match = priceString.match(/(\d+[.,]?\d*)/);
+    if (match && match[1]) {
+      // Convert to a normalized format with dot as decimal separator
+      const normalizedNumber = match[1].replace(',', '.');
+      return parseFloat(normalizedNumber);
+    }
+    return null;
+  };
+
+  // Handle batch negotiation creation
+  const handleCreateBatchNegotiations = async () => {
+    try {
+      setIsCreatingBatchNegotiations(true);
+      
+      // Get selected offer IDs
+      const selectedOfferIds = Object.keys(rowSelection);
+      
+      if (selectedOfferIds.length === 0) {
+        console.error("No offers selected");
+        return;
+      }
+      
+      // Create negotiations for each selected offer
+      const negotiationIds: Id<"negotiations">[] = [];
+      
+      for (const offerId of selectedOfferIds) {
+        const offer = filteredOffers.find(o => o.id === offerId);
+        
+        if (!offer) continue;
+        
+        // Create a new negotiation
+        const result = await createNegotiation({
+          offerId: offer.id,
+          initialRequest: {
+            origin: offer.origin,
+            destination: offer.destination,
+            price: offer.price,
+            distance: offer.distance,
+            loadType: offer.loadType,
+            weight: offer.weight,
+            dimensions: offer.dimensions,
+            carrier: offer.carrier,
+            notes: `Request for transport from ${offer.origin} to ${offer.destination}`,
+          },
+        });
+        
+        const negotiationId = result.negotiationId as Id<"negotiations">;
+        negotiationIds.push(negotiationId);
+        
+        // Configure AI agent if active
+        if (isAgentActive) {
+          let targetPricePerKmValue: number | undefined;
+          
+          if (negotiationMode === "pricePerKm") {
+            // Use direct input value
+            targetPricePerKmValue = parseFloat(targetPricePerKm);
+          } else if (negotiationMode === "percentage") {
+            // Calculate price per km from percentage
+            const percentageValue = parseFloat(targetPercentage);
+            if (!isNaN(percentageValue)) {
+              const initialPrice = parseNumericPrice(offer.price) || 0;
+              const distance = parseNumericPrice(offer.distance) || 0;
+              
+              if (initialPrice > 0 && distance > 0) {
+                // Calculate the target price per km based on percentage
+                const targetPrice = initialPrice * (1 + percentageValue / 100);
+                targetPricePerKmValue = targetPrice / distance;
+              }
+            }
+          }
+          
+          // Only configure if we have a valid target price value
+          if (targetPricePerKmValue && !isNaN(targetPricePerKmValue)) {
+            try {
+              // Use the same structure as in NegotiationDetailClient.tsx
+              await configureAgent({
+                negotiationId: negotiationId,
+                isActive: true,
+                targetPricePerKm: targetPricePerKmValue,
+                agentSettings: {
+                  style: agentStyle,
+                  notifyOnPriceChange: notifyOnPriceChange,
+                  notifyOnNewTerms: notifyOnNewTerms,
+                  maxAutoReplies: maxAutoReplies,
+                  notifyAfterRounds: notifyAfterRounds,
+                  notifyOnTargetPriceReached: notifyOnTargetPriceReached,
+                  notifyOnAgreement: notifyOnAgreement,
+                  notifyOnConfusion: notifyOnConfusion,
+                  notifyOnRefusal: notifyOnRefusal,
+                  bypassTargetPriceCheck: false,
+                  bypassAgreementCheck: false,
+                  bypassConfusionCheck: false,
+                  bypassRefusalCheck: false
+                }
+              });
+              console.log(`AI agent configured for negotiation: ${negotiationId}`);
+            } catch (configError) {
+              console.error("Error configuring AI agent:", configError);
+            }
+          }
+        }
+      }
+      
+      // Show success message with appropriate agent status
+      console.log(`Created ${negotiationIds.length} negotiations${isAgentActive ? " with AI agent settings" : ""}.`);
+      
+      // Reset row selection
+      table.resetRowSelection();
+      
+      // Navigate to negotiations page
+      router.push("/negotiations");
+    } catch (error) {
+      console.error("Error creating batch negotiations:", error);
+    } finally {
+      setIsCreatingBatchNegotiations(false);
+    }
+  };
+
+  // Handle opening agent settings
+  const handleOpenAgentSettings = (open: boolean) => {
+    setIsAgentSettingsOpen(open);
+  };
+
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 py-6 px-4 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Transport Offers</h1>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight mb-1">Transport Offers</h1>
+          <p className="text-muted-foreground">Manage and track all your freight offers from different marketplaces</p>
+        </div>
         <Button 
           variant="outline" 
           size="sm" 
@@ -1010,13 +1543,19 @@ export default function OffersPage() {
                   <Eraser className="h-4 w-4" />
                 </Button>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="h-8">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8"
+                    onClick={() => setIsAgentSettingsOpen(true)}
+                  >
                     <Settings className="h-4 w-4" />
                   </Button>
                   <Button 
                     size="sm" 
                     className="gap-1.5 h-8"
                     disabled={isCreatingBatchNegotiations}
+                    onClick={handleCreateBatchNegotiations}
                   >
                     {isCreatingBatchNegotiations ? (
                       <>
@@ -1026,7 +1565,6 @@ export default function OffersPage() {
                     ) : (
                       <>
                         <MessagesSquare className="h-3.5 w-3.5" />
-                        {/* <span>Negotiate</span> */}
                       </>
                     )}
                   </Button>
@@ -1498,7 +2036,7 @@ export default function OffersPage() {
         </TabsContent>
       </Tabs>
       
-      {/* Modal Dialog for offer details (remains the same) */}
+      {/* Modal Dialog for offer details */}
       {selectedOfferForModal && (
         <Dialog open={!!selectedOfferForModal} onOpenChange={(open) => !open && setSelectedOfferForModal(null)}>
           <DialogContent className="max-w-2xl">
@@ -1513,6 +2051,38 @@ export default function OffersPage() {
           </DialogContent>
         </Dialog>
       )}
+      
+      {/* Agent Settings Modal */}
+      <AgentSettingsModal
+        isOpen={isAgentSettingsOpen}
+        onOpenChange={handleOpenAgentSettings}
+        negotiationMode={negotiationMode}
+        setNegotiationMode={setNegotiationMode}
+        targetPricePerKm={targetPricePerKm}
+        setTargetPricePerKm={setTargetPricePerKm}
+        targetPercentage={targetPercentage}
+        setTargetPercentage={setTargetPercentage}
+        agentStyle={agentStyle}
+        setAgentStyle={setAgentStyle}
+        notifyOnPriceChange={notifyOnPriceChange}
+        setNotifyOnPriceChange={setNotifyOnPriceChange}
+        notifyOnNewTerms={notifyOnNewTerms}
+        setNotifyOnNewTerms={setNotifyOnNewTerms}
+        notifyAfterRounds={notifyAfterRounds}
+        setNotifyAfterRounds={setNotifyAfterRounds}
+        maxAutoReplies={maxAutoReplies}
+        setMaxAutoReplies={setMaxAutoReplies}
+        notifyOnTargetPriceReached={notifyOnTargetPriceReached}
+        setNotifyOnTargetPriceReached={setNotifyOnTargetPriceReached}
+        notifyOnAgreement={notifyOnAgreement}
+        setNotifyOnAgreement={setNotifyOnAgreement}
+        notifyOnConfusion={notifyOnConfusion}
+        setNotifyOnConfusion={setNotifyOnConfusion}
+        notifyOnRefusal={notifyOnRefusal}
+        setNotifyOnRefusal={setNotifyOnRefusal}
+        isAgentActive={isAgentActive}
+        setIsAgentActive={setIsAgentActive}
+      />
     </div>
   );
 } 

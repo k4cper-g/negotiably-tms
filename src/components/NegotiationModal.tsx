@@ -14,7 +14,8 @@ import {
   Mail,
   MinusCircle,
   Check,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Bot
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,6 +24,7 @@ import { api } from "../../convex/_generated/api";
 import { formatDistanceToNow, format } from "date-fns";
 import { Id } from "../../convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
+import { useTheme } from 'next-themes';
 
 interface NegotiationModalProps {
   negotiationId: Id<"negotiations"> | null;
@@ -39,6 +41,7 @@ export function NegotiationModal({
   const [isSending, setIsSending] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { resolvedTheme } = useTheme();
   
   // Reset state when negotiation changes
   useEffect(() => {
@@ -99,9 +102,9 @@ export function NegotiationModal({
   
   if (!negotiation) {
     return (
-      <div className="fixed right-4 bottom-4 w-[400px] bg-white rounded-lg shadow-xl border z-50 p-4">
+      <div className="fixed right-4 bottom-4 w-[400px] bg-card rounded-lg shadow-xl border z-50 p-4">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="font-semibold">Loading negotiation...</h3>
+          <h3 className="font-semibold text-foreground">Loading negotiation...</h3>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
@@ -139,7 +142,7 @@ export function NegotiationModal({
   // Minimized view
   if (isMinimized) {
     return (
-      <div className="fixed right-4 bottom-4 w-[280px] bg-white rounded-lg shadow-lg border z-50 cursor-pointer hover:shadow-xl transition-shadow">
+      <div className="fixed right-6 bottom-4 w-[280px] bg-card rounded-lg shadow-lg border z-50 cursor-pointer hover:shadow-xl transition-shadow">
         <div 
           className="flex justify-between items-center p-2"
           onClick={() => setIsMinimized(false)}
@@ -147,7 +150,7 @@ export function NegotiationModal({
           <div className="flex items-center gap-2 min-w-0">
             <Mail className="h-4 w-4 text-primary flex-shrink-0" />
             <div className="min-w-0">
-              <h3 className="font-semibold text-sm truncate">
+              <h3 className="font-semibold text-sm truncate text-foreground">
                 Negotiation
               </h3>
               <p className="text-xs text-muted-foreground truncate" title={`${negotiation.initialRequest.origin} to ${negotiation.initialRequest.destination}`}>
@@ -175,26 +178,19 @@ export function NegotiationModal({
   
   // Full view
   return (
-    <div className="fixed right-4 bottom-4 w-[400px] max-w-[calc(100vw-32px)] max-h-[650px] bg-gray-50 rounded-lg shadow-xl border z-50 flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="p-3 border-b bg-white flex items-center justify-between flex-shrink-0">
-        {/* Left: Title, Status, Minimize */}
+    <div className="fixed right-6 bottom-4 w-[400px] max-w-[calc(100vw-48px)] max-h-[650px] bg-card rounded-lg shadow-xl border z-50 flex flex-col overflow-hidden">
+      {/* Header - Make clickable for minimize */}
+      <div 
+        className="p-3 border-b bg-card flex items-center justify-between flex-shrink-0 cursor-pointer"
+        onClick={() => setIsMinimized(true)}
+        title="Minimize Chat"
+      >
+        {/* Left: Title, Status */}
         <div className="flex items-center gap-2 min-w-0">
-          {/* Minimize Button (looks like header icon) */}
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-6 w-6 text-muted-foreground hover:text-foreground flex-shrink-0" 
-            onClick={() => setIsMinimized(true)}
-            title="Minimize Chat"
-          >
-            <MinusCircle className="h-4 w-4" />
-          </Button>
-          
           {/* Title & Status */}
           <div className="flex flex-col min-w-0">
             <h3 
-              className="font-semibold text-sm truncate flex items-center" 
+              className="font-semibold text-sm truncate flex items-center text-foreground" 
               title={`${negotiation.initialRequest.origin} to ${negotiation.initialRequest.destination}`}
             >
               {negotiation.initialRequest.origin}
@@ -208,7 +204,7 @@ export function NegotiationModal({
           <Badge 
             variant={
               negotiation.status === "pending" ? "secondary" :
-              negotiation.status === "accepted" ? "default" :
+              negotiation.status === "accepted" ? "success" :
               negotiation.status === "rejected" ? "destructive" :
               "outline"
             }
@@ -219,37 +215,15 @@ export function NegotiationModal({
           </Badge>
         </div>
 
-        {/* Right: Actions (Accept, Reject, Close) */}
+        {/* Right: Actions (Close Only) */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          {negotiation.status === 'pending' && (
-            <>
-              <Button 
-                variant="outline"
-                size="icon"
-                className="text-destructive border-destructive/50 hover:bg-destructive/5 hover:text-destructive h-7 w-7"
-                onClick={() => handleUpdateStatus("rejected")}
-                disabled={negotiation.status !== "pending"}
-                title="Reject Offer"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <Button 
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => handleUpdateStatus("accepted")}
-                disabled={negotiation.status !== "pending"}
-                title="Accept Offer"
-              >
-                <Check className="h-4 w-4" />
-              </Button>
-            </>
-          )}
+          {/* Close button - Keep stopPropagation */}
           <Button 
             variant="ghost" 
             size="icon" 
             className="h-7 w-7 text-muted-foreground hover:text-foreground" 
             onClick={(e) => {
-              e.stopPropagation(); // Prevent minimizing when clicking close
+              e.stopPropagation();
               onClose();
             }}
             title="Close Chat"
@@ -263,7 +237,7 @@ export function NegotiationModal({
       {/* <div className="flex justify-between border-b p-2 bg-muted/30 text-xs"> ... </div> */}
       
       {/* Messages - Apply new chat feed style */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-muted/40">
         {/* Combined Messages and Offers Feed */}
         {[
           // Add a fake initial message object for rendering the system message
@@ -279,13 +253,13 @@ export function NegotiationModal({
           if ('type' in item && item.type === 'system') {
              return (
                <div key={`sys-${index}`} className="text-center text-xs text-muted-foreground my-3">
-                 <p className="inline-block bg-gray-200 rounded-full px-2.5 py-1">
+                 <p className="inline-block bg-secondary text-secondary-foreground rounded-full px-2.5 py-1">
                    Negotiation started on {format(timestamp, "PP")} for{' '}
                    <span className="font-medium">{negotiation.initialRequest.origin} to {negotiation.initialRequest.destination}</span>
                    {' '}at <span className="font-medium">{negotiation.initialRequest.price}</span>.
                  </p>
                  {negotiation.initialRequest.notes && (
-                    <p className="mt-1.5 italic text-gray-600 max-w-xs mx-auto text-xs">
+                    <p className="mt-1.5 italic text-muted-foreground max-w-xs mx-auto text-xs">
                        Initial Notes: {negotiation.initialRequest.notes}
                     </p>
                  )}
@@ -300,30 +274,46 @@ export function NegotiationModal({
             // --- Message Rendering ---
             const messageItem = item as typeof negotiation.messages[0];
             const isUser = messageItem.sender === "user";
+            // Check for agent message - Adjust "agent" if your sender ID is different
+            const isAgent = messageItem.sender === "agent"; 
+            // Determine right alignment for user OR agent
+            const isSenderSideRight = isUser || isAgent;
 
             return (
               <div
                 key={`msg-${index}`}
-                className={cn("flex", isUser ? "justify-end" : "justify-start")}
+                // Update alignment logic
+                className={cn("flex", isSenderSideRight ? "justify-end" : "justify-start")}
               >
+                {/* Optional: Add Avatar based on sender */}
+                {/* {!isSenderSideRight && <Avatar>...</Avatar>} */}
                 <div
                   className={cn(
                     "max-w-[80%] rounded-lg px-2.5 py-1.5 shadow-sm text-sm",
                     isUser
-                      ? "bg-blue-500 text-white" 
-                      : "bg-white border" 
+                      ? "bg-blue-500 text-white" // Fixed blue for User
+                      : isAgent 
+                        ? "bg-emerald-500 text-white" // Fixed green for Agent
+                        : "bg-card text-card-foreground border" // Adaptive for Carrier/Other
                   )}
                 >
-                  <p>{messageItem.content}</p>
+                  <p className="whitespace-pre-wrap">{messageItem.content}</p>
                   <p className={cn(
-                      "text-xs mt-0.5 text-right",
-                      isUser ? "text-blue-200" : "text-muted-foreground"
+                      "text-xs mt-0.5 text-right opacity-80",
+                      isUser 
+                        ? "text-blue-100" // Lighter blue for user timestamp
+                        : isAgent
+                          ? "text-emerald-100" // Lighter green for agent timestamp
+                          : "text-muted-foreground" // Adaptive for others
                     )}
                     title={format(timestamp, "PPpp")}
                   >
                       {formatDistanceToNow(timestamp, { addSuffix: true })}
                   </p>
                 </div>
+                {/* Optional: Add Avatar based on sender */}
+                {/* {isSenderSideRight && isUser && <Avatar>...</Avatar> } */}
+                {/* {isSenderSideRight && isAgent && <Avatar><Bot.../></Avatar>} */}
               </div>
             );
           } else {
@@ -335,12 +325,14 @@ export function NegotiationModal({
                <div key={`offer-${index}`} className="text-center text-xs text-muted-foreground my-3">
                   <div className={cn(
                     "inline-block border rounded-lg px-3 py-1.5 text-left max-w-xs mx-auto shadow-sm",
-                     isUserProposal ? "border-blue-200 bg-blue-50" : "border-amber-200 bg-amber-50"
+                     isUserProposal 
+                       ? "border-blue-200 bg-blue-50 dark:bg-blue-900/30 dark:border-blue-700" 
+                       : "border-amber-200 bg-amber-50 dark:bg-amber-900/30 dark:border-amber-700"
                   )}>
                    <div className="flex justify-between items-center mb-0.5">
                       <span className={cn(
                           "font-semibold text-sm",
-                          isUserProposal ? "text-blue-700" : "text-amber-800"
+                          isUserProposal ? "text-blue-700 dark:text-blue-300" : "text-amber-800 dark:text-amber-300"
                         )}>
                          {isUserProposal ? "Your Proposal" : "Carrier Proposal"}
                       </span>
@@ -348,12 +340,12 @@ export function NegotiationModal({
                          {formatDistanceToNow(timestamp, { addSuffix: true })}
                       </span>
                    </div>
-                    <p className="text-sm font-semibold text-gray-800 mb-0.5">{offerItem.price}</p>
-                    {offerItem.notes && <p className="text-xs text-gray-600 italic mt-1">{offerItem.notes}</p>}
+                    <p className="text-sm font-semibold text-foreground mb-0.5">{offerItem.price}</p>
+                    {offerItem.notes && <p className="text-xs text-muted-foreground italic mt-1">{offerItem.notes}</p>}
                     {offerItem.status !== 'pending' && (
                       <Badge
                          variant={
-                           offerItem.status === "accepted" ? "default" :
+                           offerItem.status === "accepted" ? "success" :
                            offerItem.status === "rejected" ? "destructive" :
                            "outline"
                          }
@@ -371,11 +363,11 @@ export function NegotiationModal({
       </div>
       
       {/* Input Area - Apply final styling */}
-      <div className="border-t bg-gray-100 p-2 flex-shrink-0"> {/* Consistent background */}
+      <div className="border-t bg-card p-2 flex-shrink-0"> {/* Consistent background */}
         <div className="flex items-start space-x-2"> {/* Consistent spacing */}
           <Textarea
             placeholder="Type message..." // Keep placeholder simple
-            className="flex-1 min-h-[38px] max-h-[100px] resize-none bg-white border-gray-300 rounded-lg shadow-sm focus:border-primary focus:ring-1 focus:ring-primary text-sm p-2" // Added rounded-lg, adjusted padding
+            className="flex-1 min-h-[38px] max-h-[100px] resize-none bg-card border rounded-lg shadow-sm focus:border-primary focus:ring-1 focus:ring-primary text-sm p-2 disabled:bg-muted" // Added rounded-lg, adjusted padding
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             disabled={isSending || negotiation.status !== "pending"} // Removed !message.trim()

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from 'react';
-import { useQuery } from 'convex/react';
+import { useQuery, useConvexAuth } from 'convex/react';
 import { api } from '../../../../convex/_generated/api';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -32,11 +32,15 @@ type NegotiationStatus = "In Progress" | "Accepted" | "Rejected" | "Completed" |
 
 export default function DashboardPage() {
   const convexNegotiations = useQuery(api.negotiations.getUserNegotiations);
-  const isLoading = convexNegotiations === undefined;
+  const isLoadingNegotiations = convexNegotiations === undefined;
+  const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
+  // Fetch current user only if authenticated, using "skip" string for conditional query
+  const currentUser = useQuery(api.users.getCurrentUser, !isAuthenticated ? "skip" : undefined);
+  const isLoadingUser = isAuthenticated && currentUser === undefined;
 
   // --- Calculate KPIs ---
   const kpis = useMemo(() => {
-    if (isLoading || !convexNegotiations) {
+    if (isLoadingNegotiations || authLoading || isLoadingUser) {
       return {
         activeNegotiations: 0,
         totalSavings: 0,
@@ -100,11 +104,11 @@ export default function DashboardPage() {
       completedLast30Days: completedCount,
       averageSavingsPercentage: Math.round(averageSavingsPercentage * 10) / 10, // Round to 1 decimal place
     };
-  }, [convexNegotiations, isLoading]);
+  }, [convexNegotiations, isLoadingNegotiations, authLoading, isLoadingUser]);
 
   // --- Get Recent Negotiations ---
   const recentNegotiations = useMemo(() => {
-    if (isLoading || !convexNegotiations) {
+    if (isLoadingNegotiations || !convexNegotiations) {
       return [];
     }
     // Sort by last update time (most recent first)
@@ -115,7 +119,7 @@ export default function DashboardPage() {
         return lastUpdateB - lastUpdateA;
       })
       .slice(0, 5); // Limit to 5 most recent
-  }, [convexNegotiations, isLoading]);
+  }, [convexNegotiations, isLoadingNegotiations]);
 
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(value);
@@ -137,10 +141,23 @@ export default function DashboardPage() {
       }
   };
 
+  // Combined loading state for UI elements
+  const isPageLoading = isLoadingNegotiations || authLoading || isLoadingUser;
+
   return (
-    <div className="w-full px-4 py-6 md:px-6 lg:py-8">
+    <div className="w-full px-4 py-6 md:px-6 lg:py-6 lg:px-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h1>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight mb-1">
+            {authLoading || isLoadingUser
+              ? <Skeleton className="h-8 w-32" />
+              : currentUser
+              ? `Hello ${currentUser.name}! 👋`
+              : "Hi there"
+            }
+          </h1>
+          <p className="text-muted-foreground">Track your negotiation progress and savings</p>
+        </div>
         <div className="flex gap-2">
           <Link href="/offers">
              <Button variant="outline" size="sm" className="gap-1.5">
@@ -165,7 +182,7 @@ export default function DashboardPage() {
             <ListChecks className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {isPageLoading ? (
               <Skeleton className="h-8 w-20" />
             ) : (
               <div className="text-2xl font-bold">{kpis.activeNegotiations}</div>
@@ -179,7 +196,7 @@ export default function DashboardPage() {
             <Euro className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {isPageLoading ? (
                <Skeleton className="h-8 w-24" />
             ) : (
               <>
@@ -201,7 +218,7 @@ export default function DashboardPage() {
              <ArrowDownRight className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {isPageLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
               <div className="text-2xl font-bold">{kpis.averageSavingsPercentage.toFixed(1)}%</div>
@@ -215,7 +232,7 @@ export default function DashboardPage() {
              <ListChecks className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-             {isLoading ? (
+             {isPageLoading ? (
                <Skeleton className="h-8 w-12" />
             ) : (
               <div className="text-2xl font-bold">{kpis.completedLast30Days}</div>
@@ -232,7 +249,7 @@ export default function DashboardPage() {
           <CardDescription>Your most recently updated negotiations.</CardDescription>
         </CardHeader>
         <CardContent>
-           {isLoading ? (
+           {isLoadingNegotiations ? (
              <div className="space-y-4">
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
