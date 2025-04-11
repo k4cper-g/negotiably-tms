@@ -1270,6 +1270,7 @@ export default function OffersPage() {
             weight: offer.weight,
             dimensions: offer.dimensions,
             carrier: offer.carrier,
+            offerContactEmail: offer.offerContactEmail, // Pass the email
             notes: `Request for transport from ${offer.origin} to ${offer.destination}`,
           },
         });

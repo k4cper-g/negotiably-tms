@@ -97,8 +97,8 @@ interface Negotiation {
   carrier?: string;
   initialPrice: string;
   currentPrice?: string;
-  savings?: string | null;
-  savingsPercentage?: string | null;
+  profit?: string | null;
+  profitPercentage?: string | null;
   status: "In Progress" | "Accepted" | "Rejected" | "Completed" | "Expired" | "pending";
   lastActivity?: string;
   dateCreated: string;
@@ -197,14 +197,14 @@ const columns: ColumnDef<Negotiation>[] = [
     cell: ({ row }) => <div>{row.original.currentPrice || row.original.initialPrice}</div>,
   },
   {
-    accessorKey: "savings",
+    accessorKey: "profit",
     header: ({ column }) => (
       <Button
         variant="ghost"
         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         className="-ml-4 h-8 data-[state=open]:bg-accent"
       >
-        Savings
+        Profit
         <ArrowUpDown className="ml-2 h-4 w-4" />
       </Button>
     ),
@@ -212,24 +212,24 @@ const columns: ColumnDef<Negotiation>[] = [
       const neg = row.original;
       return (
         <div className="flex items-center">
-          {neg.savings ? (
-            neg.savings.startsWith('-') ? (
-              // Negative savings (price increased)
+          {neg.profit ? (
+            neg.profit.startsWith('-') ? (
+              // Negative profit (loss)
               <>
-                <span className="text-red-600 font-medium">{neg.savings}</span>
-                {neg.savingsPercentage && (
-                  <span className="text-xs text-red-500 ml-1">({neg.savingsPercentage})</span>
+                <span className="text-red-600 font-medium">{neg.profit}</span>
+                {neg.profitPercentage && (
+                  <span className="text-xs text-red-500 ml-1">({neg.profitPercentage})</span>
                 )}
               </>
-            ) : neg.savings === "€0.00" ? (
+            ) : neg.profit === "€0.00" ? (
               // No change
-              <span className="text-muted-foreground">{neg.savings}</span>
+              <span className="text-muted-foreground">{neg.profit}</span>
             ) : (
-              // Positive savings (price decreased)
+              // Positive profit 
               <>
-                <span className="text-green-600 font-medium">{neg.savings}</span>
-                {neg.savingsPercentage && (
-                  <span className="text-xs text-green-500 ml-1">({neg.savingsPercentage})</span>
+                <span className="text-green-600 font-medium">{neg.profit}</span>
+                {neg.profitPercentage && (
+                  <span className="text-xs text-green-500 ml-1">({neg.profitPercentage})</span>
                 )}
               </>
             )
@@ -240,19 +240,25 @@ const columns: ColumnDef<Negotiation>[] = [
       );
     },
     sortingFn: (rowA, rowB) => {
-      // Custom sorting function for savings
-      const getSavingsValue = (savings: string | null | undefined) => {
-        if (!savings) return 0;
-        if (savings === "€0.00") return 0;
+      // Custom sorting function for profit
+      const getProfitValue = (profit: string | null | undefined) => {
+        if (!profit) return 0;
+        if (profit === "€0.00") return 0;
         
         // Extract numeric value, considering negative values
-        const isNegative = savings.startsWith('-');
-        const numStr = savings.replace(/[^0-9.,]/g, '');
-        const value = parseFloat(numStr);
-        return isNegative ? -value : value;
+        const isNegative = profit.startsWith('-');
+        const numStr = profit.replace(/[^0-9.,]/g, '');
+        try {
+          const value = parseFloat(numStr.replace(',', '.'));
+          return isNegative ? -value : value;
+        } catch {
+          return 0;
+        }
       };
+      const profitA = getProfitValue(rowA.original.profit);
+      const profitB = getProfitValue(rowB.original.profit);
       
-      return getSavingsValue(rowA.original.savings) - getSavingsValue(rowB.original.savings);
+      return profitA - profitB; // Sort ascending by numeric profit
     },
   },
   {
@@ -386,19 +392,22 @@ const columns: ColumnDef<Negotiation>[] = [
                 asChild
               >
                 <AlertDialog>
-                  <AlertDialogTrigger className="w-full text-left px-2 py-1.5 text-sm text-red-600 focus:text-red-600">
+                  <AlertDialogTrigger 
+                    className="w-full text-left px-2 py-1.5 text-sm text-red-600 focus:text-red-600 relative flex cursor-default select-none items-center rounded-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {isDeleting ? 'Deleting...' : 'Delete'}
-            </AlertDialogTrigger>
-            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-              <AlertDialogHeader>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                    <AlertDialogHeader>
                       <AlertDialogTitle>Delete negotiation?</AlertDialogTitle>
-                <AlertDialogDescription>
+                      <AlertDialogDescription>
                         This action cannot be undone. This will permanently delete the negotiation and remove it from our servers.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
                       <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
-                <AlertDialogAction 
+                      <AlertDialogAction 
                         className="bg-red-600 hover:bg-red-700"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -406,10 +415,10 @@ const columns: ColumnDef<Negotiation>[] = [
                         }}
                       >
                         Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -508,59 +517,55 @@ export default function NegotiationsPage() {
   
   // Format negotiations data from Convex
   const formatNegotiations = (): Negotiation[] => {
-    if (!convexNegotiations) return [];
-
-    return convexNegotiations.map(neg => {
-      const initialPriceStr = neg.initialRequest.price;
-      const currentPriceStr = neg.currentPrice; // Use database field directly (string | undefined)
+    return (convexNegotiations || []).map((neg) => {
+      const initialPriceNum = getNumericPrice(neg.initialRequest.price);
+      const currentPriceNum = getNumericPrice(neg.currentPrice || neg.initialRequest.price);
       
-      let savings: string | null = null;
-      let savingsPercentage: string | null = null;
+      let profit = 0;
+      let profitPercentage = 0;
+      let profitStr: string | null = null;
+      let profitPercentageStr: string | null = null;
       
-      // --- Calculate savings based on CURRENT price (if available) --- 
-      const initialNumeric = getNumericPrice(initialPriceStr);
-      const currentNumeric = getNumericPrice(currentPriceStr); // Use current price string
-        
-      // If we have both numeric values, calculate the difference
-      if (!isNaN(initialNumeric) && !isNaN(currentNumeric)) {
-        const difference = initialNumeric - currentNumeric;
-        
-        if (difference > 0) {
-          // Positive difference means price went down (savings)
-          savings = `€${difference.toFixed(2)}`;
-          savingsPercentage = `${((difference / initialNumeric) * 100).toFixed(1)}%`;
-        } else if (difference < 0) {
-          // Negative difference means price went up (increased cost)
-          savings = `-€${Math.abs(difference).toFixed(2)}`;
-          savingsPercentage = `-${(Math.abs(difference) / initialNumeric * 100).toFixed(1)}%`;
-        } else {
-          // No change in price
-          savings = "€0.00";
-          savingsPercentage = "0.0%";
-        }
+      // Calculate profit: current - initial
+      if (!isNaN(initialPriceNum) && !isNaN(currentPriceNum)) { // Ensure both are numbers
+          profit = currentPriceNum - initialPriceNum;
+          if (initialPriceNum !== 0) { // Avoid division by zero for percentage
+              profitPercentage = (profit / initialPriceNum) * 100;
+              profitPercentageStr = `${profit > 0 ? '+' : ''}${profitPercentage.toFixed(1)}%`;
+          } else if (profit !== 0) {
+              profitPercentageStr = profit > 0 ? "+∞%" : "-∞%"; // Handle infinite percentage if initial was 0
+          } else {
+              profitPercentageStr = "0.0%"; // Both were 0
+          }
+          profitStr = formatCurrency(profit);
+      } else {
+          // Handle cases where one or both prices are not valid numbers
+          profitStr = null; // Indicate profit couldn't be calculated
+          profitPercentageStr = null;
       }
-      // --- End savings calculation block ---
-      
-      // Get last activity time
-      const lastMessageTimestamp = neg.messages.length > 0 ? neg.messages[neg.messages.length - 1].timestamp : 0;
-      const lastUpdateTime = Math.max(neg.updatedAt || 0, lastMessageTimestamp, neg.createdAt);
-      const lastActivity = formatDistanceToNow(new Date(lastUpdateTime), { addSuffix: true });
 
+      // Get last activity time
+      const lastActivity = neg.updatedAt 
+          ? formatDistanceToNow(new Date(neg.updatedAt), { addSuffix: true })
+          : 'N/A';
+
+      // Clean return statement
       return {
-        id: neg._id as string,
-        offerId: neg.offerId as string,
+        id: neg._id,
+        offerId: neg.offerId,
         origin: neg.initialRequest.origin,
         destination: neg.initialRequest.destination,
         carrier: neg.initialRequest.carrier,
-        initialPrice: initialPriceStr,
-        currentPrice: currentPriceStr || initialPriceStr, // Display initial if current is undefined
-        savings: savings,
-        savingsPercentage: savingsPercentage,
-        status: neg.status as NegotiationStatus,
+        initialPrice: formatCurrency(initialPriceNum), // Format numeric value
+        currentPrice: formatCurrency(currentPriceNum), // Format numeric value
+        profit: profitStr, // Assign calculated profit string
+        profitPercentage: profitPercentageStr, // Assign calculated percentage string
+        status: neg.status as NegotiationStatus, // Use type assertion
         lastActivity: lastActivity,
-        dateCreated: new Date(neg.createdAt).toISOString(),
-        messages: neg.messages.length,
+        dateCreated: new Date(neg.createdAt).toISOString(), // Use ISO string
+        messages: neg.messages?.length ?? 0, // Safely access length
         loadType: neg.initialRequest.loadType,
+        aiAssistant: neg.isAgentActive ?? false, // Handle potential undefined
       };
     });
   };

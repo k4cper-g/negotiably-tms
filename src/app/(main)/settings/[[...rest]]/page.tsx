@@ -11,10 +11,11 @@ import { Button } from '@/components/ui/button'; // Keep Button for Connections
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator'; // Keep Separator for Connections
 import { toast } from 'sonner';
-import { Loader2, Trash2, Mail, Radio, Sun, Moon, Laptop } from 'lucide-react'; // Added icons and theme icons
+import { Loader2, Trash2, Mail, Radio, Sun, Moon, Laptop, Check } from 'lucide-react'; // Added icons and theme icons
 import { useTheme } from "next-themes"; // Import useTheme hook
 import { dark } from "@clerk/themes"; // Use the standard import path now that the package is installed
 import { cn } from "@/lib/utils"; // Import cn utility
+import { useLocalStorage } from '@/hooks/useLocalStorage'; // Import hook
 // Remove unused imports
 // import { Input } from '@/components/ui/input';
 // import { Label } from '@/components/ui/label';
@@ -40,9 +41,16 @@ const SUPPORTED_PROVIDERS = [
   },
 ];
 
+const AVAILABLE_BACKGROUNDS = [
+  { name: 'Default', value: 'default', className: 'bg-muted/40' },
+  { name: 'Subtle Dots', value: 'dots', className: 'bg-white bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] dark:bg-neutral-950 dark:bg-[radial-gradient(rgba(255,255,255,0.1)_1px,transparent_1px)] dark:[background-size:16px_16px]' },
+  { name: 'Soft Gradient', value: 'gradient', className: 'bg-white bg-[radial-gradient(100%_50%_at_50%_0%,rgba(0,163,255,0.13)_0,rgba(0,163,255,0)_50%,rgba(0,163,255,0)_100%)] dark:bg-neutral-950 dark:bg-[radial-gradient(100%_50%_at_50%_0%,rgba(0,163,255,0.1)_0,rgba(0,163,255,0)_50%,rgba(0,163,255,0)_100%)]' },
+];
+
 const SettingsPage = () => {
-  const [currentSection, setCurrentSection] = useState('connections'); // Default to connections
-  const { setTheme, theme, resolvedTheme } = useTheme(); // Get theme state, setter, and resolvedTheme
+  const [currentSection, setCurrentSection] = useState('profile'); // Default to profile now
+  const { setTheme, theme, resolvedTheme } = useTheme();
+  const [chatBackground, setChatBackground] = useLocalStorage<string>('chatBackground', 'default'); // Hook for background
   
   // Fetch connections
   const connections = useQuery(api.connections.listConnections);
@@ -127,11 +135,11 @@ const SettingsPage = () => {
           <h1 className="text-3xl font-semibold">Settings</h1>
         </div>
         <div className="mx-auto grid w-full max-w-6xl items-start gap-6 md:grid-cols-[180px_1fr] lg:grid-cols-[250px_1fr]">
-          {/* Sidebar Navigation (remains the same) */}
+          {/* Sidebar Navigation */}
           <nav className="grid gap-4 text-sm">
             <a onClick={() => setCurrentSection('profile')} className={getNavLinkClass('profile')}>Profile</a>
             <a onClick={() => setCurrentSection('connections')} className={getNavLinkClass('connections')}>Connections</a>
-            <a onClick={() => setCurrentSection('theme')} className={getNavLinkClass('theme')}>Theme</a>
+            <a onClick={() => setCurrentSection('appearance')} className={getNavLinkClass('appearance')}>Appearance</a> {/* Renamed */}
             <a onClick={() => setCurrentSection('notifications')} className={getNavLinkClass('notifications')}>Notifications</a>
           </nav>
 
@@ -248,101 +256,137 @@ const SettingsPage = () => {
               </Card>
             )}
 
-            {/* Theme Section - Updated UI */}
-            {currentSection === 'theme' && (
+            {/* Appearance Section */}
+            {currentSection === 'appearance' && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Theme</CardTitle>
+                  <CardTitle>Appearance</CardTitle>
                   <CardDescription>
-                    Select the theme for the application.
+                    Customize the look and feel of the application.
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                     {/* New Theme Preview Grid */}
-                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                       {/* Light Theme Preview */}
-                       <div className="flex flex-col items-center">
-                         <div // Add w-full to prevent horizontal squishing
-                           onClick={() => setTheme('light')}
-                           className={cn(
-                             "w-full border-2 rounded-lg p-1 transition-colors cursor-pointer", // Added w-full
-                             theme === 'light' ? "border-primary" : "border-transparent hover:border-muted-foreground/30"
-                           )}
-                         >
-                           <div className="space-y-2 rounded-sm bg-zinc-100 p-2"> 
-                             <div className="space-y-2 rounded-md bg-white p-2 shadow-sm">
-                               <div className="h-2 w-4/5 rounded-lg bg-zinc-200" />
-                               <div className="h-2 w-full rounded-lg bg-zinc-200" />
-                             </div>
-                             <div className="flex items-center space-x-2 rounded-md bg-white p-2 shadow-sm">
-                               <div className="h-4 w-4 rounded-full bg-zinc-200" />
-                               <div className="h-2 w-full rounded-lg bg-zinc-200" />
-                             </div>
-                             <div className="flex items-center space-x-2 rounded-md bg-white p-2 shadow-sm">
-                               <div className="h-4 w-4 rounded-full bg-zinc-200" />
-                               <div className="h-2 w-full rounded-lg bg-zinc-200" />
-                             </div>
-                           </div>
-                         </div>
-                         <span className="block w-full pt-2 text-center font-normal text-muted-foreground">Light</span> 
-                       </div>
+                <CardContent className="space-y-6">
+                  {/* Theme Settings - Reverted to Preview Blocks */}
+                  <div>
+                    <h3 className="text-lg font-medium mb-3">Theme</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                      {/* Light Theme Preview */}
+                      <div className="flex flex-col items-center">
+                        <div 
+                          onClick={() => setTheme('light')}
+                          className={cn(
+                            "w-full border-2 rounded-lg p-1 transition-colors cursor-pointer", 
+                            theme === 'light' ? "border-primary" : "border-transparent hover:border-muted-foreground/30"
+                          )}
+                        >
+                          <div className="space-y-2 rounded-sm bg-zinc-100 p-2"> 
+                            <div className="space-y-2 rounded-md bg-white p-2 shadow-sm">
+                              <div className="h-2 w-4/5 rounded-lg bg-zinc-200" />
+                              <div className="h-2 w-full rounded-lg bg-zinc-200" />
+                            </div>
+                            <div className="flex items-center space-x-2 rounded-md bg-white p-2 shadow-sm">
+                              <div className="h-4 w-4 rounded-full bg-zinc-200" />
+                              <div className="h-2 w-full rounded-lg bg-zinc-200" />
+                            </div>
+                            <div className="flex items-center space-x-2 rounded-md bg-white p-2 shadow-sm">
+                              <div className="h-4 w-4 rounded-full bg-zinc-200" />
+                              <div className="h-2 w-full rounded-lg bg-zinc-200" />
+                            </div>
+                          </div>
+                        </div>
+                        <span className="block w-full pt-2 text-center font-normal text-muted-foreground">Light</span> 
+                      </div>
 
-                       {/* Dark Theme Preview */}
-                       <div className="flex flex-col items-center">
-                         <div // Add w-full to prevent horizontal squishing
-                           onClick={() => setTheme('dark')}
-                           className={cn(
-                             "w-full border-2 rounded-lg p-1 transition-colors cursor-pointer", // Added w-full
-                             theme === 'dark' ? "border-primary" : "border-transparent hover:border-muted-foreground/30"
-                           )}
-                         >
-                           <div className="space-y-2 rounded-sm bg-gray-950 p-2">
-                            <div className="space-y-2 rounded-md bg-zinc-800 p-2 shadow-sm">
-                               <div className="h-2 w-4/5 rounded-lg bg-zinc-700" />
-                               <div className="h-2 w-full rounded-lg bg-zinc-700" />
-                             </div>
-                             <div className="flex items-center space-x-2 rounded-md bg-zinc-800 p-2 shadow-sm">
-                               <div className="h-4 w-4 rounded-full bg-zinc-700" />
-                               <div className="h-2 w-full rounded-lg bg-zinc-700" />
-                             </div>
-                             <div className="flex items-center space-x-2 rounded-md bg-zinc-800 p-2 shadow-sm">
-                               <div className="h-4 w-4 rounded-full bg-zinc-700" />
-                               <div className="h-2 w-full rounded-lg bg-zinc-700" />
-                             </div>
-                           </div>
-                         </div>
-                         <span className="block w-full pt-2 text-center font-normal text-muted-foreground">Dark</span>
-                       </div>
-                       
-                       {/* System Theme Preview */} 
-                       <div className="flex flex-col items-center">
-                         <div // Add w-full to prevent horizontal squishing
-                           onClick={() => setTheme("system")}
-                           className={cn(
-                             "w-full border-2 rounded-lg p-1 transition-colors cursor-pointer", // Added w-full
-                             theme === "system"
-                               ? "border-primary"
-                               : "border-transparent hover:border-muted-foreground/30"
-                           )}
-                         >
-                           <div className="space-y-2 rounded-sm bg-gradient-to-r from-zinc-100 to-gray-950 p-2">
-                            <div className="space-y-2 rounded-md bg-gradient-to-r from-white to-zinc-800 p-2 shadow-sm">
-                               <div className="h-2 w-4/5 rounded-lg bg-gradient-to-r from-zinc-200 to-zinc-700" />
-                               <div className="h-2 w-full rounded-lg bg-gradient-to-r from-zinc-200 to-zinc-700" />
-                             </div>
-                             <div className="flex items-center space-x-2 rounded-md bg-gradient-to-r from-white to-zinc-800 p-2 shadow-sm">
-                               <div className="h-4 w-4 rounded-full bg-gradient-to-r from-zinc-200 to-zinc-700" />
-                               <div className="h-2 w-full rounded-lg bg-gradient-to-r from-zinc-200 to-zinc-700" />
-                             </div>
-                             <div className="flex items-center space-x-2 rounded-md bg-gradient-to-r from-white to-zinc-800 p-2 shadow-sm">
-                               <div className="h-4 w-4 rounded-full bg-gradient-to-r from-zinc-200 to-zinc-700" />
-                               <div className="h-2 w-full rounded-lg bg-gradient-to-r from-zinc-200 to-zinc-700" />
-                             </div>
-                           </div>
-                         </div>
-                         <span className="block w-full pt-2 text-center font-normal text-muted-foreground">System</span>
-                       </div>
+                      {/* Dark Theme Preview */}
+                      <div className="flex flex-col items-center">
+                        <div 
+                          onClick={() => setTheme('dark')}
+                          className={cn(
+                            "w-full border-2 rounded-lg p-1 transition-colors cursor-pointer",
+                            theme === 'dark' ? "border-primary" : "border-transparent hover:border-muted-foreground/30"
+                          )}
+                        >
+                          <div className="space-y-2 rounded-sm bg-gray-950 p-2">
+                           <div className="space-y-2 rounded-md bg-zinc-800 p-2 shadow-sm">
+                              <div className="h-2 w-4/5 rounded-lg bg-zinc-700" />
+                              <div className="h-2 w-full rounded-lg bg-zinc-700" />
+                            </div>
+                            <div className="flex items-center space-x-2 rounded-md bg-zinc-800 p-2 shadow-sm">
+                              <div className="h-4 w-4 rounded-full bg-zinc-700" />
+                              <div className="h-2 w-full rounded-lg bg-zinc-700" />
+                            </div>
+                            <div className="flex items-center space-x-2 rounded-md bg-zinc-800 p-2 shadow-sm">
+                              <div className="h-4 w-4 rounded-full bg-zinc-700" />
+                              <div className="h-2 w-full rounded-lg bg-zinc-700" />
+                            </div>
+                          </div>
+                        </div>
+                        <span className="block w-full pt-2 text-center font-normal text-muted-foreground">Dark</span>
+                      </div>
+                      
+                      {/* System Theme Preview */} 
+                      <div className="flex flex-col items-center">
+                        <div 
+                          onClick={() => setTheme("system")}
+                          className={cn(
+                            "w-full border-2 rounded-lg p-1 transition-colors cursor-pointer",
+                            theme === "system"
+                              ? "border-primary"
+                              : "border-transparent hover:border-muted-foreground/30"
+                          )}
+                        >
+                          {/* Combined Light/Dark Preview for System */}
+                          <div className="space-y-2 rounded-sm bg-gradient-to-r from-zinc-100 to-gray-950 p-2">
+                           <div className="space-y-2 rounded-md bg-gradient-to-r from-white to-zinc-800 p-2 shadow-sm">
+                              <div className="h-2 w-4/5 rounded-lg bg-gradient-to-r from-zinc-200 to-zinc-700" />
+                              <div className="h-2 w-full rounded-lg bg-gradient-to-r from-zinc-200 to-zinc-700" />
+                            </div>
+                            <div className="flex items-center space-x-2 rounded-md bg-gradient-to-r from-white to-zinc-800 p-2 shadow-sm">
+                              <div className="h-4 w-4 rounded-full bg-gradient-to-r from-zinc-200 to-zinc-700" />
+                              <div className="h-2 w-full rounded-lg bg-gradient-to-r from-zinc-200 to-zinc-700" />
+                            </div>
+                            <div className="flex items-center space-x-2 rounded-md bg-gradient-to-r from-white to-zinc-800 p-2 shadow-sm">
+                              <div className="h-4 w-4 rounded-full bg-gradient-to-r from-zinc-200 to-zinc-700" />
+                              <div className="h-2 w-full rounded-lg bg-gradient-to-r from-zinc-200 to-zinc-700" />
+                            </div>
+                          </div>
+                        </div>
+                        <span className="block w-full pt-2 text-center font-normal text-muted-foreground">System</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Chat Background Settings */}
+                  <div>
+                    <h3 className="text-lg font-medium mb-3">Chat Background</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      {AVAILABLE_BACKGROUNDS.map((bg) => (
+                        <button
+                          key={bg.value}
+                          onClick={() => setChatBackground(bg.value)}
+                          className={cn(
+                            "border rounded-lg p-2 aspect-video flex items-center justify-center text-center text-sm font-medium relative overflow-hidden",
+                            "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background",
+                            chatBackground === bg.value ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : 'hover:border-primary/50',
+                            // Apply background for preview
+                            bg.className 
+                          )}
+                          aria-label={`Set chat background to ${bg.name}`}
+                        >
+                          {/* Overlay to ensure text is readable */}
+                          <div className={cn(
+                            "absolute inset-0 flex items-center justify-center p-1", 
+                            // Adjust overlay based on theme for better contrast
+                            resolvedTheme === 'dark' ? 'bg-black/60' : 'bg-white/70' 
+                           )}>
+                            <span className="text-foreground text-center">{bg.name}</span>
+                          </div>
+                          {/* Checkmark for selected */}
+                          {chatBackground === bg.value && (
+                            <Check className="absolute top-1.5 right-1.5 h-4 w-4 text-primary bg-background rounded-full p-0.5" />
+                          )}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </CardContent>

@@ -130,40 +130,23 @@ export function getCounterpartyPriceHistory(negotiation: Doc<"negotiations">): {
     return uniquePrices.map(p => ({ value: p.value, timestamp: p.timestamp }));
 }
 
-// Helper function to determine if we're a customer or carrier in this negotiation
-function isNegotiatingAsCustomer(negotiation: Doc<"negotiations"> | null): boolean {
-    // In this application, we're always representing the freight customer
-    // This is a simple implementation, but could be enhanced for more complex scenarios
-    
-    // You could look at various properties to determine this:
-    // 1. User role in the system
-    // 2. Special flags in the negotiation document
-    // 3. Direction of negotiation
-    
-    // For this version, we assume customer role by default
-    // This ensures backward compatibility with existing logic
-    
-    if (!negotiation) {
-        return true; // Default to customer
-    }
-    
-    // Future enhancement: Add custom logic here to determine role
-    // based on properties in the negotiation
-    
-    // For now, we're always a customer in this system
-    return true;
+// Helper function to determine if we're the seller (forwarder)
+function isNegotiatingAsSeller(negotiation: Doc<"negotiations"> | null): boolean {
+    // FORWARDER SCENARIO: We are the seller, wanting higher prices.
+    return true; 
 }
 
-// Helper function to determine negotiation direction
-function shouldNegotiateDown(currentPrice: number | null, targetPrice: number | null): boolean {
+// Helper function: Determines if we should aim higher
+function shouldNegotiateUp(currentPrice: number | null, targetPrice: number | null): boolean {
     if (currentPrice === null || targetPrice === null) {
-        console.log(`[LangGraph] Cannot determine negotiation direction. currentPrice=${currentPrice}, targetPrice=${targetPrice}. Defaulting to DOWN.`);
-        return true; // Default direction
+        console.log(`[LangGraph] Cannot determine negotiation direction. currentPrice=${currentPrice}, targetPrice=${targetPrice}. Defaulting to UP (as forwarder).`);
+        // Default to trying to negotiate UP if prices are unclear in forwarder scenario
+        return true; 
     }
     
-    // If current price is higher than target, we need to negotiate DOWN
-    const result = currentPrice > targetPrice;
-    console.log(`[LangGraph] Negotiation direction determined: currentPrice=${currentPrice}, targetPrice=${targetPrice}, direction=${result ? 'DOWN' : 'UP'}`);
+    // If target (minimum acceptable) price is higher than current, we need to negotiate UP
+    const result = targetPrice > currentPrice;
+    console.log(`[LangGraph] Negotiation direction determined: currentPrice=${currentPrice}, targetPrice=${targetPrice}, shouldGoUp=${result}`);
     return result;
 }
 
@@ -279,8 +262,8 @@ export async function analyzeLatestMessage(state: NegotiationAgentState): Promis
         const targetPrice = state.targetPriceInfo.targetTotalEur;
         // Use initial price if currentPriceInfo is not set yet
         const priceToCompare = state.currentPriceInfo.price ?? initialPrice; 
-        const needToNegotiateDown = shouldNegotiateDown(priceToCompare, targetPrice);
-        const negotiationDirection = needToNegotiateDown ? "down" : "up";
+        const needToNegotiateUp = shouldNegotiateUp(priceToCompare, targetPrice);
+        const negotiationDirection = needToNegotiateUp ? "up" : "down";
 
         // Format conversation history relevant for analysis
         const historySummary = negotiation.messages.slice(-10).map(msg => { // Limit history for context window
@@ -457,161 +440,173 @@ export async function generateResponse(state: NegotiationAgentState): Promise<Pa
     }
     
     try {
-        // Create OpenAI client
-        const model = new ChatOpenAI({
-            modelName: "gpt-4o",
-            temperature: 0.3 // Slight randomness for more natural responses
-        });
-        
-        const negotiation = state.negotiationDoc;
+        const model = new ChatOpenAI({ modelName: "gpt-4o", temperature: 0.3 });
+        const negotiation = state.negotiationDoc!;
         const config = state.agentConfig;
-        
-        // Format the conversation history for the LLM
         const conversationHistory: BaseMessage[] = negotiation.messages.map(msg => {
-            if (msg.sender === 'agent') {
-                return new AIMessage(msg.content);
-            } else if (msg.sender === 'user') {
-                return new HumanMessage(`[Customer message]: ${msg.content}`);
-            } else if (msg.sender === 'system') {
-                return new SystemMessage(msg.content);
-            } else {
-                // Email or other sender (counterparty)
-                return new HumanMessage(`[${msg.sender}]: ${msg.content}`);
-            }
+            // Map messages to HumanMessage (client/other) or AIMessage (agent)
+            if (msg.sender === 'agent') return new AIMessage(msg.content);
+            // Treat user messages as internal notes/context, not part of AI convo history
+            if (msg.sender === 'user') return new SystemMessage(`[Internal Note/User Input]: ${msg.content}`); 
+            if (msg.sender === 'system') return new SystemMessage(msg.content);
+            return new HumanMessage(`[Client message]: ${msg.content}`); // Label non-agent/user/system as Client
         });
         
-        // Determine the negotiation style
-        let styleGuidance = "";
+        // --- FORWARDER CONTEXT --- 
+        const IS_SELLER = true; // Explicit flag for forwarder scenario
+        const TARGET_IS_MINIMUM = true; // Target price is the minimum acceptable
+
+        // Style Guidance (remains the same)
+        let styleGuidance = ""; 
         if (config.style === "conservative") {
             styleGuidance = "You're the friendly type. Build relationships, focus on long-term business, and be patient with negotiations. Still protect your interests, but in a cooperative way.";
         } else if (config.style === "balanced") {
             styleGuidance = "You're straightforward but fair. Get to the point quickly about price, but remain professional and build rapport when appropriate.";
         } else if (config.style === "aggressive") {
-            styleGuidance = "You're a tough negotiator. Be direct, push harder for your price target, and don't waste time. Use pressure tactics like mentioning other options or deadlines.";
+            styleGuidance = "You're a tough negotiator. Be direct, push harder for your minimum price, and don't waste time. Use pressure tactics like mentioning other options or deadlines.";
         }
         
-        // Determine negotiation direction based on price comparison (using the LLM-determined current price)
         const currentPrice = state.currentPriceInfo.price;
-        const targetPrice = state.targetPriceInfo.targetTotalEur;
-        const needToNegotiateDown = shouldNegotiateDown(currentPrice, targetPrice);
-        
-        // Always communicate as the customer regardless of negotiation direction
-        const rolePerspective = "customer";
-        
-        // Check if this is the first agent message
+        const targetPrice = state.targetPriceInfo.targetTotalEur; // This is the minimum acceptable price
+        const needToNegotiateUp = shouldNegotiateUp(currentPrice, targetPrice); // Check if current is below minimum
+
         const isFirstMessage = negotiation.messages.filter((m: any) => m.sender === 'agent').length === 0;
         
-        // Adjust tactics and opening based on negotiation direction
+        // Adjust tactics for forwarder (negotiating up)
         let initialTactic = "";
         let firstMessageOpening = "";
-        
         if (isFirstMessage) {
-            if (needToNegotiateDown) {
-                firstMessageOpening = "Start by greeting them briefly, mention you saw their offer for the route, and immediately suggest a lower price than your actual target. Create an anchor point.";
-                initialTactic = `Start with a price LOWER than your target of ${targetPrice?.toFixed(2)} EUR - this gives you room to negotiate upward.`;
-            } else {
-                firstMessageOpening = "Start by greeting them briefly, mention you saw their offer for the route, and immediately suggest a higher price than your actual target. Create an anchor point.";
-                initialTactic = `Start with a price HIGHER than your target of ${targetPrice?.toFixed(2)} EUR - this gives you room to negotiate downward.`;
-            }
+            // Always start by proposing *higher* than the minimum target as a forwarder
+            firstMessageOpening = "Start by greeting them briefly, mention you saw their freight offer for the route, and immediately propose a price significantly higher than your minimum target. Create a high anchor.";
+            initialTactic = `Your minimum acceptable price is ${targetPrice?.toFixed(2)} EUR. Propose something noticeably higher than this to start negotiations.`;
         }
         
-        // Format the target price as a string for use in prompts
         const targetPriceStr = targetPrice ? `${targetPrice.toFixed(2)} EUR` : "unknown";
-        const currentPriceStr = state.currentPriceInfo.priceStr || "unknown"; // Use priceStr from state
+        const currentPriceStr = state.currentPriceInfo.priceStr || "unknown";
         
-        // Construct the system prompt
+        // --- UPDATED SYSTEM PROMPT FOR FORWARDER (More Direct Style) --- 
         const systemPrompt = `
-YOU ARE: A logistics/freight professional who uses transport exchanges like TIMOCOM/Trans.eu daily. You've spotted an offer and are messaging the carrier.
+YOU ARE: A Forwarder negotiating with a Client about payment for a freight transport offer.
 
-YOUR GOAL: Negotiate the TOTAL PRICE ${needToNegotiateDown ? "DOWN" : "UP"} to ${targetPriceStr} for transport from ${negotiation.initialRequest.origin} to ${negotiation.initialRequest.destination}.
+YOUR GOAL: Negotiate the TOTAL PAYMENT you receive UPWARDS to meet or exceed your minimum acceptable price of ${targetPriceStr}. The client wants to pay less, you want to be paid more.
 
-LOAD DETAILS: ${negotiation.initialRequest.loadType || 'Standard load'}, ${negotiation.initialRequest.weight || 'N/A'}.
+FREIGHT DETAILS: ${negotiation.initialRequest.loadType || 'Standard load'}, ${negotiation.initialRequest.weight || 'N/A'} from ${negotiation.initialRequest.origin} to ${negotiation.initialRequest.destination}.
 
 CURRENT SITUATION:
-- The current price on the table is ${currentPriceStr}
-- Your target price is ${targetPriceStr}
-- You need to ${needToNegotiateDown ? "LOWER" : "RAISE"} this price
+- The last offer/price from the client was ${currentPriceStr}
+- Your minimum acceptable price is ${targetPriceStr}
+- You need to ${needToNegotiateUp ? "RAISE the client's offer" : "potentially ACCEPT or make a final confirmation (current offer meets/exceeds minimum)"}
 
-YOUR PERSONALITY: ${styleGuidance}
+YOUR PERSONALITY: ${styleGuidance} Adapt this to be VERY DIRECT and BRIEF.
 
 ${firstMessageOpening}
 ${initialTactic}
 
-COMMUNICATION STYLE:
-1. QUICK & CASUAL - Transport professionals are busy and write short, direct messages
-2. PRACTICAL - Focus on price, times, and essential details only
-3. PERSONAL VOICE - Use "I" (not "we") and never mention your company name 
-4. TOTAL PRICE ONLY - Only discuss the absolute total price (${targetPriceStr}), NEVER mention price per kilometer
-5. AUTHENTIC - NEVER use placeholders like [Your Name] or [Company Name]
-6. DIRECT - Skip formal greetings and closings, get straight to the point
+COMMUNICATION STYLE (VERY IMPORTANT - STRICTLY FOLLOW):
+1. BRIEF & DIRECT: Get straight to the point. Use short sentences. No unnecessary pleasantries (no "hello", "hope you are well", "best regards").
+2. INFORMAL BUT PROFESSIONAL: Like a quick chat message or text, not a formal email.
+3. USE "I": Represent yourself as an individual professional.
+4. FOCUS ON PRICE: Primarily discuss the total payment. Mention details only if essential.
+5. NO TEMPLATES: Do NOT use placeholders like [Your Name], [Company Name], or generic greetings/closings. Write as a real person making a quick offer/reply.
+6. ACTION-ORIENTED: Aim to move the negotiation forward quickly.
 
-NEGOTIATION TACTICS:
-- ANCHORING: Start with a price that gives room to negotiate
-- GRADUAL CONCESSIONS: Move toward your target price slowly, in small increments
-- FUTURE BUSINESS: Mention potential for regular loads or future cooperation when appropriate
-- COMPETITION: Occasionally mention you're looking at other options (if negotiations stall)
-- TIME PRESSURE: Suggest needing a quick decision when appropriate
+NEGOTIATION TACTICS (for getting paid MORE):
+- HIGH ANCHOR: Start with a proposal significantly above your minimum.
+- JUSTIFY (If needed, VERY briefly): Mention reliability/efficiency ONLY if pushing back on a low offer.
+- GRADUAL CONCESSIONS: Lower your asking price in small steps towards your minimum.
+- KNOW YOUR MINIMUM: Do not agree to a price below ${targetPriceStr}.
+- BE PREPARED TO DECLINE: If the client won't meet your minimum, state it simply and move on.
 
-TECHNICAL REQUIREMENT: Your message will be placed in a JSON object. Only write the message content, nothing else.
+TECHNICAL REQUIREMENT: Your message will be placed in a JSON object. Only write the message content, nothing else. NO formal structure, NO greetings, NO sign-off.
 `;
 
-        // Define a response format instructions prompt
+        // --- UPDATED RESPONSE FORMAT PROMPT FOR FORWARDER (More Direct Style) --- 
         const responseFormatPrompt = `
 Current negotiation status:
-- Last message from carrier: "${state.latestMessage?.content || 'No message yet'}"
-- Their intent appears to be: ${state.analysisResult.intent}
-- Brief summary: ${state.analysisResult.summary}
-- Current offer on the table: ${currentPriceStr}
-- Your target: ${targetPriceStr}
+- Last message from Client: "${state.latestMessage?.content || 'No message yet'}"
+- Client's intent appears to be: ${state.analysisResult.intent}
+- Client's current offer: ${currentPriceStr}
+- Your minimum acceptable price: ${targetPriceStr}
+
+REMEMBER YOUR STYLE: BRIEF, DIRECT, INFORMAL, NO TEMPLATES, NO GREETINGS/CLOSINGS.
 
 TACTICAL ADVICE FOR THIS RESPONSE:
 ${isFirstMessage ? 
-  `- This is your FIRST contact - be direct, mention seeing their offer and propose a price without any formal letter structure` :
-  `- This is a follow-up message - stay focused on price negotiation`
+  `- First contact: Reference their offer route briefly and state your initial (high) price proposal directly.` :
+  `- Follow-up: Respond directly to their last point (price or question) and state your next price or position.`
 }
 
 ${state.analysisResult.intent === 'refusal' ? 
-  `- They've refused your offer - stand firm but be professional, maybe offer a small concession or mention future business potential` : 
+  // Corrected refusal advice
+  `- Client refused. If below minimum, reiterate your last price simply or make a small concession towards your minimum. If stalled, decline simply (e.g., "Sorry, cannot do for less than ${targetPriceStr}.").` : 
   state.analysisResult.intent === 'counter_proposal' ?
-  `- They've countered - if far from target, counter again with minimal movement; if close to target, consider accepting or final small counter` :
+  // Corrected counter-proposal advice
+  `- Client countered. If below minimum, counter again with a price closer to your previous proposal (but still >= minimum). If meets/exceeds minimum, accept simply (e.g., "Ok, ${currentPriceStr} works. Deal?").` :
   state.analysisResult.intent === 'question' ?
-  `- They have questions - answer briefly then refocus on price negotiation` :
-  `- Stay focused on your price target of ${targetPriceStr}`
+  // Corrected question advice
+  `- Client asked question. Answer VERY briefly, then restate your last proposed price or current position.` :
+  state.analysisResult.intent === 'agreement' ?
+  `- Client AGREED to price >= minimum! Confirm simply (e.g., "Great, ${currentPriceStr} EUR confirmed. Will arrange details.").` :
+  `- Continue negotiation. Focus on getting price to ${targetPriceStr} or higher.`
 }
 
-${Math.abs((currentPrice || 0) - (targetPrice || 0)) < (targetPrice || 0) * 0.05 ?
-  `- You're VERY CLOSE to your target price - consider agreeing or making one final small adjustment` :
-  `- You're still ${needToNegotiateDown ? "above" : "below"} your target price - continue negotiating`
+${!needToNegotiateUp ? // If current price >= target minimum
+  `- Offer (${currentPriceStr}) meets/exceeds minimum (${targetPriceStr}). ACCEPT or confirm agreement.` :
+  `- Offer (${currentPriceStr}) is BELOW minimum (${targetPriceStr}) - push for higher price.`
 }
 
-IMPORTANT STYLE NOTES:
-- Use singular "I" not plural "we"
-- No signature blocks, company names, or formal closings
-- No placeholders like [Your Name]
-- Just write a simple, direct message as a real person would in a chat
-
-Write ONLY the message content as a freight professional would - short, direct, and focused on the deal.
+Write ONLY the message content as a forwarder would send - SHORT, DIRECT, like a quick chat message.
 `;
 
-        // Create the prompt template
         const promptTemplate = ChatPromptTemplate.fromMessages([
             ["system", systemPrompt],
             ...conversationHistory,
             ["human", responseFormatPrompt]
         ]);
         
-        // Create and execute the chain
         const responseChain = promptTemplate.pipe(model);
         const response = await responseChain.invoke({});
-        
-        // Extract just the content
         const responseText = response.content.toString();
         
-        console.log(`[LangGraph] Generated response: ${responseText}`);
+        console.log(`[LangGraph] Generated forwarder response: ${responseText}`);
         
+        // --- DECISION LOGIC BASED ON FORWARDER GOAL ---
+        let nextAction: 'send' | 'review' = 'send';
+        let reasonForReview: string | null = null;
+
+        // Check if target MINIMUM is met or exceeded
+        if (!needToNegotiateUp) { 
+          if (state.analysisResult.intent === 'agreement') {
+            reasonForReview = `Client agreed to a price meeting/exceeding minimum (${currentPriceStr} >= ${targetPriceStr}). Confirm agreement.`;
+            nextAction = 'review';
+          } else if (state.analysisResult.intent === 'counter_proposal' && currentPrice && targetPrice && currentPrice >= targetPrice) {
+             reasonForReview = `Client proposed ${currentPriceStr}, which meets/exceeds minimum target ${targetPriceStr}. Review to accept.`;
+             nextAction = 'review';
+          }
+        } 
+        
+        // Check for explicit refusal from client
+        if (state.analysisResult.intent === 'refusal') {
+           reasonForReview = `Client firmly refused the previous proposal. Current offer: ${currentPriceStr}. Minimum: ${targetPriceStr}. Review required.`;
+           nextAction = 'review';
+        }
+        
+        // Check ONLY for new terms detected in this specific block.
+        // Handling for 'other' intent (like confusion/stall) is deferred to analyzeLatestMessage's review logic based on settings.
+        if (state.analysisResult.newTermsDetected) {
+           reasonForReview = `Client message requires review: New Terms Detected. Message: ${state.latestMessage?.content?.substring(0,100)}...`; // Simplified reason
+           nextAction = 'review';
+        }
+
+        // Override default action if review is needed FROM ANY CHECK ABOVE
+        if (nextAction === 'review') {
+           state.finalAction = 'review'; 
+        } 
+
         return {
             generatedMessage: responseText,
-            finalAction: state.finalAction || 'send' // Default to send if no other action has been determined
+            finalAction: state.finalAction ?? 'send', 
+            reviewReason: reasonForReview, 
         };
         
     } catch (error) {

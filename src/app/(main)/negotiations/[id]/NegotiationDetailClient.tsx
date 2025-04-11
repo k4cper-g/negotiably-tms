@@ -24,7 +24,8 @@ import {
   PlayIcon,
   UserIcon,
   MailWarning,
-  MessageCircleWarning
+  MessageCircleWarning,
+  User
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,7 +42,8 @@ import {
   DialogTitle,
   DialogFooter,
   DialogTrigger,
-  DialogClose
+  DialogClose,
+  DialogDescription
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,20 +63,32 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useTheme } from 'next-themes'; // Import useTheme
+import { useLocalStorage } from "@/hooks/useLocalStorage"; // Import hook
 
-// Add the helper function here, ideally move to utils later
-const parseNumericValue = (str: string | null | undefined): number | null => {
-  if (str === null || str === undefined) return null;
-  try {
-    const cleaned = str.replace(/[^\d.,]/g, '');
-    const withoutCommas = cleaned.replace(/,/g, '');
-    const value = parseFloat(withoutCommas);
-    return isNaN(value) ? null : value;
-  } catch (error) {
-    console.error(`Error parsing numeric value from string "${str}":`, error);
-    return null;
+// Define helper functions locally
+const parseNumericPrice = (price: string | number | undefined | null): number | null => {
+  if (typeof price === 'number') return price;
+  if (typeof price === 'string') {
+    const numericString = price.replace(/[^\d.,-]/g, '').replace(',', '.');
+    const parsed = parseFloat(numericString);
+    return isNaN(parsed) ? null : parsed;
   }
+  return null;
 };
+
+const formatPrice = (price: string | number | undefined | null): string => {
+  const numericValue = parseNumericPrice(price);
+  if (numericValue === null) return "-";
+  // Simple formatting, adjust as needed (e.g., locale-specific)
+  return `€${numericValue.toFixed(2)}`; 
+};
+
+// Define available backgrounds (Mirror from settings page - TODO: Refactor to shared location)
+const AVAILABLE_BACKGROUNDS = [
+  { name: 'Default', value: 'default', className: 'bg-muted/40' },
+  { name: 'Subtle Dots', value: 'dots', className: 'bg-white bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] dark:bg-neutral-950 dark:bg-[radial-gradient(rgba(255,255,255,0.1)_1px,transparent_1px)] dark:[background-size:16px_16px]' },
+  { name: 'Soft Gradient', value: 'gradient', className: 'bg-white bg-[radial-gradient(100%_50%_at_50%_0%,rgba(0,163,255,0.13)_0,rgba(0,163,255,0)_50%,rgba(0,163,255,0)_100%)] dark:bg-neutral-950 dark:bg-[radial-gradient(100%_50%_at_50%_0%,rgba(0,163,255,0.1)_0,rgba(0,163,255,0)_50%,rgba(0,163,255,0)_100%)]' },
+];
 
 // Define type for AgentSettingsModal props
 interface AgentSettingsModalProps {
@@ -165,7 +179,7 @@ const AgentSettingsModal = memo(({
 }: AgentSettingsModalProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden bg-card">
+      <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden bg-card">
         <DialogHeader className="px-6 pt-6 pb-2 border-b">
           <DialogTitle className="flex items-center text-xl text-card-foreground">
             <Bot className="mr-2 h-5 w-5 text-primary" />
@@ -219,23 +233,23 @@ const AgentSettingsModal = memo(({
                   {negotiationMode === "pricePerKm" ? (
                     // Price per km input
                   <div className="space-y-1.5">
-                    <Label htmlFor="modalTargetPrice">
-                      Target Price per km (EUR/km)
+                    <Label htmlFor="targetPrice">
+                      Minimum Target EUR/km
                     </Label>
                     <div className="flex gap-2 items-center">
                       <Input
-                        id="modalTargetPrice"
+                        id="targetPrice"
                         type="number"
                         step="0.01"
-                        min="0"
-                        placeholder="e.g. 1.25"
-                        value={targetPricePerKm}
-                        onChange={(e) => setTargetPricePerKm(e.target.value)}
-                        disabled={isConfiguringAgent || (negotiation.isAgentActive && negotiation.status === "pending")}
-                          className={cn(
-                            "w-full",
-                            targetPricePerKm && (isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0) && "border-red-500"
-                          )}
+                        value={String(targetPricePerKm)}
+                        onChange={(e) => {
+                          setTargetPricePerKm(e.target.value);
+                        }}
+                        placeholder="e.g., 1.10"
+                        className={cn(
+                          "w-full",
+                          targetPricePerKm && (isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0) && "border-red-500"
+                        )}
                       />
                     </div>
                       {targetPricePerKm && (isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0) && (
@@ -340,7 +354,7 @@ const AgentSettingsModal = memo(({
                     <div className="flex items-center justify-between mt-2">
                       <div className="space-y-1">
                         <span className="text-sm">Price changed</span>
-                        <p className="text-xs text-muted-foreground">Alert when the carrier proposes a different price</p>
+                        <p className="text-xs text-muted-foreground">Alert when the client proposes a different price</p>
                       </div>
                       <Switch 
                         checked={notifyOnPriceChange} 
@@ -352,7 +366,7 @@ const AgentSettingsModal = memo(({
                     <div className="flex items-center justify-between border-t border-gray-200 pt-3 mt-1">
                       <div className="space-y-1">
                         <span className="text-sm">New terms mentioned</span>
-                        <p className="text-xs text-muted-foreground">Alert when carrier mentions terms not in the initial offer</p>
+                        <p className="text-xs text-muted-foreground">Alert when client mentions terms not in the initial offer</p>
                       </div>
                       <Switch 
                         checked={notifyOnNewTerms} 
@@ -364,7 +378,7 @@ const AgentSettingsModal = memo(({
                     <div className="flex items-center justify-between border-t border-gray-200 pt-3">
                       <div className="space-y-1">
                         <span className="text-sm">Target price is reached</span>
-                        <p className="text-xs text-muted-foreground">Alert when carrier meets or exceeds target price</p>
+                        <p className="text-xs text-muted-foreground">Alert when client meets or exceeds target price</p>
                       </div>
                       <Switch 
                         checked={notifyOnTargetPriceReached} 
@@ -375,8 +389,8 @@ const AgentSettingsModal = memo(({
                     
                     <div className="flex items-center justify-between border-t border-gray-200 pt-3">
                       <div className="space-y-1">
-                        <span className="text-sm">Carrier agrees to price</span>
-                        <p className="text-xs text-muted-foreground">Alert when the carrier explicitly accepts an offer</p>
+                        <span className="text-sm">Client agrees to price</span>
+                        <p className="text-xs text-muted-foreground">Alert when the client explicitly accepts an offer</p>
                       </div>
                       <Switch 
                         checked={notifyOnAgreement} 
@@ -399,8 +413,8 @@ const AgentSettingsModal = memo(({
                     
                     <div className="flex items-center justify-between border-t border-gray-200 pt-3">
                       <div className="space-y-1">
-                        <span className="text-sm">Carrier firmly refuses</span>
-                        <p className="text-xs text-muted-foreground">Alert when carrier gives a firm rejection</p>
+                        <span className="text-sm">Client firmly refuses</span>
+                        <p className="text-xs text-muted-foreground">Alert when client gives a firm rejection</p>
                       </div>
                       <Switch 
                         checked={notifyOnRefusal} 
@@ -512,6 +526,7 @@ export default function NegotiationDetailClient({
   const [detailsExpanded, setDetailsExpanded] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { openNegotiation } = useNegotiationModal();
+  const [chatBackgroundValue] = useLocalStorage<string>('chatBackground', 'default'); // Read background pref
   
   // Fetch negotiation data
   const negotiation = useQuery(api.negotiations.getNegotiationById, { 
@@ -525,7 +540,7 @@ export default function NegotiationDetailClient({
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   
   // AI Agent States
-  const [targetPricePerKm, setTargetPricePerKm] = useState("");
+  const [targetPricePerKm, setTargetPricePerKm] = useState<string>('');
   const [negotiationMode, setNegotiationMode] = useState<"pricePerKm" | "percentage">("pricePerKm");
   const [targetPercentage, setTargetPercentage] = useState("");
   const [agentStyle, setAgentStyle] = useState<"conservative" | "balanced" | "aggressive">("balanced");
@@ -553,13 +568,14 @@ export default function NegotiationDetailClient({
   const configureAgent = useMutation(api.negotiations.configureAgent);
   const resumeAgentMutation = useMutation(api.negotiations.resumeAgent);
   
-  // Function for extracting a numeric value from a price string
-  const parseNumericPrice = useCallback((priceStr: string | null | undefined): number | null => {
-    if (!priceStr) return null;
-    const numericString = priceStr.replace(/[^0-9.,]/g, '').replace(',', '.');
-    const numeric = parseFloat(numericString);
-    return !isNaN(numeric) ? numeric : null;
-  }, []);
+  // HELPER FUNCTION DEFINITION
+  const getTargetPriceNumber = (): number | null => {
+    return parseNumericPrice(targetPricePerKm);
+  };
+  const getTargetPriceString = (): string => {
+    // Convert number state back to string if needed, or return the string state
+    return targetPricePerKm ?? "0";
+  };
   
   // USE negotiation.currentPrice directly from the database where needed
   const currentPrice = negotiation?.currentPrice; // This can be string | undefined
@@ -931,16 +947,10 @@ export default function NegotiationDetailClient({
       setCcInput(negotiation.emailCcRecipients?.join(', ') || '');
       
       // Initialize AI Agent settings 
-      if (negotiation.agentTargetPricePerKm) {
-        setTargetPricePerKm(String(negotiation.agentTargetPricePerKm).replace(',', '.'));
-      } else {
-        setTargetPricePerKm(''); 
-      }
-      
-      // Load or reset advanced settings
-      const agentSettings = (negotiation as any)?.agentSettings;
-      if (agentSettings) {
-        setAgentStyle(agentSettings.style || "balanced");
+      const agentSettings = (negotiation as any).agentSettings;
+      if (agentSettings && typeof agentSettings.targetPricePerKm !== 'undefined' && agentSettings.targetPricePerKm !== null) {
+        setTargetPricePerKm(String(agentSettings.targetPricePerKm));
+        setAgentStyle(agentSettings.agentStyle || "balanced");
         setNotifyOnPriceChange(agentSettings.notifyOnPriceChange !== false); 
         setNotifyOnNewTerms(agentSettings.notifyOnNewTerms !== false); 
         setNotifyAfterRounds(agentSettings.notifyAfterRounds || 5); 
@@ -956,6 +966,7 @@ export default function NegotiationDetailClient({
         setBypassConfusionCheck(agentSettings.bypassConfusionCheck || false);
         setBypassRefusalCheck(agentSettings.bypassRefusalCheck || false);
       } else {
+        setTargetPricePerKm('');
         setAgentStyle("balanced");
         setNotifyOnPriceChange(true);
         setNotifyOnNewTerms(true);
@@ -985,18 +996,9 @@ export default function NegotiationDetailClient({
     }
   }, [negotiation]); // Re-run only when negotiation data changes
 
-  // --- CALCULATIONS (Can safely use negotiation data now) ---
-  
-  // Calculate savings (safely handling nulls)
-  const initialNumeric = parseNumericPrice(negotiation?.initialRequest?.price) || 0;
-  const currentNumeric = parseNumericPrice(currentPrice) || 0; // Use direct currentPrice
-  let savings = 0;
-  let savingsPercentage = 0;
-  
-  if (initialNumeric > 0 && currentNumeric > 0 && initialNumeric > currentNumeric) {
-    savings = initialNumeric - currentNumeric;
-    savingsPercentage = (savings / initialNumeric) * 100;
-  }
+  // Find the background class based on the stored value
+  const selectedBackground = AVAILABLE_BACKGROUNDS.find(bg => bg.value === chatBackgroundValue) || AVAILABLE_BACKGROUNDS[0]; 
+  const chatBackgroundClass = selectedBackground.className;
 
   // --- CONDITIONAL RETURN (Now safe, after all hooks) --- 
   if (!negotiation) {
@@ -1139,8 +1141,11 @@ export default function NegotiationDetailClient({
         <div className="h-full flex flex-col md:flex-row">
           {/* Main chat section */}
           <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden order-2 md:order-1">
-            {/* Chat history */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-muted/40">
+            {/* Chat history - APPLY BACKGROUND CLASS */}
+            <div className={cn(
+              "flex-1 overflow-y-auto p-4 space-y-4", 
+              chatBackgroundClass // Apply the dynamic background class
+            )}>
               <div className="max-w-5xl mx-auto space-y-4">
                 {/* Initial negotiation message - System Message Style */}
                 <div className="text-center text-xs text-muted-foreground my-4">
@@ -1221,12 +1226,15 @@ export default function NegotiationDetailClient({
                                 ? "bg-blue-500 text-white" // Fixed blue for User
                                 : isAgent
                                   ? "bg-emerald-500 text-white" // Fixed green for Agent
-                                  : "bg-card text-card-foreground border" // Adaptive for Other
+                                  : "bg-card text-card-foreground border min-w-[200px]" // Min-width for carrier messages
                             )}
                           >
                             <p className="text-sm whitespace-pre-wrap">{item.content}</p>
                             <p className={cn(
-                                "text-xs mt-1 text-right opacity-80", // Slightly less opacity 
+                                "text-xs mt-1 opacity-80", // Slightly less opacity 
+                                isUser || isAgent 
+                                  ? "text-right"
+                                  : "text-left",
                                 // Adjust timestamp colors for fixed backgrounds
                                 isUser ? "text-blue-100" : 
                                 isAgent ? "text-emerald-100" : 
@@ -1241,52 +1249,136 @@ export default function NegotiationDetailClient({
                       </div>
                     );
                   } else {
-                    // --- Counter Offer Rendering (Keep Colors, Layout Unchanged) ---
-                     const offerItem = item as typeof negotiation.counterOffers[0];
-                     const isUserProposal = offerItem.proposedBy === "user";
+                    // --- Offer Rendering ---
+                    const offerItem = item as typeof negotiation.counterOffers[0];
+                    const isUserOffer = offerItem.proposedBy === "user";
+                    const isAgentOffer = offerItem.proposedBy === "agent";
+                    const isSenderSideRight = isUserOffer || isAgentOffer;
+                    
+                    let senderName = "";
+                    if (isUserOffer) {
+                      senderName = "Your Proposal";
+                    } else if (isAgentOffer) {
+                      senderName = "AI Agent Proposal";
+                    } else {
+                      senderName = "Client Offer";
+                    }
 
-                     return (
-                       <div key={`offer-${index}`} className="text-center text-xs text-muted-foreground my-4">
-                          <div className={cn(
-                            "inline-block border rounded-lg px-4 py-2 text-left max-w-md mx-auto shadow-sm", 
-                             // Keep dark variants for offer backgrounds
-                             isUserProposal 
-                               ? "border-blue-200 bg-blue-50 dark:bg-blue-900/30 dark:border-blue-700" 
-                               : "border-amber-200 bg-amber-50 dark:bg-amber-900/30 dark:border-amber-700"
-                          )}>
-                           {/* ... offer content with adaptive colors ... */} 
-                           <div className="flex justify-between items-center mb-1">
-                              <span className={cn(
-                                  "font-semibold text-sm",
-                                  // Keep dark variants for offer text
-                                  isUserProposal ? "text-blue-700 dark:text-blue-300" : "text-amber-800 dark:text-amber-300"
-                                )}>
-                                 {isUserProposal ? "Your Proposal" : "Carrier Proposal"}
-                              </span>
-                              <span className="text-xs text-muted-foreground" title={format(timestamp, "PPpp")}>
-                                 {formatDistanceToNow(timestamp, { addSuffix: true })}
-                              </span>
-                           </div>
-                            {/* Use adaptive text colors */} 
-                            <p className="text-base font-semibold text-foreground mb-1">{offerItem.price}</p>
-                            {offerItem.notes && <p className="text-sm text-muted-foreground italic mt-1">{offerItem.notes}</p>}
-                            {offerItem.status !== 'pending' && (
-                              <Badge
-                                 variant={ offerItem.status === "accepted" ? "default" : offerItem.status === "rejected" ? "destructive" : "outline" }
-                                 className="mt-2 text-xs"
-                               >
-                                 {offerItem.status.charAt(0).toUpperCase() + offerItem.status.slice(1)}
-                               </Badge>
-                            )}
-                         </div>
-                       </div>
-                     );
+                    return (
+                      <div 
+                        key={`offer-${index}`}
+                        className={cn("flex flex-col mb-4", isSenderSideRight ? "items-end" : "items-start")}
+                      >
+                        <div className="text-xs text-muted-foreground mb-1 px-1">
+                          {senderName}
+                        </div>
+                        <div
+                          className={cn(
+                            "rounded-lg p-3 shadow-sm border",
+                            isUserOffer 
+                              ? "bg-blue-50 border-blue-200" 
+                              : isAgentOffer
+                                ? "bg-emerald-50 border-emerald-200"
+                                : "bg-card border",
+                            isSenderSideRight ? "max-w-[80%]" : "max-w-[95%]",
+                            !isSenderSideRight && "min-w-[200px]" // Ensure min-width for client offers only
+                          )}
+                        >
+                          <p className="text-base font-semibold text-foreground mb-1">{formatPrice(offerItem.price)}</p>
+                          {offerItem.notes && <p className="text-sm text-muted-foreground italic mt-1">{offerItem.notes}</p>}
+                          {offerItem.status !== 'pending' && (
+                             <Badge
+                                variant={ offerItem.status === "accepted" ? "default" : offerItem.status === "rejected" ? "destructive" : "outline" }
+                                className="mt-2 text-xs"
+                             >
+                                {offerItem.status.charAt(0).toUpperCase() + offerItem.status.slice(1)}
+                             </Badge>
+                          )}
+                        </div>
+                        <div 
+                          className={cn(
+                            "text-xs text-muted-foreground mt-1 px-1",
+                            isSenderSideRight ? "text-right" : "text-left" // Align timestamp based on sender
+                          )}
+                          title={format(timestamp, "PPpp")}
+                        >
+                            {formatDistanceToNow(timestamp, { addSuffix: true })}
+                        </div>
+                      </div>
+                    );
                   }
                 })}
                 
-                 {/* --- Agent Status Indicators (Keep Colors, Layout Unchanged) --- */}
-                 {/* ... needs review indicator ... */} 
-                 {/* ... agent error indicator ... */} 
+                {/* --- Agent Status Indicators --- */}
+                {negotiation.isAgentActive && negotiation.agentState === "needs_review" && (
+                  <div className="mx-auto my-4 max-w-md border rounded-lg bg-card overflow-hidden">
+                    <div className="p-4">
+                      <div className="flex flex-col items-center">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="bg-muted rounded-full p-1.5 text-muted-foreground">
+                            <Info className="h-4 w-4" />
+                          </div>
+                          <h3 className="font-medium text-foreground">AI Agent Needs Your Review</h3>
+                        </div>
+                        <p className="text-sm text-muted-foreground text-center">{negotiation.agentMessage || "The agent requires your decision to proceed. Review the current offer."}</p>
+                      </div>
+                      <div className="flex items-center justify-center gap-2 mt-4">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleResumeAgent("take_over")}
+                          className="h-8"
+                        >
+                          <User className="mr-1.5 h-3.5 w-3.5" />
+                          Take Over
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleResumeAgent("continue")}
+                          className="h-8"
+                        >
+                          <Bot className="mr-1.5 h-3.5 w-3.5" />
+                          Continue
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {negotiation.isAgentActive && negotiation.agentState === "error" && (
+                  <div className="mx-auto my-4 max-w-lg border rounded-lg bg-card overflow-hidden">
+                    <div className="p-4">
+                      <div className="flex flex-col items-center">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="bg-muted rounded-full p-1.5 text-destructive">
+                            <X className="h-4 w-4" />
+                          </div>
+                          <h3 className="font-medium text-foreground">AI Agent Error</h3>
+                        </div>
+                        <p className="text-sm text-muted-foreground text-center">{negotiation.agentMessage || "The agent encountered an error and has stopped. Please take over or reconfigure."}</p>
+                      </div>
+                      <div className="flex items-center justify-center gap-2 mt-4">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleResumeAgent("take_over")}
+                          className="h-8"
+                        >
+                          <User className="mr-1.5 h-3.5 w-3.5" />
+                          Take Over
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleOpenAgentSettings(true)}
+                          className="h-8"
+                        >
+                          <Settings2 className="mr-1.5 h-3.5 w-3.5" />
+                          Configure Agent
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Scroll anchor */}
                 <div ref={messagesEndRef} />
@@ -1372,17 +1464,17 @@ export default function NegotiationDetailClient({
                         <div className="p-3 space-y-3">
                             <div className={cn(
                             "rounded-md p-2 flex items-start gap-2.5",
-                            negotiation.agentState === "needs_review" ? "bg-amber-50"
-                            : negotiation.agentState === "error" ? "bg-red-50"
-                            : "bg-green-50"
+                            negotiation.agentState === "needs_review" ? "bg-amber-50 dark:bg-amber-900/30"
+                            : negotiation.agentState === "error" ? "bg-red-50 dark:bg-red-900/30"
+                            : "bg-green-50 dark:bg-green-900/30"
                             )}>
                             <div className={cn(
                                 "mt-0.5 rounded-full p-1",
                                 negotiation.agentState === "needs_review" 
-                                    ? "bg-amber-100 text-amber-600"
+                                    ? "bg-amber-100 text-amber-600 dark:bg-amber-800 dark:text-amber-300"
                                     : negotiation.agentState === "error"
-                                        ? "bg-red-100 text-red-600"
-                                        : "bg-green-100 text-green-600"
+                                        ? "bg-red-100 text-red-600 dark:bg-red-800 dark:text-red-300"
+                                        : "bg-green-100 text-green-600 dark:bg-green-800 dark:text-green-300"
                             )}>
                                 {negotiation.agentState === "needs_review" ? <Info className="h-3 w-3" />
                                 : negotiation.agentState === "error" ? <X className="h-3 w-3" />
@@ -1392,18 +1484,18 @@ export default function NegotiationDetailClient({
                             <div className="flex-1 min-w-0">
                                 <p className={cn(
                                 "text-sm font-medium",
-                                negotiation.agentState === "needs_review" ? "text-amber-800"
-                                : negotiation.agentState === "error" ? "text-red-800"
-                                : "text-green-800"
+                                negotiation.agentState === "needs_review" ? "text-amber-800 dark:text-amber-200"
+                                : negotiation.agentState === "error" ? "text-red-800 dark:text-red-200"
+                                : "text-green-800 dark:text-green-200"
                                 )}>
                                 {negotiation.agentState === "needs_review" ? "Needs Your Review"
                                 : negotiation.agentState === "error" ? "Agent Error"
-                                : "Actively Negotiating"}
+                                : "Seeking Higher Offer"}
                                 </p>
                                 <p className="text-xs mt-0.5 text-muted-foreground line-clamp-2">
-                                {negotiation.agentState === "needs_review" ? "The agent has paused and needs your decision on how to proceed."
-                                : negotiation.agentState === "error" ? "The agent encountered an error. You may need to reconfigure it."
-                                : "The AI agent is working to reach your target price."}
+                                {negotiation.agentState === "needs_review" ? (negotiation.agentMessage || "Agent has paused. Please review the current offer or take over.")
+                                : negotiation.agentState === "error" ? (negotiation.agentMessage || "The agent encountered an error. You may need to take over or reconfigure.")
+                                : "The AI agent is working to negotiate a better price for you."}
                                 </p>
                             </div>
                             </div>
@@ -1412,25 +1504,22 @@ export default function NegotiationDetailClient({
                             <div className="space-y-3 border rounded-md p-2.5 bg-card">
                             {negotiation.agentTargetPricePerKm && (
                                 <div className="flex justify-between items-center">
-                                <span className="text-sm text-muted-foreground">Target price:</span>
+                                <span className="text-sm text-muted-foreground">Minimum Target:</span>
                                 <Badge variant="outline" className="font-mono bg-background">
-                                    {typeof negotiation.agentTargetPricePerKm === 'number' 
-                                      ? negotiation.agentTargetPricePerKm.toFixed(2) 
-                                      : negotiation.agentTargetPricePerKm} EUR/km
+                                    {formatPrice(negotiation.agentTargetPricePerKm)} EUR/km
                                 </Badge>
                                 </div>
                             )}
                             
-                            {calculateCurrentPricePerKm() && (
+                            {calculateCurrentPricePerKm() && getTargetPriceNumber() !== null && ( 
                                 <div className="flex justify-between items-center">
                                 <span className="text-sm text-muted-foreground">Current price:</span>
                                 <Badge 
                                     variant="outline" 
                                     className={cn(
-                                    "font-mono bg-background",
-                                    calculateCurrentPricePerKm() && negotiation.agentTargetPricePerKm && 
-                                    parseFloat(calculateCurrentPricePerKm() || "0") <= parseFloat(negotiation.agentTargetPricePerKm.toString())
-                                        ? "text-green-600 border-green-200"
+                                      "font-mono bg-background",
+                                      parseFloat(calculateCurrentPricePerKm() || "0") >= (getTargetPriceNumber() ?? 0) 
+                                        ? "text-green-600 border-green-200" 
                                         : "text-amber-600 border-amber-200"
                                     )}
                                 >
@@ -1463,7 +1552,7 @@ export default function NegotiationDetailClient({
                         {!negotiation.isAgentActive && (
                         <div className="p-3 space-y-3">
                             <p className="text-sm text-muted-foreground">
-                            Let AI negotiate on your behalf to reach your target price.
+                            Let AI negotiate <span className="font-medium">upwards</span> on your behalf to meet or exceed your minimum target price.
                             </p>
                             <Button 
                             variant="outline" 
@@ -1487,22 +1576,20 @@ export default function NegotiationDetailClient({
                         Pricing
                     </h3>
                     <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Initial Price:</span>
-                        <span className="font-medium text-foreground">{negotiation.initialRequest.price}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Current Price:</span>
-                        <span className="font-medium text-foreground">{currentPrice || "N/A"}</span>
-                      </div>
-                      {savings > 0 && (
-                        <div className="flex justify-between text-green-700 bg-green-50 dark:text-green-300 dark:bg-green-900/30 px-2 py-1 rounded">
-                          <span className="font-medium">Potential Savings:</span>
-                          <span className="font-medium">
-                            €{savings.toFixed(2).replace('.', ',')} ({savingsPercentage.toFixed(1).replace('.', ',')}%)
-                          </span>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Route:</span>
+                          <span className="font-medium text-foreground text-right">{negotiation.initialRequest.origin} to {negotiation.initialRequest.destination}</span>
                         </div>
-                      )}
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Initial Offer:</span>
+                          <span className="font-medium text-foreground">{formatPrice(negotiation.initialRequest.price) || "N/A"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Current Offer:</span>
+                          <span className="font-medium text-foreground">{formatPrice(currentPrice) || "N/A"}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}

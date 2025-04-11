@@ -840,18 +840,6 @@ export const resumeAgent = mutation({
                 updatedAt: Date.now()
             });
             
-            // Add a system message indicating the user has taken over
-            const systemMessage = {
-                sender: "system",
-                content: "User has taken over the negotiation manually.",
-                timestamp: Date.now()
-            };
-            
-            await ctx.db.patch(args.negotiationId, {
-                messages: [...negotiation.messages, systemMessage],
-                updatedAt: Date.now(),
-            });
-            
             console.log(`[resumeAgent] User ${user._id} has taken over negotiation ${args.negotiationId}`);
             return { success: true, action: "take_over" };
         }
@@ -862,18 +850,6 @@ export const resumeAgent = mutation({
             agentState: undefined, // Clear agent state (was 'needs_review')
             agentMessage: undefined, // Clear the review message
             updatedAt: Date.now()
-        });
-        
-        // Add a system message indicating the agent is resuming
-        const systemMessage = {
-            sender: "system",
-            content: "AI agent is resuming the negotiation.",
-            timestamp: Date.now()
-        };
-        
-        await ctx.db.patch(args.negotiationId, {
-            messages: [...negotiation.messages, systemMessage],
-            updatedAt: Date.now(),
         });
         
         // If the user chose to continue, run the agent immediately
