@@ -326,6 +326,7 @@ function OfferCard({
   aiResult?: AiEvaluationResult; // Make aiResult optional
 }) {
   const createNegotiation = useMutation(api.negotiations.createNegotiation);
+  const updateEmailSettings = useMutation(api.negotiations.updateEmailSettings); // Add updateEmailSettings
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
   const [newNegotiationId, setNewNegotiationId] = useState<Id<"negotiations"> | null>(null);
@@ -500,7 +501,7 @@ const columns: ColumnDef<TransportOffer>[] = [
         }
         onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
         aria-label="Select all"
-        className="translate-y-[2px]"
+        className="translate-y-[2px] cursor-pointer"
       />
     ),
     cell: ({ row }) => (
@@ -508,7 +509,7 @@ const columns: ColumnDef<TransportOffer>[] = [
         checked={row.getIsSelected()}
         onCheckedChange={(value) => row.toggleSelected(!!value)}
         aria-label="Select row"
-        className="translate-y-[2px]"
+        className="translate-y-[2px] cursor-pointer"
         onClick={(e) => e.stopPropagation()} // Prevent row click from triggering when clicking checkbox
       />
     ),
@@ -701,6 +702,11 @@ interface AgentSettingsModalProps {
   setSendTemplateOnCreate: (value: boolean) => void;
   templateContent: string;
   setTemplateContent: (value: string) => void;
+  // New props for email subject and cc
+  emailSubject: string;
+  setEmailSubject: (value: string) => void;
+  emailCc: string;
+  setEmailCc: (value: string) => void;
 }
 
 // Extract the AgentSettingsModal component
@@ -735,7 +741,12 @@ const AgentSettingsModal = memo(({
   sendTemplateOnCreate,
   setSendTemplateOnCreate,
   templateContent,
-  setTemplateContent
+  setTemplateContent,
+  // New props for email subject and cc
+  emailSubject,
+  setEmailSubject,
+  emailCc,
+  setEmailCc
 }: AgentSettingsModalProps) => {
   const calculateTargetPrice = (offer: any) => {
     if (negotiationMode === "percentage" && targetPercentage) {
@@ -918,225 +929,244 @@ const AgentSettingsModal = memo(({
                       </div>
                     </div>
                     
-                    {negotiationMode === "pricePerKm" ? (
-                      // Price per km input
-                      <div className="space-y-1.5">
-                        <Label htmlFor="targetPricePerKm">
-                          Target Price per km (EUR/km)
-                        </Label>
-                        <div className="flex gap-2 items-center">
-                          <Input
-                            id="targetPricePerKm"
-                            type="text"
-                            placeholder="e.g. 1.25"
-                            value={targetPricePerKm}
-                            onChange={(e) => setTargetPricePerKm(e.target.value)}
-                            className={cn(
-                              "w-full",
-                              targetPricePerKm && (isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0) && "border-red-500"
-                            )}
-                          />
-                          <span className="text-lg">€</span>
+                    <div className="space-y-3">
+                      {negotiationMode === "pricePerKm" ? (
+                        // Price per km input
+                        <div className="space-y-1.5">
+                          <Label htmlFor="targetPrice">
+                            Target EUR/km
+                          </Label>
+                          <div className="flex gap-2 items-center">
+                            <Input
+                              id="targetPrice"
+                              type="number"
+                              step="0.01"
+                              value={targetPricePerKm}
+                              onChange={(e) => {
+                                setTargetPricePerKm(e.target.value);
+                              }}
+                              placeholder="e.g., 1.10"
+                              className={cn(
+                                "w-full",
+                                targetPricePerKm && (isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0) && "border-red-500"
+                              )}
+                            />
+                          </div>
+                          {targetPricePerKm && (isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0) && (
+                            <p className="text-xs text-red-500 mt-1">
+                              Please enter a valid positive number
+                            </p>
+                          )}
                         </div>
-                        {targetPricePerKm && (isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0) && (
-                          <p className="text-xs text-red-500 mt-1">
-                            Please enter a valid positive number
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      // Percentage input
-                      <div className="space-y-1.5">
-                        <Label htmlFor="targetPercentage">
-                          Target Percentage (from initial price)
-                        </Label>
-                        <div className="flex gap-2 items-center">
-                          <Input
-                            id="targetPercentage"
-                            type="number"
-                            step="1"
-                            min="-50"
-                            max="50"
-                            placeholder="e.g. -10 (10% below initial)"
-                            value={targetPercentage}
-                            onChange={(e) => setTargetPercentage(e.target.value)}
-                            className={cn(
-                              "w-full",
-                              targetPercentage && (isNaN(parseFloat(targetPercentage))) && "border-red-500"
-                            )}
-                          />
-                          <span className="text-lg">%</span>
+                      ) : (
+                        // Percentage-based input for target above current price
+                        <div className="space-y-1.5">
+                          <Label htmlFor="targetPercentage">
+                            Target % Above Starting Price
+                          </Label>
+                          <div className="flex gap-2 items-center">
+                            <Input
+                              id="targetPercentage"
+                              type="number"
+                              step="1"
+                              value={targetPercentage}
+                              onChange={(e) => {
+                                setTargetPercentage(e.target.value);
+                              }}
+                              placeholder="e.g., 10"
+                              className={cn(
+                                "w-full",
+                                targetPercentage && (isNaN(parseFloat(targetPercentage)) || parseFloat(targetPercentage) <= 0) && "border-red-500"
+                              )}
+                            />
+                            <span>%</span>
+                          </div>
+                          {targetPercentage && (isNaN(parseFloat(targetPercentage)) || parseFloat(targetPercentage) <= 0) && (
+                            <p className="text-xs text-red-500 mt-1">
+                              Please enter a valid positive number
+                            </p>
+                          )}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Use negative values for discount (e.g. -10 means 10% below initial price)
-                        </p>
-                        {targetPercentage && isNaN(parseFloat(targetPercentage)) && (
-                          <p className="text-xs text-red-500 mt-1">
-                            Please enter a valid number
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Negotiation Style Section */}
-                    <div className="space-y-1.5 pt-2">
-                      <Label className="block mb-2">Negotiation Style</Label>
-                      <div className="grid grid-cols-3 gap-2">
-                        <Button 
-                          variant={agentStyle === "conservative" ? "default" : "outline"} 
-                          size="sm"
-                          onClick={() => setAgentStyle("conservative")}
-                          className="w-full"
-                        >
-                          Conservative
-                        </Button>
-                        <Button 
-                          variant={agentStyle === "balanced" ? "default" : "outline"} 
-                          size="sm"
-                          onClick={() => setAgentStyle("balanced")}
-                          className="w-full"
-                        >
-                          Balanced
-                        </Button>
-                        <Button 
-                          variant={agentStyle === "aggressive" ? "default" : "outline"} 
-                          size="sm"
-                          onClick={() => setAgentStyle("aggressive")}
-                          className="w-full"
-                        >
-                          Aggressive
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        {agentStyle === "conservative" ? "Cautious approach, prioritizes maintaining relationship." :
-                        agentStyle === "balanced" ? "Balanced approach, seeks fair terms for both sides." :
-                        "Assertive approach, focuses strongly on reaching target price."}
-                      </p>
+                      )}
                     </div>
                   </div>
                   
-                  {/* Notification Settings Section */}
-                  <div className="border-t pt-4 mt-2">
-                    <h3 className="font-medium mb-3">Notification Settings</h3>
+                  {/* Agent Behavior Section */}
+                  <div className="border-t pt-4">
+                    <h3 className="font-medium mb-3">Agent Behavior</h3>
+                    
                     <div className="space-y-3">
-                      <div className="bg-muted p-3 rounded-md space-y-3">
-                        <Label className="block">Notify me when:</Label>
-                        
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="space-y-1">
-                            <span className="text-sm">Price changed</span>
-                            <p className="text-xs text-muted-foreground">Alert when the client proposes a different price</p>
+                      <div className="space-y-1.5">
+                        <Label className="block mb-2">Negotiation Style</Label>
+                        <div className="flex flex-col space-y-2">
+                          <div className="grid grid-cols-3 gap-2">
+                            <Button 
+                              variant={agentStyle === "conservative" ? "default" : "outline"} 
+                              size="sm"
+                              onClick={() => setAgentStyle("conservative")}
+                              className="w-full"
+                            >
+                              Conservative
+                            </Button>
+                            <Button 
+                              variant={agentStyle === "balanced" ? "default" : "outline"} 
+                              size="sm"
+                              onClick={() => setAgentStyle("balanced")}
+                              className="w-full"
+                            >
+                              Balanced
+                            </Button>
+                            <Button 
+                              variant={agentStyle === "aggressive" ? "default" : "outline"} 
+                              size="sm"
+                              onClick={() => setAgentStyle("aggressive")}
+                              className="w-full"
+                            >
+                              Aggressive
+                            </Button>
                           </div>
-                          <Switch 
-                            checked={notifyOnPriceChange} 
-                            onCheckedChange={setNotifyOnPriceChange}
-                          />
-                        </div>
-                        
-                        <div className="flex items-center justify-between border-t border-gray-200 pt-3 mt-1">
-                          <div className="space-y-1">
-                            <span className="text-sm">New terms mentioned</span>
-                            <p className="text-xs text-muted-foreground">Alert when client mentions terms not in the initial offer</p>
-                          </div>
-                          <Switch 
-                            checked={notifyOnNewTerms} 
-                            onCheckedChange={setNotifyOnNewTerms}
-                          />
-                        </div>
-                        
-                        <div className="flex items-center justify-between border-t border-gray-200 pt-3">
-                          <div className="space-y-1">
-                            <span className="text-sm">Target price is reached</span>
-                            <p className="text-xs text-muted-foreground">Alert when client meets or exceeds target price</p>
-                          </div>
-                          <Switch 
-                            checked={notifyOnTargetPriceReached} 
-                            onCheckedChange={setNotifyOnTargetPriceReached}
-                          />
-                        </div>
-                        
-                        <div className="flex items-center justify-between border-t border-gray-200 pt-3">
-                          <div className="space-y-1">
-                            <span className="text-sm">Conversation appears confused</span>
-                            <p className="text-xs text-muted-foreground">Alert when exchange seems stalled or confusing</p>
-                          </div>
-                          <Switch 
-                            checked={notifyOnConfusion} 
-                            onCheckedChange={setNotifyOnConfusion}
-                          />
-                        </div>
-                        
-                        <div className="flex items-center justify-between border-t border-gray-200 pt-3">
-                          <div className="space-y-1">
-                            <span className="text-sm">Client firmly refuses</span>
-                            <p className="text-xs text-muted-foreground">Alert when client gives a firm rejection</p>
-                          </div>
-                          <Switch 
-                            checked={notifyOnRefusal} 
-                            onCheckedChange={setNotifyOnRefusal}
-                          />
+                          <p className="text-xs text-muted-foreground">
+                            {agentStyle === "conservative" && "Accepts offers more readily, prioritizes maintaining relationship over maximum profit."}
+                            {agentStyle === "balanced" && "Balanced approach to negotiations, reasonable counteroffers."}
+                            {agentStyle === "aggressive" && "Pushes harder for better terms, may risk the deal to maximize profit."}
+                          </p>
                         </div>
                       </div>
+                    </div>
+                  </div>
+                  
+                  {/* Notification Settings */}
+                  <div className="border-t pt-4">
+                    <h3 className="font-medium mb-3">Notification Settings</h3>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="notifyOnPriceChange">Notify on price changes</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Get notified when the carrier changes the price
+                          </p>
+                        </div>
+                        <Switch
+                          id="notifyOnPriceChange"
+                          checked={notifyOnPriceChange}
+                          onCheckedChange={setNotifyOnPriceChange}
+                        />
+                      </div>
                       
-                      <div className="grid grid-cols-2 gap-4 mt-2">
-                        <div className="space-y-1.5">
-                          <Label htmlFor="maxRounds">
-                            Maximum automatic replies
-                          </Label>
-                          <Select 
-                            value={maxAutoReplies.toString()}
-                            onValueChange={(value) => setMaxAutoReplies(parseInt(value))}
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="notifyOnNewTerms">Notify on new terms</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Get notified when new terms are introduced
+                          </p>
+                        </div>
+                        <Switch
+                          id="notifyOnNewTerms"
+                          checked={notifyOnNewTerms}
+                          onCheckedChange={setNotifyOnNewTerms}
+                        />
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="notifyOnTargetPriceReached">Notify when target price reached</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Get notified when your target price is reached
+                          </p>
+                        </div>
+                        <Switch
+                          id="notifyOnTargetPriceReached"
+                          checked={notifyOnTargetPriceReached}
+                          onCheckedChange={setNotifyOnTargetPriceReached}
+                        />
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="notifyOnConfusion">Notify on negotiation confusion</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Get notified if the AI agent gets confused
+                          </p>
+                        </div>
+                        <Switch
+                          id="notifyOnConfusion"
+                          checked={notifyOnConfusion}
+                          onCheckedChange={setNotifyOnConfusion}
+                        />
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="notifyOnRefusal">Notify on refusal</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Get notified if the carrier refuses to negotiate
+                          </p>
+                        </div>
+                        <Switch
+                          id="notifyOnRefusal"
+                          checked={notifyOnRefusal}
+                          onCheckedChange={setNotifyOnRefusal}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 mt-4">
+                      <div className="space-y-1.5">
+                        <Label>Maximum auto-replies</Label>
+                        <Select
+                          value={String(maxAutoReplies)}
+                          onValueChange={(value) => setMaxAutoReplies(parseInt(value))}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select max auto-replies" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">1 message</SelectItem>
+                            <SelectItem value="2">2 messages</SelectItem>
+                            <SelectItem value="3">3 messages</SelectItem>
+                            <SelectItem value="5">5 messages</SelectItem>
+                            <SelectItem value="10">10 messages</SelectItem>
+                            <SelectItem value="20">20 messages</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Agent will notify you after this many exchanges
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-1.5">
+                        <Label>Notify after rounds</Label>
+                        <div className="flex items-center mt-2 gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="icon"
+                            onClick={() => setNotifyAfterRounds(Math.max(1, notifyAfterRounds - 1))}
+                            disabled={notifyAfterRounds <= 1}
                           >
-                            <SelectTrigger className="w-full" id="maxRounds">
-                              <SelectValue placeholder="Select max replies" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="1">1 reply</SelectItem>
-                              <SelectItem value="2">2 replies</SelectItem>
-                              <SelectItem value="3">3 replies</SelectItem>
-                              <SelectItem value="5">5 replies</SelectItem>
-                              <SelectItem value="10">10 replies</SelectItem>
-                              <SelectItem value="999">Unlimited</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <p className="text-xs text-muted-foreground">
-                            Agent will notify you after this many exchanges
-                          </p>
-                        </div>
-                        
-                        <div className="space-y-1.5">
-                          <Label>Notify after rounds</Label>
-                          <div className="flex items-center mt-2 gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="icon"
-                              onClick={() => setNotifyAfterRounds(Math.max(1, notifyAfterRounds - 1))}
-                              disabled={notifyAfterRounds <= 1}
-                            >
-                              <ChevronDown className="h-4 w-4" />
-                            </Button>
-                            <div className="border rounded-md text-center py-2 flex-1">
-                              {notifyAfterRounds}
-                            </div>
-                            <Button 
-                              variant="outline" 
-                              size="icon"
-                              onClick={() => setNotifyAfterRounds(notifyAfterRounds + 1)}
-                            >
-                              <ChevronUp className="h-4 w-4" />
-                            </Button>
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                          <div className="border rounded-md text-center py-2 flex-1">
+                            {notifyAfterRounds}
                           </div>
-                          <p className="text-xs text-muted-foreground">
-                            Rounds of negotiation before notification
-                          </p>
+                          <Button 
+                            variant="outline" 
+                            size="icon"
+                            onClick={() => setNotifyAfterRounds(notifyAfterRounds + 1)}
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </Button>
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                          Rounds of negotiation before notification
+                        </p>
                       </div>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Send Initial Template Section */}
+              {/* Send Initial Template Section - Moved outside the AI agent section */}
               <div className="border-t pt-4 mt-4">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="send-template" className="text-base font-medium flex items-center">
@@ -1179,7 +1209,7 @@ const AgentSettingsModal = memo(({
                         </SelectContent>
                       </Select>
                     </div>
-                  
+                    
                     {/* Email Content Textarea */}
                     <div className="space-y-1.5">
                       <Label htmlFor="template-content">Email Content</Label>
@@ -1267,7 +1297,41 @@ const AgentSettingsModal = memo(({
                     </div>
                   </div>
                 )}
-              </div> 
+              </div>
+              
+              {/* Email Settings Section - Moved to the bottom */}
+              <div className="border-t pt-4 mt-4">
+                
+                <div className="space-y-3">
+                  {/* Email Subject */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="email-subject">Subject</Label>
+                    <Input
+                      id="email-subject"
+                      placeholder="Email Subject"
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                      className="text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Used for all email communications including AI agent responses
+                    </p>
+                  </div>
+
+                  {/* Email CC */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="email-cc">CC (Comma-separated)</Label>
+                    <Input
+                      id="email-cc"
+                      placeholder="cc1@example.com, cc2@example.com"
+                      value={emailCc}
+                      onChange={(e) => setEmailCc(e.target.value)}
+                      className="text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground">Separate multiple emails with commas</p>
+                  </div>
+                </div>
+              </div>
             </div> 
           </div> 
         </div> 
@@ -1293,6 +1357,7 @@ export default function OffersPage() {
   const router = useRouter();
   const createNegotiation = useMutation(api.negotiations.createNegotiation);
   const configureAgent = useMutation(api.negotiations.configureAgent);
+  const updateEmailSettings = useMutation(api.negotiations.updateEmailSettings); // Add email settings mutation
   const addMessage = useMutation(api.negotiations.addMessage); // Import addMessage mutation
   const { openNegotiation } = useNegotiationModal();
   const evaluateOffersAction = useAction(api.offers.evaluateOffers);
@@ -1324,6 +1389,17 @@ export default function OffersPage() {
   const [isAiLoading, setIsAiLoading] = useState(false); // Add AI loading state
   const [pendingFilters, setPendingFilters] = useState<OfferFilters>(filters); // State for pending filters
 
+  // Track filter change sources to prevent unwanted sync
+  const filterChangeSource = useRef<"reset" | "apply" | "refresh" | "external" | null>(null);
+
+  // Sync pendingFilters with filters when filters change externally
+  useEffect(() => {
+    if (filterChangeSource.current === "external" || filterChangeSource.current === null) {
+      setPendingFilters(filters);
+    }
+    filterChangeSource.current = null;
+  }, [filters]);
+  
   // AI Tool Preferences
   const [useWeatherTool, setUseWeatherTool] = useState(true);
   const [useRouteTool, setUseRouteTool] = useState(true);
@@ -1352,6 +1428,9 @@ export default function OffersPage() {
   // State for template sending
   const [sendTemplateOnCreate, setSendTemplateOnCreate] = useState(false);
   const [templateContent, setTemplateContent] = useState("");
+  // New props for email subject and cc
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailCc, setEmailCc] = useState("");
 
   // Filter handlers - update pending filters
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -1388,18 +1467,53 @@ export default function OffersPage() {
 
   // Function to apply pending filters
   const handleApplyFilters = () => {
-    setFilters(pendingFilters);
+    filterChangeSource.current = "apply";
+    
+    // First get all keys with values in the current active filters
+    const activeFilterKeys = Object.keys(filters);
+    
+    // If we're applying empty filters, explicitly set all active filter keys to undefined
+    if (Object.keys(pendingFilters).length === 0 && activeFilterKeys.length > 0) {
+      const resetObj: OfferFilters = {};
+      activeFilterKeys.forEach(key => {
+        // @ts-ignore - Dynamic key assignment
+        resetObj[key] = undefined;
+      });
+      setFilters(resetObj);
+    } else {
+      // Apply the pending filters normally
+      setFilters(pendingFilters);
+    }
   };
 
-  // Function to reset filters (both pending and active)
+  // Function to reset filters UI only without affecting data
   const handleResetFilters = () => {
-    setPendingFilters({}); // Clear pending filters
-    resetFilters(); // Reset active filters via the hook
+    setPendingFilters({});
   };
   
   // Handler for opening the details modal
   const handleOpenOfferDetails = (offerId: string) => {
     setSelectedOfferForModal(offerId);
+  };
+
+  // Refresh data without changing filters
+  const handleRefreshData = () => {
+    filterChangeSource.current = "refresh";
+    // Clone the current filters to trigger a re-fetch without changing filter values
+    setFilters({...filters});
+  };
+  
+  // Clear filters and refresh data
+  const handleClearAndRefresh = () => {
+    filterChangeSource.current = "reset";
+    
+    // Explicitly set all filter values to undefined to ensure a complete reset
+    const resetObj: OfferFilters = {};
+    Object.keys(filters).forEach(key => {
+      // @ts-ignore - Dynamic key assignment
+      resetObj[key] = undefined;
+    });
+    setFilters(resetObj);
   };
 
   // --- TanStack Table Instance ---
@@ -1535,6 +1649,21 @@ export default function OffersPage() {
         const negotiationId = result.negotiationId as Id<"negotiations">;
         negotiationIds.push(negotiationId);
         
+        // Update email settings if subject or cc is provided
+        if (emailSubject.trim() || emailCc.trim()) {
+          // Parse CC emails
+          const ccRecipients = emailCc
+            ? emailCc.split(',').map(e => e.trim()).filter(e => e && e.includes('@'))
+            : undefined;
+            
+          // Call updateEmailSettings with subject and cc
+          await updateEmailSettings({
+            negotiationId,
+            subject: emailSubject.trim() || undefined,
+            ccRecipients: ccRecipients && ccRecipients.length > 0 ? ccRecipients : undefined,
+          });
+        }
+        
         // --- Logic based on settings --- 
         // Send template if enabled
         if (sendTemplateOnCreate) {
@@ -1644,22 +1773,31 @@ export default function OffersPage() {
           <h1 className="text-2xl font-bold tracking-tight mb-1">Transport Offers</h1>
           <p className="text-muted-foreground">Manage and track all your freight offers from different marketplaces</p>
         </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => setFilters({})} 
-          disabled={isLoading}
-          className="gap-2 h-9 px-3 min-w-[100px] flex items-center justify-center"
-        >
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <span className="inline-flex items-center"> 
-              <RefreshCw className="h-4 w-4 mr-1.5" />
-              <span>Refresh</span>
-            </span>
-          )}
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRefreshData} 
+                disabled={isLoading}
+                className="gap-2 h-9 px-3 min-w-[100px] flex items-center justify-center"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <span className="inline-flex items-center"> 
+                    <RefreshCw className="h-4 w-4 mr-1.5" />
+                    <span>Refresh</span>
+                  </span>
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Refresh the data with current filters</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {/* Search and Filters */}
@@ -1782,9 +1920,19 @@ export default function OffersPage() {
               {/* Buttons */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-2 md:col-span-12 pt-2"> {/* Added border */}
                 <div className="flex items-end gap-2 self-end"> {/* Reset + Manual Search */}
-                  <Button variant="outline" size="sm" onClick={handleResetFilters} className="h-9">
-                    Reset Filters
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="outline" size="sm" onClick={handleResetFilters} className="h-9">
+                          Reset Filters
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Clear filter inputs without refreshing data</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
                   <Button size="sm" onClick={handleApplyFilters} className="h-9" disabled={isLoading}> 
                     <Filter className="h-4 w-4 mr-1.5" />
                     Apply Filters
@@ -2009,9 +2157,19 @@ export default function OffersPage() {
                            // Apply rankClass and selected state background
                           className={cn(
                              row.getIsSelected() ? 'bg-primary/5' : rankClass,
-                             "transition-colors cursor-pointer"
+                             "transition-colors"
                            )}
-                          onClick={() => handleOpenOfferDetails(row.original.id)} // Open details on row click
+                          onClick={(e) => {
+                            // Check if click is in the first cell (checkbox column)
+                            const target = e.target as HTMLElement;
+                            const isCheckboxCell = target.closest('td') === 
+                              e.currentTarget.querySelector('td:first-child');
+                            
+                            // Only navigate if not clicking the checkbox cell
+                            if (!isCheckboxCell) {
+                              handleOpenOfferDetails(row.original.id);
+                            }
+                          }}
                         >
                           {row.getVisibleCells().map((cell) => (
                             <TableCell key={cell.id}>
@@ -2372,6 +2530,11 @@ export default function OffersPage() {
         setSendTemplateOnCreate={setSendTemplateOnCreate}
         templateContent={templateContent}
         setTemplateContent={setTemplateContent}
+        // New props for email subject and cc
+        emailSubject={emailSubject}
+        setEmailSubject={setEmailSubject}
+        emailCc={emailCc}
+        setEmailCc={setEmailCc}
       />
     </div>
   );

@@ -130,7 +130,7 @@ const columns: ColumnDef<Negotiation>[] = [
         }
         onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
         aria-label="Select all"
-        className="translate-y-[2px]"
+        className="translate-y-[2px] cursor-pointer"
       />
     ),
     cell: ({ row }) => (
@@ -138,7 +138,7 @@ const columns: ColumnDef<Negotiation>[] = [
         checked={row.getIsSelected()}
         onCheckedChange={(value) => row.toggleSelected(!!value)}
         aria-label="Select row"
-        className="translate-y-[2px]"
+        className="translate-y-[2px] cursor-pointer"
         onClick={(e) => e.stopPropagation()} // Prevent row click from triggering when clicking checkbox
       />
     ),
@@ -668,75 +668,77 @@ export default function NegotiationsPage() {
           </div>
           
           <div className="flex items-center gap-2">
-            {/* Selection Controls - Only shown when rows are selected */}
-            {Object.keys(rowSelection).length > 0 && (
-              <div className="flex items-center gap-2 py-1 px-2 bg-muted/50 border rounded-md">
-                <span className="text-sm">
-                  {Object.keys(rowSelection).length} selected
-                </span>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => table.resetRowSelection()}
-                  className="h-8 px-2 text-xs"
-                >
-                  <Eraser className="h-4 w-4" />
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete selected negotiations?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the
-                        {Object.keys(rowSelection).length === 1 
-                          ? " selected negotiation." 
-                          : ` ${Object.keys(rowSelection).length} selected negotiations.`}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction 
-                        className="bg-red-600 hover:bg-red-700"
-                        onClick={async () => {
-                          const deleteSelectedNegotiations = async () => {
-                            try {
-                              setIsRefreshing(true);
-                              // Delete each selected negotiation
-                              const promises = Object.keys(rowSelection).map(index => {
-                                const negotiationId = table.getRow(index).original.id;
-                                return deleteNegotiation({
-                                  negotiationId: negotiationId as unknown as Id<"negotiations">
-                                });
-                              });
-                              await Promise.all(promises);
-                              // Reset selection after deletion
-                              table.resetRowSelection();
-                            } catch (error) {
-                              console.error("Error deleting negotiations:", error);
-                            } finally {
-                              setIsRefreshing(false);
-                            }
-                          };
-                          
-                          deleteSelectedNegotiations();
-                        }}
+            {/* Selection Controls - Always present to maintain consistent layout */}
+            <div className="h-10 flex items-center">
+              {Object.keys(rowSelection).length > 0 ? (
+                <div className="flex items-center gap-2 py-1 px-2 bg-muted/50 border rounded-md">
+                  <span className="text-sm">
+                    {Object.keys(rowSelection).length} selected
+                  </span>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => table.resetRowSelection()}
+                    className="h-8 px-2 text-xs"
+                  >
+                    <Eraser className="h-4 w-4" />
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            )}
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete selected negotiations?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the
+                          {Object.keys(rowSelection).length === 1 
+                            ? " selected negotiation." 
+                            : ` ${Object.keys(rowSelection).length} selected negotiations.`}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                          className="bg-red-600 hover:bg-red-700"
+                          onClick={async () => {
+                            const deleteSelectedNegotiations = async () => {
+                              try {
+                                setIsRefreshing(true);
+                                // Delete each selected negotiation
+                                const promises = Object.keys(rowSelection).map(index => {
+                                  const negotiationId = table.getRow(index).original.id;
+                                  return deleteNegotiation({
+                                    negotiationId: negotiationId as unknown as Id<"negotiations">
+                                  });
+                                });
+                                await Promise.all(promises);
+                                // Reset selection after deletion
+                                table.resetRowSelection();
+                              } catch (error) {
+                                console.error("Error deleting negotiations:", error);
+                              } finally {
+                                setIsRefreshing(false);
+                              }
+                            };
+                            
+                            deleteSelectedNegotiations();
+                          }}
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              ) : null}
+            </div>
             
             {/* Column Visibility Dropdown */}
             <DropdownMenu>
@@ -848,8 +850,18 @@ export default function NegotiationsPage() {
                 table.getRowModel().rows.map((row) => (
                   <TableRow 
                     key={row.id}
-                    className="hover:bg-muted/50 cursor-pointer transition-colors"
-                    onClick={() => window.location.href = `/negotiations/${row.original.id}`}
+                    className="hover:bg-muted/50 transition-colors"
+                    onClick={(e) => {
+                      // Check if click is in the first cell (checkbox column)
+                      const target = e.target as HTMLElement;
+                      const isCheckboxCell = target.closest('td') === 
+                        e.currentTarget.querySelector('td:first-child');
+                      
+                      // Only navigate if not clicking the checkbox cell
+                      if (!isCheckboxCell) {
+                        window.location.href = `/negotiations/${row.original.id}`;
+                      }
+                    }}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>

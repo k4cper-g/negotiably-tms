@@ -142,7 +142,23 @@ export const useOffers = (initialFilters: OfferFilters = {}): UseOffersReturn =>
   
   // Update filters
   const updateFilters = useCallback((newFilters: OfferFilters) => {
-    setFilters(prev => ({ ...prev, ...newFilters }));
+    setFilters(prev => {
+      // Create a new filters object
+      const updatedFilters: OfferFilters = { ...prev };
+      
+      // Go through each key in newFilters
+      Object.entries(newFilters).forEach(([key, value]) => {
+        if (value === undefined) {
+          // If value is undefined, remove this key from the filters
+          delete updatedFilters[key as keyof OfferFilters];
+        } else {
+          // Otherwise update with the new value
+          updatedFilters[key as keyof OfferFilters] = value;
+        }
+      });
+      
+      return updatedFilters;
+    });
     setCurrentPage(1); // Reset to first page when filters change
   }, []);
   
