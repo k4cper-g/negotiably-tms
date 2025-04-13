@@ -55,7 +55,7 @@ export default defineSchema({
         agentState: v.optional(v.union(v.literal("needs_review"), v.literal("error"))),
         agentMessage: v.optional(v.string()),
         agentReplyCount: v.optional(v.number()),
-        finalPrice: v.optional(v.string()),
+        profit: v.optional(v.number()),
     }).index("by_userId", ["userId"]).index("by_offerId", ["offerId"]),
     connections: defineTable({
         userId: v.id("users"),
@@ -109,4 +109,12 @@ export default defineSchema({
     }).index("by_userId", ["userId"])
       .index("by_userId_isRead", ["userId", "isRead"])
       .index("by_createdAt", ["createdAt"]),
+      
+    // New table for email templates
+    emailTemplates: defineTable({
+        userId: v.id("users"),      // Link to the user who owns the template
+        name: v.string(),           // Name of the template (e.g., "Initial Contact", "Follow-up")
+        content: v.string(),        // The actual email template content
+        createdAt: v.number(),      // Timestamp when the template was created
+    }).index("by_userId", ["userId"]), // Index for efficient querying by user
 })

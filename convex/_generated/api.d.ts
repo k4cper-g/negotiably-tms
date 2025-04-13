@@ -19,6 +19,7 @@ import type * as connections from "../connections.js";
 import type * as dashboard from "../dashboard.js";
 import type * as demo from "../demo.js";
 import type * as email from "../email.js";
+import type * as emailTemplates from "../emailTemplates.js";
 import type * as http from "../http.js";
 import type * as langGraphAgent from "../langGraphAgent.js";
 import type * as negotiations from "../negotiations.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   dashboard: typeof dashboard;
   demo: typeof demo;
   email: typeof email;
+  emailTemplates: typeof emailTemplates;
   http: typeof http;
   langGraphAgent: typeof langGraphAgent;
   negotiations: typeof negotiations;

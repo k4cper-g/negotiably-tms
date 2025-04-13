@@ -6,6 +6,25 @@ import { internal } from "./_generated/api";
 import { MutationCtx } from "./_generated/server";
 import { sendNegotiationUpdateEmail } from "./email";
 
+/**
+ * Parses a price string like "€1,234.56" or "1234.56" or "1234.56 EUR" into a numeric value
+ * @param priceString The price string to parse
+ * @returns The numeric value, or null if unable to parse
+ */
+const parseNumericPrice = (priceString: string): number | null => {
+  if (!priceString) return null;
+  
+  // Remove currency symbols and text, handle both formats like "€3104" and "3500.00 EUR"
+  // This regex extracts digits, decimal points and commas, ignoring currency symbols and spaces
+  const match = priceString.match(/(\d+[.,]?\d*)/);
+  if (match && match[1]) {
+    // Convert to a normalized format with dot as decimal separator
+    const normalizedNumber = match[1].replace(',', '.');
+    return parseFloat(normalizedNumber);
+  }
+  return null;
+};
+
 // Create a new negotiation
 export const createNegotiation = mutation({
   args: {
@@ -279,47 +298,33 @@ export const updateNegotiationStatus = mutation({
       throw new Error("Unauthorized access to negotiation");
     }
 
-    // When accepting, capture the most recent price as the final price
-    let finalPrice = undefined;
-    if (args.status === "accepted") {
-      // Try to extract current price from messages and counter-offers
-      // First check counter offers (newest first)
-      const counterOffers = [...negotiation.counterOffers].reverse();
-      const latestCounterOffer = counterOffers[0]; 
+    // Calculate profit when accepting
+    let profit: number | undefined = undefined;
+    if (args.status === "accepted" && negotiation.initialRequest.price && negotiation.currentPrice) {
+      // Extract numeric values from price strings
+      const initialPrice = parseNumericPrice(negotiation.initialRequest.price);
+      const currentPrice = parseNumericPrice(negotiation.currentPrice);
       
-      if (latestCounterOffer) {
-        finalPrice = latestCounterOffer.price;
-      } else {
-        // If no counter offers, search in messages for price mentions
-        const messages = [...negotiation.messages].reverse();
-        for (const msg of messages) {
-          if (msg.sender !== 'system') {  // Skip system messages
-            const priceRegex = /(?:€|EUR)?\s*(\d+(?:[.,]\d+)?)/i;
-            const match = msg.content.match(priceRegex);
-            if (match && match[1]) {
-              finalPrice = `€${match[1].replace(",", ".")}`;
-              break;
-            }
-          }
-        }
-      }
+      // Debug log to troubleshoot
+      console.log(`[PROFIT DEBUG] Initial: "${negotiation.initialRequest.price}" → ${initialPrice}, Current: "${negotiation.currentPrice}" → ${currentPrice}`);
       
-      // If still no price found, use the initial price
-      if (!finalPrice && negotiation.initialRequest && negotiation.initialRequest.price) {
-        finalPrice = negotiation.initialRequest.price;
+      // Only calculate profit if both prices could be parsed
+      if (initialPrice !== null && currentPrice !== null) {
+        profit = currentPrice - initialPrice; // Positive value when current price > initial price
+        console.log(`[PROFIT RESULT] ${currentPrice} - ${initialPrice} = ${profit}`);
       }
     }
 
-    // Update status and finalPrice if accepting
+    // Update status and profit if accepting
     await ctx.db.patch(args.negotiationId, {
       status: args.status,
-      ...(finalPrice ? { finalPrice } : {}),
+      ...(profit !== undefined ? { profit } : {}),
       updatedAt: Date.now(),
     });
 
     return { 
       success: true,
-      finalPrice 
+      profit
     };
   },
 });
@@ -374,21 +379,34 @@ export const updateCounterOfferStatus = mutation({
 
     // If accepting an offer, update the negotiation status as well
     let negotiationStatus = negotiation.status;
-    let finalPriceToUpdate = negotiation.finalPrice; // Carry over existing final price unless accepting
+    let profit: number | undefined = undefined;
+    
     if (args.status === "accepted") {
       negotiationStatus = "accepted";
-      // Capture the accepted price from the specific counter offer
-      finalPriceToUpdate = updatedCounterOffers[args.offerIndex].price;
+      
+      // Calculate profit when accepting a counter offer
+      if (negotiation.initialRequest.price) {
+        const initialPrice = parseNumericPrice(negotiation.initialRequest.price);
+        const counterOfferPrice = parseNumericPrice(updatedCounterOffers[args.offerIndex].price);
+        
+        // Debug log to troubleshoot
+        console.log(`[COUNTER OFFER PROFIT DEBUG] Initial: "${negotiation.initialRequest.price}" → ${initialPrice}, Counter: "${updatedCounterOffers[args.offerIndex].price}" → ${counterOfferPrice}`);
+        
+        if (initialPrice !== null && counterOfferPrice !== null) {
+          profit = counterOfferPrice - initialPrice; // Positive value when counter price > initial price
+          console.log(`[COUNTER OFFER PROFIT RESULT] ${counterOfferPrice} - ${initialPrice} = ${profit}`);
+        }
+      }
     }
 
     await ctx.db.patch(args.negotiationId, {
       counterOffers: updatedCounterOffers,
       status: negotiationStatus,
-      finalPrice: finalPriceToUpdate, // Update the finalPrice field
+      ...(profit !== undefined ? { profit } : {}),
       updatedAt: Date.now(),
     });
 
-    return { success: true };
+    return { success: true, profit };
   },
 });
 

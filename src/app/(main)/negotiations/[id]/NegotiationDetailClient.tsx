@@ -115,8 +115,6 @@ interface AgentSettingsModalProps {
   // New notification settings
   notifyOnTargetPriceReached: boolean;
   setNotifyOnTargetPriceReached: (value: boolean) => void;
-  notifyOnAgreement: boolean;
-  setNotifyOnAgreement: (value: boolean) => void;
   notifyOnConfusion: boolean;
   setNotifyOnConfusion: (value: boolean) => void;
   notifyOnRefusal: boolean;
@@ -124,8 +122,6 @@ interface AgentSettingsModalProps {
   // Bypass flags
   bypassTargetPriceCheck: boolean;
   setBypassTargetPriceCheck: (value: boolean) => void;
-  bypassAgreementCheck: boolean;
-  setBypassAgreementCheck: (value: boolean) => void;
   bypassConfusionCheck: boolean;
   setBypassConfusionCheck: (value: boolean) => void;
   bypassRefusalCheck: boolean;
@@ -159,20 +155,15 @@ const AgentSettingsModal = memo(({
   setMaxAutoReplies,
   notifyOnTargetPriceReached,
   setNotifyOnTargetPriceReached,
-  notifyOnAgreement,
-  setNotifyOnAgreement,
   notifyOnConfusion,
   setNotifyOnConfusion,
   notifyOnRefusal,
   setNotifyOnRefusal,
   bypassTargetPriceCheck,
   setBypassTargetPriceCheck,
-  bypassAgreementCheck,
-  setBypassAgreementCheck,
   bypassConfusionCheck,
   setBypassConfusionCheck,
   bypassRefusalCheck,
-  setBypassRefusalCheck,
   handleToggleAgent,
   calculateCurrentPricePerKm,
   calculateTargetPrice
@@ -389,18 +380,6 @@ const AgentSettingsModal = memo(({
                     
                     <div className="flex items-center justify-between border-t border-gray-200 pt-3">
                       <div className="space-y-1">
-                        <span className="text-sm">Client agrees to price</span>
-                        <p className="text-xs text-muted-foreground">Alert when the client explicitly accepts an offer</p>
-                      </div>
-                      <Switch 
-                        checked={notifyOnAgreement} 
-                        onCheckedChange={setNotifyOnAgreement}
-                        disabled={negotiation.isAgentActive}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center justify-between border-t border-gray-200 pt-3">
-                      <div className="space-y-1">
                         <span className="text-sm">Conversation appears confused</span>
                         <p className="text-xs text-muted-foreground">Alert when exchange seems stalled or confusing</p>
                       </div>
@@ -550,12 +529,10 @@ export default function NegotiationDetailClient({
   const [notifyAfterRounds, setNotifyAfterRounds] = useState(5);
   // New notification settings
   const [notifyOnTargetPriceReached, setNotifyOnTargetPriceReached] = useState(true);
-  const [notifyOnAgreement, setNotifyOnAgreement] = useState(true);
   const [notifyOnConfusion, setNotifyOnConfusion] = useState(true);
   const [notifyOnRefusal, setNotifyOnRefusal] = useState(true);
   // Bypass flags (should not be exposed in UI directly)
   const [bypassTargetPriceCheck, setBypassTargetPriceCheck] = useState(false);
-  const [bypassAgreementCheck, setBypassAgreementCheck] = useState(false);
   const [bypassConfusionCheck, setBypassConfusionCheck] = useState(false);
   const [bypassRefusalCheck, setBypassRefusalCheck] = useState(false);
   const [isAgentSettingsOpen, setIsAgentSettingsOpen] = useState(false);
@@ -721,12 +698,10 @@ export default function NegotiationDetailClient({
               notifyAfterRounds,
               // New notification settings
               notifyOnTargetPriceReached,
-              notifyOnAgreement,
               notifyOnConfusion,
               notifyOnRefusal,
               // Bypass flags (not exposed in UI)
               bypassTargetPriceCheck: false,
-              bypassAgreementCheck: false,
               bypassConfusionCheck: false,
               bypassRefusalCheck: false
             }
@@ -795,12 +770,10 @@ export default function NegotiationDetailClient({
               notifyAfterRounds,
               // New notification settings
               notifyOnTargetPriceReached,
-              notifyOnAgreement,
               notifyOnConfusion,
               notifyOnRefusal,
               // Bypass flags (not exposed in UI)
               bypassTargetPriceCheck: false,
-              bypassAgreementCheck: false,
               bypassConfusionCheck: false,
               bypassRefusalCheck: false
             }
@@ -845,7 +818,6 @@ export default function NegotiationDetailClient({
     maxAutoReplies, 
     notifyAfterRounds,
     bypassTargetPriceCheck,
-    bypassAgreementCheck,
     bypassConfusionCheck,
     bypassRefusalCheck,
     isAgentSettingsOpen,
@@ -957,12 +929,10 @@ export default function NegotiationDetailClient({
         setMaxAutoReplies(agentSettings.maxAutoReplies || 3); 
         // Initialize notification settings
         setNotifyOnTargetPriceReached(agentSettings.notifyOnTargetPriceReached !== false);
-        setNotifyOnAgreement(agentSettings.notifyOnAgreement !== false);
         setNotifyOnConfusion(agentSettings.notifyOnConfusion !== false);
         setNotifyOnRefusal(agentSettings.notifyOnRefusal !== false);
         // Initialize bypass flags (these should not be exposed in UI directly)
         setBypassTargetPriceCheck(agentSettings.bypassTargetPriceCheck || false);
-        setBypassAgreementCheck(agentSettings.bypassAgreementCheck || false);
         setBypassConfusionCheck(agentSettings.bypassConfusionCheck || false);
         setBypassRefusalCheck(agentSettings.bypassRefusalCheck || false);
       } else {
@@ -974,12 +944,10 @@ export default function NegotiationDetailClient({
         setMaxAutoReplies(3);
         // Reset notification settings
         setNotifyOnTargetPriceReached(true);
-        setNotifyOnAgreement(true);
         setNotifyOnConfusion(true);
         setNotifyOnRefusal(true);
         // Reset bypass flags
         setBypassTargetPriceCheck(false);
-        setBypassAgreementCheck(false);
         setBypassConfusionCheck(false);
         setBypassRefusalCheck(false);
       }
@@ -1690,16 +1658,12 @@ export default function NegotiationDetailClient({
         setMaxAutoReplies={setMaxAutoReplies}
         notifyOnTargetPriceReached={notifyOnTargetPriceReached}
         setNotifyOnTargetPriceReached={setNotifyOnTargetPriceReached}
-        notifyOnAgreement={notifyOnAgreement}
-        setNotifyOnAgreement={setNotifyOnAgreement}
         notifyOnConfusion={notifyOnConfusion}
         setNotifyOnConfusion={setNotifyOnConfusion}
         notifyOnRefusal={notifyOnRefusal}
         setNotifyOnRefusal={setNotifyOnRefusal}
         bypassTargetPriceCheck={bypassTargetPriceCheck}
         setBypassTargetPriceCheck={setBypassTargetPriceCheck}
-        bypassAgreementCheck={bypassAgreementCheck}
-        setBypassAgreementCheck={setBypassAgreementCheck}
         bypassConfusionCheck={bypassConfusionCheck}
         setBypassConfusionCheck={setBypassConfusionCheck}
         bypassRefusalCheck={bypassRefusalCheck}

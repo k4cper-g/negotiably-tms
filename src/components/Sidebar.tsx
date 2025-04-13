@@ -128,6 +128,20 @@ export default function Sidebar() {
             Dashboard
           </Button>
         </Link>
+
+               
+        <Link href="/negotiations" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/negotiations")}>
+          <Button 
+            variant={isActive("/negotiations") ? "secondary" : "ghost"}
+            className={cn(
+              "w-full justify-start transition-none",
+              isActive("/negotiations") ? "font-medium" : "font-normal text-muted-foreground"
+            )}
+          >
+            <FileText className="h-4 w-4 mr-3" />
+            Negotiations
+          </Button>
+        </Link>
         
         <Link href="/offers" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/offers")}>
           <Button 
@@ -141,19 +155,7 @@ export default function Sidebar() {
             Transport Offers
           </Button>
         </Link>
-        
-        <Link href="/negotiations" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/negotiations")}>
-          <Button 
-            variant={isActive("/negotiations") ? "secondary" : "ghost"}
-            className={cn(
-              "w-full justify-start transition-none",
-              isActive("/negotiations") ? "font-medium" : "font-normal text-muted-foreground"
-            )}
-          >
-            <FileText className="h-4 w-4 mr-3" />
-            Negotiations
-          </Button>
-        </Link>
+
         
         {/* <Link href="/routes" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/routes")}>
           <Button 

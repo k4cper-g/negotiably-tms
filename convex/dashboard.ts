@@ -33,10 +33,10 @@ export const getDashboardStats = query({
       return {
         totalNegotiations: 0,
         activeNegotiations: 0,
-        acceptedNegotiations: 0,
+        completedDeals: 0,
         rejectedNegotiations: 0,
-        pendingNegotiations: 0,
         totalSavings: 0,
+        averageSavings: 0,
         successRate: 0,
       };
     }
@@ -54,47 +54,64 @@ export const getDashboardStats = query({
 
     let totalNegotiations = 0;
     let activeNegotiations = 0;
-    let acceptedNegotiations = 0;
+    let completedDeals = 0;
     let rejectedNegotiations = 0;
-    let pendingNegotiations = 0; 
     let totalSavings = 0;
-    let completedNegotiationsWithSavings = 0;
+    let negotiationsWithProfit = 0;
 
     negotiations.forEach((neg) => {
       totalNegotiations++;
-      if (neg.status === "active" || neg.status === "pending_carrier" || neg.status === "pending_user") {
+      
+      // Count active negotiations (any pending status)
+      if (neg.status === "pending" || neg.status === "active" || 
+          neg.status === "pending_carrier" || neg.status === "pending_user" || 
+          neg.status === "pending_initial") {
         activeNegotiations++;
-      } else if (neg.status === "accepted") {
-        acceptedNegotiations++;
-      } else if (neg.status === "rejected" || neg.status === "cancelled") {
+      } 
+      // Count completed deals (accepted negotiations)
+      else if (neg.status === "accepted") {
+        completedDeals++;
+      } 
+      // Count rejected negotiations
+      else if (neg.status === "rejected" || neg.status === "cancelled") {
         rejectedNegotiations++;
-      } else if (neg.status === "pending_initial") { 
-         pendingNegotiations++;
       }
-      if (neg.status === "accepted") {
+      
+      // Calculate total savings from all negotiations with profit data
+      if (neg.profit !== undefined) {
+        totalSavings += neg.profit;
+        negotiationsWithProfit++;
+      } 
+      // Fall back to calculating from prices if no stored profit
+      else if (neg.status === "accepted") {
         const initialPrice = parsePrice(neg.initialRequest.price);
-        let finalPrice = initialPrice; 
+        
+        // Check counter offers for accepted price
         const acceptedOffer = neg.counterOffers
           .slice() 
           .reverse()
           .find(offer => offer.status === "accepted");
+          
         if (acceptedOffer) {
-           finalPrice = parsePrice(acceptedOffer.price);
-        }
-        if (initialPrice > finalPrice) {
-          totalSavings += (initialPrice - finalPrice);
-          completedNegotiationsWithSavings++; 
+          const acceptedPrice = parsePrice(acceptedOffer.price);
+          const profit = acceptedPrice - initialPrice; // Calculate profit properly
+          totalSavings += profit;
+          negotiationsWithProfit++;
         }
       }
     });
-    const successRate = totalNegotiations > 0 ? (acceptedNegotiations / totalNegotiations) * 100 : 0;
+
+    // Calculate metrics
+    const successRate = totalNegotiations > 0 ? (completedDeals / totalNegotiations) * 100 : 0;
+    const averageSavings = negotiationsWithProfit > 0 ? totalSavings / negotiationsWithProfit : 0;
+    
     return {
       totalNegotiations,
       activeNegotiations,
-      acceptedNegotiations,
+      completedDeals,
       rejectedNegotiations,
-      pendingNegotiations, 
       totalSavings,
+      averageSavings,
       successRate,
     };
   },

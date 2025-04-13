@@ -43,18 +43,21 @@ import {
   ChevronLast, // Added
   X,
   ChevronUp,
+  Mail,
+  Save,
+  Trash2 // Import Trash icon
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import Link from "next/link";
 import { useState, useEffect, useRef, ChangeEvent, useCallback, memo } from "react";
 import dynamic from 'next/dynamic';
 import { useRouter } from "next/navigation";
-import { useMutation, useAction } from "convex/react";
+import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useNegotiationModal } from "@/context/NegotiationModalContext";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -88,6 +91,20 @@ import { mockOffers } from "@/data/mockOffers"; // Import the mock data
 import { useOffers, OfferFilters } from '@/lib/offers/useOffers';
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import debounce from 'lodash/debounce';
+import {
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle, 
+  AlertDialogTrigger 
+} from "@/components/ui/alert-dialog";
 
 // Dynamic import of map components to avoid SSR issues with Leaflet
 const TransportMap = dynamic(() => import('@/components/TransportMap'), {
@@ -673,14 +690,17 @@ interface AgentSettingsModalProps {
   setMaxAutoReplies: (value: number) => void;
   notifyOnTargetPriceReached: boolean;
   setNotifyOnTargetPriceReached: (value: boolean) => void;
-  notifyOnAgreement: boolean;
-  setNotifyOnAgreement: (value: boolean) => void;
   notifyOnConfusion: boolean;
   setNotifyOnConfusion: (value: boolean) => void;
   notifyOnRefusal: boolean;
   setNotifyOnRefusal: (value: boolean) => void;
   isAgentActive: boolean;
   setIsAgentActive: (value: boolean) => void;
+  // New props for template sending
+  sendTemplateOnCreate: boolean;
+  setSendTemplateOnCreate: (value: boolean) => void;
+  templateContent: string;
+  setTemplateContent: (value: string) => void;
 }
 
 // Extract the AgentSettingsModal component
@@ -705,14 +725,17 @@ const AgentSettingsModal = memo(({
   setMaxAutoReplies,
   notifyOnTargetPriceReached,
   setNotifyOnTargetPriceReached,
-  notifyOnAgreement,
-  setNotifyOnAgreement,
   notifyOnConfusion,
   setNotifyOnConfusion,
   notifyOnRefusal,
   setNotifyOnRefusal,
   isAgentActive,
-  setIsAgentActive
+  setIsAgentActive,
+  // Destructure new props
+  sendTemplateOnCreate,
+  setSendTemplateOnCreate,
+  templateContent,
+  setTemplateContent
 }: AgentSettingsModalProps) => {
   const calculateTargetPrice = (offer: any) => {
     if (negotiationMode === "percentage" && targetPercentage) {
@@ -739,14 +762,112 @@ const AgentSettingsModal = memo(({
     }
     return null;
   };
+  
+  // Fetch email templates
+  const emailTemplates = useQuery(api.emailTemplates.getEmailTemplates);
+  const createEmailTemplate = useMutation(api.emailTemplates.createEmailTemplate);
+  const deleteEmailTemplate = useMutation(api.emailTemplates.deleteEmailTemplate); // Add delete mutation
+  
+  // Local state for the debounced textarea
+  const [localTemplateContent, setLocalTemplateContent] = useState(templateContent);
+  // Local state for the new template name input
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [templateToDelete, setTemplateToDelete] = useState<Id<"emailTemplates"> | null>(null); // State for delete confirmation
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("custom"); // Keep track of selected template
+
+  // Update local state when prop changes (e.g., template selected)
+  useEffect(() => {
+    setLocalTemplateContent(templateContent);
+  }, [templateContent]);
+  
+  // Debounced function to update parent state
+  const updateTemplateContent = useCallback(
+    debounce((value: string) => {
+      setTemplateContent(value);
+    }, 300),
+    [setTemplateContent]
+  );
+  
+  // Handler for textarea changes
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setLocalTemplateContent(newValue); // Update local state immediately
+    updateTemplateContent(newValue); // Debounce update to parent
+  };
+  
+  // Handler for selecting a template from dropdown
+  const handleTemplateSelect = (templateId: string) => {
+    setSelectedTemplateId(templateId); // Update selected ID state
+    if (templateId === "custom") {
+      // Optionally clear textarea or keep current content when selecting custom
+      // setTemplateContent(""); // Example: clear textarea
+      return; 
+    }
+    // Explicitly type selectedTemplate
+    const selectedTemplate: Doc<"emailTemplates"> | undefined = emailTemplates?.find((t: Doc<"emailTemplates">) => t._id === templateId);
+    if (selectedTemplate) {
+      setTemplateContent(selectedTemplate.content);
+    }
+  };
+  
+  // Handler for saving the current content as a new template
+  const handleSaveAsTemplate = async () => {
+    if (!newTemplateName.trim()) {
+      toast.error("Template name cannot be empty.");
+      return;
+    }
+    if (!localTemplateContent.trim()) {
+      toast.error("Template content cannot be empty.");
+      return;
+    }
+
+    try {
+      await createEmailTemplate({
+        name: newTemplateName,
+        content: localTemplateContent,
+      });
+      toast.success(`Template "${newTemplateName}" saved successfully!`);
+      setNewTemplateName(""); // Clear the input field
+      // The useQuery will automatically refetch and update the dropdown
+    } catch (error) { 
+      console.error("Failed to save template:", error);
+      toast.error("Failed to save template.", { description: (error as Error).message });
+    }
+  };
+
+  // Handler for initiating template deletion
+  const handleDeleteConfirmation = (templateId: Id<"emailTemplates">) => {
+    setTemplateToDelete(templateId);
+    // The AlertDialog trigger will open the dialog
+  };
+
+  // Handler for confirming and executing template deletion
+  const handleDeleteTemplate = async () => {
+    if (!templateToDelete) return;
+
+    try {
+      await deleteEmailTemplate({ templateId: templateToDelete });
+      toast.success("Template deleted successfully!");
+      setTemplateToDelete(null); // Close the dialog
+      // If the deleted template was selected, reset selection to custom
+      if (selectedTemplateId === templateToDelete) {
+          handleTemplateSelect("custom"); // Reset dropdown and potentially content
+      }
+      // Query will refetch automatically
+    } catch (error) {
+      console.error("Failed to delete template:", error);
+      toast.error("Failed to delete template.", { description: (error as Error).message });
+      setTemplateToDelete(null); // Close the dialog even on error
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden bg-card">
         <DialogHeader className="px-6 pt-6 pb-2 border-b">
           <DialogTitle className="flex items-center text-xl text-card-foreground">
-            <Bot className="mr-2 h-5 w-5 text-primary" />
-            AI Agent Settings
+            <Settings className="mr-2 h-5 w-5 text-primary" />
+            Settings
           </DialogTitle>
         </DialogHeader>
         
@@ -755,282 +876,415 @@ const AgentSettingsModal = memo(({
             {/* Main Settings */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label className="text-base font-medium">Enable AI Agent</Label>
+                <Label htmlFor="enable-ai-agent" className="text-base font-medium flex items-center">
+                  <Bot className="h-4 w-4 mr-2 text-primary"/>
+                  Enable AI Agent
+                </Label>
                 <Switch
+                  id="enable-ai-agent"
                   checked={isAgentActive}
-                  onCheckedChange={setIsAgentActive}
+                  onCheckedChange={(checked) => {
+                    setIsAgentActive(checked);
+                  }}
                 />
               </div>
+              <p className="text-xs text-muted-foreground -mt-2 pl-6">Let the AI handle the negotiation automatically based on your settings below.</p>
               
-              {/* Price Target Section */}
-              <div className="border-t pt-4 mt-2">
-                <h3 className="font-medium mb-3">Target Price Settings</h3>
-                
-                {/* Toggle between price/km and percentage modes */}
-                <div className="mb-4">
-                  <Label className="block mb-2">Negotiation Mode</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button 
-                      variant={negotiationMode === "pricePerKm" ? "default" : "outline"} 
-                      size="sm"
-                      onClick={() => setNegotiationMode("pricePerKm")}
-                      className="w-full"
-                    >
-                      Price per km
-                    </Button>
-                    <Button 
-                      variant={negotiationMode === "percentage" ? "default" : "outline"} 
-                      size="sm"
-                      onClick={() => setNegotiationMode("percentage")}
-                      className="w-full"
-                    >
-                      Percentage
-                    </Button>
-                  </div>
-                </div>
-                
-                {negotiationMode === "pricePerKm" ? (
-                  // Price per km input
-                  <div className="space-y-1.5">
-                    <Label htmlFor="targetPricePerKm">
-                      Target Price per km (EUR/km)
-                    </Label>
-                    <div className="flex gap-2 items-center">
-                      <Input
-                        id="targetPricePerKm"
-                        type="text"
-                        placeholder="e.g. 1.25"
-                        value={targetPricePerKm}
-                        onChange={(e) => setTargetPricePerKm(e.target.value)}
-                        className={cn(
-                          "w-full",
-                          targetPricePerKm && (isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0) && "border-red-500"
-                        )}
-                      />
-                      <span className="text-lg">€</span>
+              {isAgentActive && (
+                <div className="mt-3 pl-6 space-y-6">
+                  {/* Price Target Section */}
+                  <div className="border-t pt-4 mt-4"> 
+                    <h3 className="font-medium mb-3">Target Price Settings</h3>
+                    {/* Toggle between price/km and percentage modes */}
+                    <div className="mb-4">
+                      <Label className="block mb-2">Negotiation Mode</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button 
+                          variant={negotiationMode === "pricePerKm" ? "default" : "outline"} 
+                          size="sm"
+                          onClick={() => setNegotiationMode("pricePerKm")}
+                          className="w-full"
+                        >
+                          Price per km
+                        </Button>
+                        <Button 
+                          variant={negotiationMode === "percentage" ? "default" : "outline"} 
+                          size="sm"
+                          onClick={() => setNegotiationMode("percentage")}
+                          className="w-full"
+                        >
+                          Percentage
+                        </Button>
+                      </div>
                     </div>
-                    {targetPricePerKm && (isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0) && (
-                      <p className="text-xs text-red-500 mt-1">
-                        Please enter a valid positive number
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  // Percentage input
-                  <div className="space-y-1.5">
-                    <Label htmlFor="targetPercentage">
-                      Target Percentage (from initial price)
-                    </Label>
-                    <div className="flex gap-2 items-center">
-                      <Input
-                        id="targetPercentage"
-                        type="number"
-                        step="1"
-                        min="-50"
-                        max="50"
-                        placeholder="e.g. -10 (10% below initial)"
-                        value={targetPercentage}
-                        onChange={(e) => setTargetPercentage(e.target.value)}
-                        className={cn(
-                          "w-full",
-                          targetPercentage && (isNaN(parseFloat(targetPercentage))) && "border-red-500"
+                    
+                    {negotiationMode === "pricePerKm" ? (
+                      // Price per km input
+                      <div className="space-y-1.5">
+                        <Label htmlFor="targetPricePerKm">
+                          Target Price per km (EUR/km)
+                        </Label>
+                        <div className="flex gap-2 items-center">
+                          <Input
+                            id="targetPricePerKm"
+                            type="text"
+                            placeholder="e.g. 1.25"
+                            value={targetPricePerKm}
+                            onChange={(e) => setTargetPricePerKm(e.target.value)}
+                            className={cn(
+                              "w-full",
+                              targetPricePerKm && (isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0) && "border-red-500"
+                            )}
+                          />
+                          <span className="text-lg">€</span>
+                        </div>
+                        {targetPricePerKm && (isNaN(parseFloat(targetPricePerKm)) || parseFloat(targetPricePerKm) <= 0) && (
+                          <p className="text-xs text-red-500 mt-1">
+                            Please enter a valid positive number
+                          </p>
                         )}
-                      />
-                      <span className="text-lg">%</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Use negative values for discount (e.g. -10 means 10% below initial price)
-                    </p>
-                    {targetPercentage && isNaN(parseFloat(targetPercentage)) && (
-                      <p className="text-xs text-red-500 mt-1">
-                        Please enter a valid number
-                      </p>
+                      </div>
+                    ) : (
+                      // Percentage input
+                      <div className="space-y-1.5">
+                        <Label htmlFor="targetPercentage">
+                          Target Percentage (from initial price)
+                        </Label>
+                        <div className="flex gap-2 items-center">
+                          <Input
+                            id="targetPercentage"
+                            type="number"
+                            step="1"
+                            min="-50"
+                            max="50"
+                            placeholder="e.g. -10 (10% below initial)"
+                            value={targetPercentage}
+                            onChange={(e) => setTargetPercentage(e.target.value)}
+                            className={cn(
+                              "w-full",
+                              targetPercentage && (isNaN(parseFloat(targetPercentage))) && "border-red-500"
+                            )}
+                          />
+                          <span className="text-lg">%</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Use negative values for discount (e.g. -10 means 10% below initial price)
+                        </p>
+                        {targetPercentage && isNaN(parseFloat(targetPercentage)) && (
+                          <p className="text-xs text-red-500 mt-1">
+                            Please enter a valid number
+                          </p>
+                        )}
+                      </div>
                     )}
-                  </div>
-                )}
 
-                {/* Negotiation Style Section */}
-                <div className="space-y-1.5 pt-2">
-                  <Label className="block mb-2">Negotiation Style</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Button 
-                      variant={agentStyle === "conservative" ? "default" : "outline"} 
-                      size="sm"
-                      onClick={() => setAgentStyle("conservative")}
-                      className="w-full"
-                    >
-                      Conservative
-                    </Button>
-                    <Button 
-                      variant={agentStyle === "balanced" ? "default" : "outline"} 
-                      size="sm"
-                      onClick={() => setAgentStyle("balanced")}
-                      className="w-full"
-                    >
-                      Balanced
-                    </Button>
-                    <Button 
-                      variant={agentStyle === "aggressive" ? "default" : "outline"} 
-                      size="sm"
-                      onClick={() => setAgentStyle("aggressive")}
-                      className="w-full"
-                    >
-                      Aggressive
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {agentStyle === "conservative" ? "Cautious approach, prioritizes maintaining relationship." :
-                     agentStyle === "balanced" ? "Balanced approach, seeks fair terms for both sides." :
-                     "Assertive approach, focuses strongly on reaching target price."}
-                  </p>
-                </div>
-              </div>
-              
-              {/* Notification Settings Section */}
-              <div className="border-t pt-4 mt-2">
-                <h3 className="font-medium mb-3">Notification Settings</h3>
-                <div className="space-y-3">
-                  <div className="bg-muted p-3 rounded-md space-y-3">
-                    <Label className="block">Notify me when:</Label>
-                    
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="space-y-1">
-                        <span className="text-sm">Price changed</span>
-                        <p className="text-xs text-muted-foreground">Alert when the carrier proposes a different price</p>
+                    {/* Negotiation Style Section */}
+                    <div className="space-y-1.5 pt-2">
+                      <Label className="block mb-2">Negotiation Style</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <Button 
+                          variant={agentStyle === "conservative" ? "default" : "outline"} 
+                          size="sm"
+                          onClick={() => setAgentStyle("conservative")}
+                          className="w-full"
+                        >
+                          Conservative
+                        </Button>
+                        <Button 
+                          variant={agentStyle === "balanced" ? "default" : "outline"} 
+                          size="sm"
+                          onClick={() => setAgentStyle("balanced")}
+                          className="w-full"
+                        >
+                          Balanced
+                        </Button>
+                        <Button 
+                          variant={agentStyle === "aggressive" ? "default" : "outline"} 
+                          size="sm"
+                          onClick={() => setAgentStyle("aggressive")}
+                          className="w-full"
+                        >
+                          Aggressive
+                        </Button>
                       </div>
-                      <Switch 
-                        checked={notifyOnPriceChange} 
-                        onCheckedChange={setNotifyOnPriceChange}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center justify-between border-t border-gray-200 pt-3 mt-1">
-                      <div className="space-y-1">
-                        <span className="text-sm">New terms mentioned</span>
-                        <p className="text-xs text-muted-foreground">Alert when carrier mentions terms not in the initial offer</p>
-                      </div>
-                      <Switch 
-                        checked={notifyOnNewTerms} 
-                        onCheckedChange={setNotifyOnNewTerms}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center justify-between border-t border-gray-200 pt-3">
-                      <div className="space-y-1">
-                        <span className="text-sm">Target price is reached</span>
-                        <p className="text-xs text-muted-foreground">Alert when carrier meets or exceeds target price</p>
-                      </div>
-                      <Switch 
-                        checked={notifyOnTargetPriceReached} 
-                        onCheckedChange={setNotifyOnTargetPriceReached}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center justify-between border-t border-gray-200 pt-3">
-                      <div className="space-y-1">
-                        <span className="text-sm">Carrier agrees to price</span>
-                        <p className="text-xs text-muted-foreground">Alert when the carrier explicitly accepts an offer</p>
-                      </div>
-                      <Switch 
-                        checked={notifyOnAgreement} 
-                        onCheckedChange={setNotifyOnAgreement}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center justify-between border-t border-gray-200 pt-3">
-                      <div className="space-y-1">
-                        <span className="text-sm">Conversation appears confused</span>
-                        <p className="text-xs text-muted-foreground">Alert when exchange seems stalled or confusing</p>
-                      </div>
-                      <Switch 
-                        checked={notifyOnConfusion} 
-                        onCheckedChange={setNotifyOnConfusion}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center justify-between border-t border-gray-200 pt-3">
-                      <div className="space-y-1">
-                        <span className="text-sm">Carrier firmly refuses</span>
-                        <p className="text-xs text-muted-foreground">Alert when carrier gives a firm rejection</p>
-                      </div>
-                      <Switch 
-                        checked={notifyOnRefusal} 
-                        onCheckedChange={setNotifyOnRefusal}
-                      />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {agentStyle === "conservative" ? "Cautious approach, prioritizes maintaining relationship." :
+                        agentStyle === "balanced" ? "Balanced approach, seeks fair terms for both sides." :
+                        "Assertive approach, focuses strongly on reaching target price."}
+                      </p>
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4 mt-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="maxRounds">
-                        Maximum automatic replies
-                      </Label>
-                      <Select 
-                        value={maxAutoReplies.toString()}
-                        onValueChange={(value) => setMaxAutoReplies(parseInt(value))}
-                      >
-                        <SelectTrigger className="w-full" id="maxRounds">
-                          <SelectValue placeholder="Select max replies" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">1 reply</SelectItem>
-                          <SelectItem value="2">2 replies</SelectItem>
-                          <SelectItem value="3">3 replies</SelectItem>
-                          <SelectItem value="5">5 replies</SelectItem>
-                          <SelectItem value="10">10 replies</SelectItem>
-                          <SelectItem value="999">Unlimited</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        Agent will notify you after this many exchanges
-                      </p>
-                    </div>
-                    
-                    <div className="space-y-1.5">
-                      <Label>Notify after rounds</Label>
-                      <div className="flex items-center mt-2 gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="icon"
-                          onClick={() => setNotifyAfterRounds(Math.max(1, notifyAfterRounds - 1))}
-                          disabled={notifyAfterRounds <= 1}
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </Button>
-                        <div className="border rounded-md text-center py-2 flex-1">
-                          {notifyAfterRounds}
+                  {/* Notification Settings Section */}
+                  <div className="border-t pt-4 mt-2">
+                    <h3 className="font-medium mb-3">Notification Settings</h3>
+                    <div className="space-y-3">
+                      <div className="bg-muted p-3 rounded-md space-y-3">
+                        <Label className="block">Notify me when:</Label>
+                        
+                        <div className="flex items-center justify-between mt-2">
+                          <div className="space-y-1">
+                            <span className="text-sm">Price changed</span>
+                            <p className="text-xs text-muted-foreground">Alert when the client proposes a different price</p>
+                          </div>
+                          <Switch 
+                            checked={notifyOnPriceChange} 
+                            onCheckedChange={setNotifyOnPriceChange}
+                          />
                         </div>
-                        <Button 
-                          variant="outline" 
-                          size="icon"
-                          onClick={() => setNotifyAfterRounds(notifyAfterRounds + 1)}
-                        >
-                          <ChevronUp className="h-4 w-4" />
-                        </Button>
+                        
+                        <div className="flex items-center justify-between border-t border-gray-200 pt-3 mt-1">
+                          <div className="space-y-1">
+                            <span className="text-sm">New terms mentioned</span>
+                            <p className="text-xs text-muted-foreground">Alert when client mentions terms not in the initial offer</p>
+                          </div>
+                          <Switch 
+                            checked={notifyOnNewTerms} 
+                            onCheckedChange={setNotifyOnNewTerms}
+                          />
+                        </div>
+                        
+                        <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                          <div className="space-y-1">
+                            <span className="text-sm">Target price is reached</span>
+                            <p className="text-xs text-muted-foreground">Alert when client meets or exceeds target price</p>
+                          </div>
+                          <Switch 
+                            checked={notifyOnTargetPriceReached} 
+                            onCheckedChange={setNotifyOnTargetPriceReached}
+                          />
+                        </div>
+                        
+                        <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                          <div className="space-y-1">
+                            <span className="text-sm">Conversation appears confused</span>
+                            <p className="text-xs text-muted-foreground">Alert when exchange seems stalled or confusing</p>
+                          </div>
+                          <Switch 
+                            checked={notifyOnConfusion} 
+                            onCheckedChange={setNotifyOnConfusion}
+                          />
+                        </div>
+                        
+                        <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                          <div className="space-y-1">
+                            <span className="text-sm">Client firmly refuses</span>
+                            <p className="text-xs text-muted-foreground">Alert when client gives a firm rejection</p>
+                          </div>
+                          <Switch 
+                            checked={notifyOnRefusal} 
+                            onCheckedChange={setNotifyOnRefusal}
+                          />
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Rounds of negotiation before notification
-                      </p>
+                      
+                      <div className="grid grid-cols-2 gap-4 mt-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="maxRounds">
+                            Maximum automatic replies
+                          </Label>
+                          <Select 
+                            value={maxAutoReplies.toString()}
+                            onValueChange={(value) => setMaxAutoReplies(parseInt(value))}
+                          >
+                            <SelectTrigger className="w-full" id="maxRounds">
+                              <SelectValue placeholder="Select max replies" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">1 reply</SelectItem>
+                              <SelectItem value="2">2 replies</SelectItem>
+                              <SelectItem value="3">3 replies</SelectItem>
+                              <SelectItem value="5">5 replies</SelectItem>
+                              <SelectItem value="10">10 replies</SelectItem>
+                              <SelectItem value="999">Unlimited</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            Agent will notify you after this many exchanges
+                          </p>
+                        </div>
+                        
+                        <div className="space-y-1.5">
+                          <Label>Notify after rounds</Label>
+                          <div className="flex items-center mt-2 gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="icon"
+                              onClick={() => setNotifyAfterRounds(Math.max(1, notifyAfterRounds - 1))}
+                              disabled={notifyAfterRounds <= 1}
+                            >
+                              <ChevronDown className="h-4 w-4" />
+                            </Button>
+                            <div className="border rounded-md text-center py-2 flex-1">
+                              {notifyAfterRounds}
+                            </div>
+                            <Button 
+                              variant="outline" 
+                              size="icon"
+                              onClick={() => setNotifyAfterRounds(notifyAfterRounds + 1)}
+                            >
+                              <ChevronUp className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Rounds of negotiation before notification
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <DialogFooter className="bg-muted px-6 py-4 border-t">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button 
-            type="button" 
-            onClick={() => onOpenChange(false)}
-          >
-            Save Settings
-          </Button>
+              )}
+
+              {/* Send Initial Template Section */}
+              <div className="border-t pt-4 mt-4">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="send-template" className="text-base font-medium flex items-center">
+                     <Mail className="h-4 w-4 mr-2"/>
+                     Send Initial Email Template
+                  </Label>
+                  <Switch
+                    id="send-template"
+                    checked={sendTemplateOnCreate}
+                    onCheckedChange={(checked) => {
+                      setSendTemplateOnCreate(checked);
+                    }}
+                  />
+                </div>
+                 <p className="text-xs text-muted-foreground mt-1 pl-6">
+                   {isAgentActive && sendTemplateOnCreate 
+                     ? "Send a predefined email message as the first step, then let the AI agent handle responses."
+                     : "Send a predefined email message to the contact when creating negotiations."}
+                 </p>
+                {sendTemplateOnCreate && (
+                  <div className="mt-3 pl-6 space-y-3">
+                    {/* Template Selector Dropdown */} 
+                    <div>
+                      <Label htmlFor="template-select">Load Template</Label>
+                      <Select 
+                        value={selectedTemplateId} // Control the Select component value
+                        onValueChange={handleTemplateSelect}
+                      >
+                        <SelectTrigger id="template-select" className="mt-1">
+                          <SelectValue placeholder="Select a template or write custom" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="custom">Custom / New</SelectItem>
+                          {emailTemplates?.map((template: Doc<"emailTemplates">) => (
+                            // Simplify to just the SelectItem without delete button
+                            <SelectItem key={template._id} value={template._id}>
+                              {template.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  
+                    {/* Email Content Textarea */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="template-content">Email Content</Label>
+                      <Textarea
+                        id="template-content"
+                        placeholder="Select a template or write your email content here...\n\nPlaceholders:\n[Origin], [Destination], [Price]"
+                        value={localTemplateContent}
+                        onChange={handleTextareaChange}
+                        rows={10}
+                        className="text-sm h-[200px]"
+                      />
+                    </div>
+
+                    {/* Template Action Buttons */}
+                    <div className="flex items-center space-x-2">
+                      {/* Save as Template Button & Dialog */}
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="sm" disabled={!localTemplateContent.trim()}>
+                            <Save className="mr-2 h-4 w-4"/>
+                            Save as Template
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Save New Template</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Enter a name for this email template.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <div className="py-2">
+                             <Label htmlFor="template-name">Template Name</Label>
+                             <Input 
+                               id="template-name"
+                               value={newTemplateName}
+                               onChange={(e) => setNewTemplateName(e.target.value)}
+                               placeholder="e.g., Initial Contact Offer"
+                               className="mt-1"
+                             />
+                          </div>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => setNewTemplateName("")}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleSaveAsTemplate} disabled={!newTemplateName.trim()}>Save</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                      
+                      {/* Remove Template Button - Only shown when a saved template is selected */}
+                      {selectedTemplateId !== 'custom' && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="border-red-200 text-red-500 hover:text-red-600 hover:bg-red-50"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4"/>
+                              Remove Template
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the selected template "
+                                {emailTemplates?.find(t => t._id === selectedTemplateId)?.name || ''}".
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => {
+                                  // Use the templateToDelete state to trigger deletion
+                                  setTemplateToDelete(selectedTemplateId as Id<"emailTemplates">);
+                                  handleDeleteTemplate();
+                                }}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Delete Template
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div> 
+            </div> 
+          </div> 
+        </div> 
+
+        {/* Dialog Footer */} 
+        <DialogFooter className="px-6 py-4 border-t bg-muted/40">
+          <DialogClose asChild>
+            <Button variant="ghost">Cancel</Button>
+          </DialogClose>
+          {/* Add a primary save/apply button here if needed for the overall settings */}
+          <Button onClick={() => onOpenChange(false)}>Apply Settings</Button> 
         </DialogFooter>
+
       </DialogContent>
+
+      {/* Ensure the old dialog is removed */} 
+
     </Dialog>
   );
 });
@@ -1039,6 +1293,7 @@ export default function OffersPage() {
   const router = useRouter();
   const createNegotiation = useMutation(api.negotiations.createNegotiation);
   const configureAgent = useMutation(api.negotiations.configureAgent);
+  const addMessage = useMutation(api.negotiations.addMessage); // Import addMessage mutation
   const { openNegotiation } = useNegotiationModal();
   const evaluateOffersAction = useAction(api.offers.evaluateOffers);
 
@@ -1092,9 +1347,11 @@ export default function OffersPage() {
   const [maxAutoReplies, setMaxAutoReplies] = useState(3);
   const [notifyAfterRounds, setNotifyAfterRounds] = useState(5);
   const [notifyOnTargetPriceReached, setNotifyOnTargetPriceReached] = useState(true);
-  const [notifyOnAgreement, setNotifyOnAgreement] = useState(true);
   const [notifyOnConfusion, setNotifyOnConfusion] = useState(true);
   const [notifyOnRefusal, setNotifyOnRefusal] = useState(true);
+  // State for template sending
+  const [sendTemplateOnCreate, setSendTemplateOnCreate] = useState(false);
+  const [templateContent, setTemplateContent] = useState("");
 
   // Filter handlers - update pending filters
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -1278,7 +1535,26 @@ export default function OffersPage() {
         const negotiationId = result.negotiationId as Id<"negotiations">;
         negotiationIds.push(negotiationId);
         
-        // Configure AI agent if active
+        // --- Logic based on settings --- 
+        // Send template if enabled
+        if (sendTemplateOnCreate) {
+          if (offer.offerContactEmail && templateContent) {
+             console.log(`[Batch Create] Scheduling email send for negotiation: ${negotiationId} to ${offer.offerContactEmail}`);
+             // Call backend action to send template email using the imported addMessage
+             await addMessage({
+               negotiationId,
+               message: templateContent,
+               sender: "user",
+             });
+             
+             // The addMessage mutation will automatically trigger email sending
+             console.log(`Scheduled email template for negotiation: ${negotiationId}`);
+          } else {
+             console.warn(`[Batch Create] Cannot send template for ${negotiationId}: Missing email or template content.`);
+          }
+        }
+        
+        // Configure AI agent if enabled (regardless of template sending)
         if (isAgentActive) {
           let targetPricePerKmValue: number | undefined;
           
@@ -1315,11 +1591,9 @@ export default function OffersPage() {
                   maxAutoReplies: maxAutoReplies,
                   notifyAfterRounds: notifyAfterRounds,
                   notifyOnTargetPriceReached: notifyOnTargetPriceReached,
-                  notifyOnAgreement: notifyOnAgreement,
                   notifyOnConfusion: notifyOnConfusion,
                   notifyOnRefusal: notifyOnRefusal,
                   bypassTargetPriceCheck: false,
-                  bypassAgreementCheck: false,
                   bypassConfusionCheck: false,
                   bypassRefusalCheck: false
                 }
@@ -1332,8 +1606,19 @@ export default function OffersPage() {
         }
       }
       
-      // Show success message with appropriate agent status
-      console.log(`Created ${negotiationIds.length} negotiations${isAgentActive ? " with AI agent settings" : ""}.`);
+      // Show success message with appropriate context based on enabled features
+      let successDescription = "";
+      if (sendTemplateOnCreate && isAgentActive) {
+        successDescription = "Initial email templates have been sent and AI agents have been configured to handle responses.";
+      } else if (sendTemplateOnCreate) {
+        successDescription = "Email templates have been sent to the contacts.";
+      } else if (isAgentActive) {
+        successDescription = "AI agent has been activated for all negotiations.";
+      }
+      
+      toast.success(`Created ${negotiationIds.length} negotiations`, {
+        description: successDescription || undefined
+      });
       
       // Reset row selection
       table.resetRowSelection();
@@ -1544,6 +1829,7 @@ export default function OffersPage() {
                   <Eraser className="h-4 w-4" />
                 </Button>
                 <div className="flex items-center gap-2">
+          
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -2075,14 +2361,17 @@ export default function OffersPage() {
         setMaxAutoReplies={setMaxAutoReplies}
         notifyOnTargetPriceReached={notifyOnTargetPriceReached}
         setNotifyOnTargetPriceReached={setNotifyOnTargetPriceReached}
-        notifyOnAgreement={notifyOnAgreement}
-        setNotifyOnAgreement={setNotifyOnAgreement}
         notifyOnConfusion={notifyOnConfusion}
         setNotifyOnConfusion={setNotifyOnConfusion}
         notifyOnRefusal={notifyOnRefusal}
         setNotifyOnRefusal={setNotifyOnRefusal}
         isAgentActive={isAgentActive}
         setIsAgentActive={setIsAgentActive}
+        // Pass new template props
+        sendTemplateOnCreate={sendTemplateOnCreate}
+        setSendTemplateOnCreate={setSendTemplateOnCreate}
+        templateContent={templateContent}
+        setTemplateContent={setTemplateContent}
       />
     </div>
   );

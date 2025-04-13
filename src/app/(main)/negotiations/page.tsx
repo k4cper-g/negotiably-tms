@@ -213,7 +213,7 @@ const columns: ColumnDef<Negotiation>[] = [
       return (
         <div className="flex items-center">
           {neg.profit ? (
-            neg.profit.startsWith('-') ? (
+            parseFloat(neg.profit.replace(/[^0-9.,\-]/g, '').replace(',', '.')) < 0 ? (
               // Negative profit (loss)
               <>
                 <span className="text-red-600 font-medium">{neg.profit}</span>
@@ -245,12 +245,11 @@ const columns: ColumnDef<Negotiation>[] = [
         if (!profit) return 0;
         if (profit === "€0.00") return 0;
         
-        // Extract numeric value, considering negative values
-        const isNegative = profit.startsWith('-');
-        const numStr = profit.replace(/[^0-9.,]/g, '');
+        // Extract numeric value considering all formats
         try {
-          const value = parseFloat(numStr.replace(',', '.'));
-          return isNegative ? -value : value;
+          // Strip all non-numeric chars except decimal separator and minus sign
+          const numericStr = profit.replace(/[^0-9.,\-]/g, '').replace(',', '.');
+          return parseFloat(numericStr);
         } catch {
           return 0;
         }
@@ -526,23 +525,30 @@ export default function NegotiationsPage() {
       let profitStr: string | null = null;
       let profitPercentageStr: string | null = null;
       
-      // Calculate profit: current - initial
-      if (!isNaN(initialPriceNum) && !isNaN(currentPriceNum)) { // Ensure both are numbers
-          profit = currentPriceNum - initialPriceNum;
-          if (initialPriceNum !== 0) { // Avoid division by zero for percentage
-              profitPercentage = (profit / initialPriceNum) * 100;
-              profitPercentageStr = `${profit > 0 ? '+' : ''}${profitPercentage.toFixed(1)}%`;
-          } else if (profit !== 0) {
-              profitPercentageStr = profit > 0 ? "+∞%" : "-∞%"; // Handle infinite percentage if initial was 0
-          } else {
-              profitPercentageStr = "0.0%"; // Both were 0
-          }
-          profitStr = formatCurrency(profit);
+      // Use stored profit value if available, otherwise calculate
+      if (neg.profit !== undefined) {
+        profit = neg.profit;
+        if (initialPriceNum && initialPriceNum !== 0) {
+          profitPercentage = (profit / initialPriceNum) * 100;
+        }
+      } else if (!isNaN(initialPriceNum) && !isNaN(currentPriceNum)) {
+        // Fall back to calculating profit from prices
+        profit = currentPriceNum - initialPriceNum; // Positive value when current price > initial price
       } else {
-          // Handle cases where one or both prices are not valid numbers
-          profitStr = null; // Indicate profit couldn't be calculated
-          profitPercentageStr = null;
+        // Can't calculate profit
+        profit = 0;
       }
+      
+      // Format the profit and percentage values
+      if (initialPriceNum !== 0) {
+        profitPercentageStr = `${profit > 0 ? '+' : ''}${profitPercentage.toFixed(1)}%`;
+      } else if (profit !== 0) {
+        profitPercentageStr = profit > 0 ? "+∞%" : "-∞%";
+      } else {
+        profitPercentageStr = "0.0%";
+      }
+      
+      profitStr = formatCurrency(profit);
 
       // Get last activity time
       const lastActivity = neg.updatedAt 
@@ -856,10 +862,16 @@ export default function NegotiationsPage() {
                   </TableRow>
                 ))
               ) : (
-                // No results found (no change here)
+                // No results found - Enhanced with CTA
                 <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center">
-                    No negotiations found.
+                  <TableCell colSpan={columns.length} className="h-64 text-center">
+                    <div className="flex flex-col items-center justify-center p-6">
+                      <h3 className="text-lg font-medium mb-2">No negotiations found</h3>
+                      <p className="text-muted-foreground mb-6">Start by requesting transport for an offer</p>
+                      <Link href="/offers">
+                        <Button>Find Transport Offers</Button>
+                      </Link>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}
@@ -920,17 +932,6 @@ export default function NegotiationsPage() {
                 <ChevronLast className="h-4 w-4" />
               </Button>
           </div>
-        </div>
-      )}
-
-      {/* Show No Results message only if not loading AND length is 0 */}
-      {!isLoading && allNegotiations.length === 0 && (
-        <div className="text-center py-12 border rounded-lg bg-muted/5 mt-4">
-          <h3 className="text-lg font-medium mb-2">No negotiations found</h3>
-          <p className="text-muted-foreground mb-6">Start by requesting transport for an offer</p>
-          <Link href="/offers">
-            <Button>Find Transport Offers</Button>
-          </Link>
         </div>
       )}
     </div>
