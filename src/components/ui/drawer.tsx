@@ -5,10 +5,17 @@ import { Drawer as DrawerPrimitive } from "vaul"
 
 import { cn } from "@/lib/utils"
 
+const DrawerContext = React.createContext<{ modal?: boolean }>({ modal: true });
+
 function Drawer({
+  modal = true,
   ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Root>) {
-  return <DrawerPrimitive.Root data-slot="drawer" {...props} />
+}: React.ComponentProps<typeof DrawerPrimitive.Root> & { modal?: boolean }) {
+  return (
+    <DrawerContext.Provider value={{ modal }}>
+      <DrawerPrimitive.Root data-slot="drawer" {...props} />
+    </DrawerContext.Provider>
+  );
 }
 
 function DrawerTrigger({
@@ -50,9 +57,11 @@ function DrawerContent({
   children,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Content>) {
+  const { modal } = React.useContext(DrawerContext);
+
   return (
     <DrawerPortal data-slot="drawer-portal">
-      <DrawerOverlay />
+      {modal && <DrawerOverlay />}
       <DrawerPrimitive.Content
         data-slot="drawer-content"
         className={cn(

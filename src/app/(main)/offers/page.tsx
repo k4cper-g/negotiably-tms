@@ -105,6 +105,15 @@ import {
   AlertDialogTitle, 
   AlertDialogTrigger 
 } from "@/components/ui/alert-dialog";
+import { 
+  Drawer, 
+  DrawerContent, 
+  DrawerHeader, 
+  DrawerTitle, 
+  DrawerFooter, 
+  DrawerTrigger, 
+  DrawerClose 
+} from "@/components/ui/drawer";
 
 // Dynamic import of map components to avoid SSR issues with Leaflet
 const TransportMap = dynamic(() => import('@/components/TransportMap'), {
@@ -203,13 +212,14 @@ function TransportOfferDetails({ offer }: { offer: TransportOffer }) {
     }
   };
   
-  // --- Layout Without Map --- 
+  // --- Layout With Drawer --- 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 px-4 py-3 overflow-y-auto">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="outline">{offer.platform}</Badge>
           <Badge variant="outline">{offer.loadType}</Badge>
+          {offer.vehicle && <Badge variant="outline">{offer.vehicle}</Badge>}
         </div>
         <Badge 
           variant={offer.status === "Available" ? "secondary" : offer.status === "Pending" ? "secondary" : "outline"}
@@ -218,101 +228,126 @@ function TransportOfferDetails({ offer }: { offer: TransportOffer }) {
         </Badge>
       </div>
 
-      <div className="flex flex-col gap-2">
+      {/* Map Preview */}
+      <div className="h-[200px] w-full rounded-lg overflow-hidden border my-4">
+        <TransportMap 
+          key={mapKey} // Ensure map re-renders when offer changes
+          offers={[offer]} // Pass only the current offer
+          selectedOfferId={offer.id} // Select the current offer by default
+          onRouteSelect={() => {}} // Disable selection change from map preview
+          onOpenDetails={() => {}} // Disable opening details from map preview
+          interactionEnabled={true} // Enable map interaction (zoom, pan)
+        />
+      </div>
+
+      <div className="flex flex-col gap-2 bg-muted/40 p-3 rounded-lg">
         <div className="flex items-center">
-          <span className="h-2.5 w-2.5 rounded-full bg-blue-500 mr-2"></span>
-          <span className="font-medium text-base">{offer.origin}</span>
-          <span className="text-xs text-muted-foreground ml-2">{offer.originCoords}</span>
+          <span className="h-2.5 w-2.5 rounded-full bg-blue-500 mr-2 flex-shrink-0"></span>
+          <div>
+            <span className="font-medium text-base">{offer.origin}</span>
+            {offer.originCoords && (
+              <span className="text-xs text-muted-foreground block">{offer.originCoords}</span>
+            )}
+          </div>
         </div>
-        <div className="ml-[5px] h-12 border-l border-dashed border-gray-300"></div>
+        <div className="ml-[5px] h-10 border-l border-dashed border-gray-300"></div>
         <div className="flex items-center">
-          <span className="h-2.5 w-2.5 rounded-full bg-green-500 mr-2"></span>
-          <span className="font-medium text-base">{offer.destination}</span>
-          <span className="text-xs text-muted-foreground ml-2">{offer.destinationCoords}</span>
+          <span className="h-2.5 w-2.5 rounded-full bg-green-500 mr-2 flex-shrink-0"></span>
+          <div>
+            <span className="font-medium text-base">{offer.destination}</span>
+            {offer.destinationCoords && (
+              <span className="text-xs text-muted-foreground block">{offer.destinationCoords}</span>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 bg-muted/30 p-3 rounded-lg">
         <div>
-          <p className="text-sm text-muted-foreground">Distance</p>
+          <p className="text-xs text-muted-foreground">Distance</p>
           <p className="font-medium">{offer.distance}</p>
         </div>
         <div>
-          <p className="text-sm text-muted-foreground">Price</p>
-          <p className="font-medium">{offer.price}</p>
+          <p className="text-xs text-muted-foreground">Price</p>
+          <p className="font-medium text-lg">{offer.price}</p>
         </div>
         <div>
-          <p className="text-sm text-muted-foreground">Price per km</p>
+          <p className="text-xs text-muted-foreground">Price per km</p>
           <p className="font-medium">{offer.pricePerKm}</p>
         </div>
         <div>
-          <p className="text-sm text-muted-foreground">Carrier</p>
+          <p className="text-xs text-muted-foreground">Carrier</p>
           <p className="font-medium">{offer.carrier}</p>
         </div>
-        <div>
-          <p className="text-sm text-muted-foreground">Loading Date</p>
-          <p className="font-medium">{offer.loadingDate}</p>
+      </div>
+
+      {/* More offer details in a cleaner layout */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="p-2 border rounded-md">
+          <p className="text-xs text-muted-foreground">Weight</p>
+          <p className="font-medium">{offer.weight || "Not specified"}</p>
         </div>
-        <div>
-          <p className="text-sm text-muted-foreground">Delivery Date</p>
-          <p className="font-medium">{offer.deliveryDate}</p>
+        <div className="p-2 border rounded-md">
+          <p className="text-xs text-muted-foreground">Dimensions</p>
+          <p className="font-medium">{offer.dimensions || "Not specified"}</p>
         </div>
-        <div>
-          <p className="text-sm text-muted-foreground">Weight</p>
-          <p className="font-medium">{offer.weight}</p>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-3">
+        <div className="p-2 border rounded-md">
+          <p className="text-xs text-muted-foreground">Loading Date</p>
+          <p className="font-medium">{offer.loadingDate || "Not specified"}</p>
         </div>
-        <div>
-          <p className="text-sm text-muted-foreground">Dimensions</p>
-          <p className="font-medium">{offer.dimensions}</p>
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">Vehicle</p>
-          <p className="font-medium">{offer.vehicle}</p>
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">Rating</p>
-          <p className="font-medium">{offer.rating} / 5</p>
+        <div className="p-2 border rounded-md">
+          <p className="text-xs text-muted-foreground">Delivery Date</p>
+          <p className="font-medium">{offer.deliveryDate || "Not specified"}</p>
         </div>
       </div>
 
-      <div>
-        <p className="text-sm text-muted-foreground">Description</p>
-        <p className="mt-1">{offer.description}</p>
-      </div>
+      {/* Contact and description */}
+      {(offer.contact || offer.offerContactEmail) && (
+        <div className="p-3 border rounded-md">
+          <p className="text-xs text-muted-foreground mb-1">Contact</p>
+          {offer.contact && <p className="font-medium">{offer.contact}</p>}
+          {offer.offerContactEmail && <p className="text-sm">{offer.offerContactEmail}</p>}
+        </div>
+      )}
+      
+      {offer.description && (
+        <div className="p-3 border rounded-md">
+          <p className="text-xs text-muted-foreground mb-1">Description</p>
+          <p className="text-sm">{offer.description}</p>
+        </div>
+      )}
 
-      <div className="flex flex-col gap-1">
-        <p className="text-sm text-muted-foreground">Contact</p>
-        <p className="font-medium">{offer.contact}</p>
-        {/* Display Email if it exists */}
-        {offer.offerContactEmail && (
-          <p className="font-medium">{offer.offerContactEmail}</p>
-        )}
-      </div>
-
-      {/* Map section is removed */}
-
-      <div className="flex items-center justify-end pt-4 border-t">
-        <Button 
+      {/* Action buttons */}
+      <DrawerFooter className="px-0 pb-0 mt-2">
+        <Button
           onClick={handleRequestTransport}
-          disabled={isCreating}
-          className="gap-1"
+          disabled={isCreating || !!newNegotiationId}
+          className="w-full"
+          size="lg"
         >
           {isCreating ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Creating Negotiation...</span>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Creating Negotiation...
+            </>
+          ) : newNegotiationId ? (
+            <>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              View Negotiation
             </>
           ) : (
             <>
-              <MessageSquare className="h-4 w-4" />
-              <span>Start Negotiation</span>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Request Transport
             </>
           )}
         </Button>
-      </div>
+      </DrawerFooter>
     </div>
   );
-  // --- End Layout Without Map ---
 }
 
 // OfferCard component for individual transport offers
@@ -1336,7 +1371,7 @@ const AgentSettingsModal = memo(({
           </div> 
         </div> 
 
-        {/* Dialog Footer */} 
+ 
         <DialogFooter className="px-6 py-4 border-t bg-muted/40">
           <DialogClose asChild>
             <Button variant="ghost">Cancel</Button>
@@ -1347,11 +1382,46 @@ const AgentSettingsModal = memo(({
 
       </DialogContent>
 
-      {/* Ensure the old dialog is removed */} 
-
     </Dialog>
   );
 });
+
+// Add the custom drawer component after imports:
+// Custom drawer implementation to replace shadcn Drawer
+interface CustomDrawerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: React.ReactNode;
+  children: React.ReactNode;
+}
+
+function CustomDrawer({ isOpen, onClose, title, children }: CustomDrawerProps) {
+  return (
+    <div 
+      className={`fixed inset-y-0 right-0 z-50 transform transition-transform duration-300 ease-in-out ${
+        isOpen ? 'translate-x-0' : 'translate-x-full'
+      }`}
+      style={{ pointerEvents: isOpen ? 'auto' : 'none' }}
+    >
+      <div className="h-full bg-background border-l shadow-lg flex flex-col w-full max-w-md">
+        <div className="border-b pb-3 p-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">{title}</h2>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="h-8 w-8"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="flex-1 overflow-auto">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function OffersPage() {
   const router = useRouter();
@@ -2481,24 +2551,22 @@ export default function OffersPage() {
         </TabsContent>
       </Tabs>
       
-      {/* Modal Dialog for offer details */}
-      {selectedOfferForModal && (
-        <Dialog open={!!selectedOfferForModal} onOpenChange={(open) => !open && setSelectedOfferForModal(null)}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>
-                Transport Offer {filteredOffers.find(o => o.id === selectedOfferForModal)?.id}
-              </DialogTitle>
-            </DialogHeader>
-            <TransportOfferDetails 
-              offer={filteredOffers.find(o => o.id === selectedOfferForModal) as TransportOffer} 
-            />
-          </DialogContent>
-        </Dialog>
-      )}
+      
+      {/* Replace with CustomDrawer */}
+      <CustomDrawer
+        isOpen={!!selectedOfferForModal}
+        onClose={() => setSelectedOfferForModal(null)}
+        title="Transport Offer Details"
+      >
+        {selectedOfferForModal && (
+          <TransportOfferDetails
+            offer={filteredOffers.find(o => o.id === selectedOfferForModal) as TransportOffer}
+          />
+        )}
+      </CustomDrawer>
       
       {/* Agent Settings Modal */}
-      <AgentSettingsModal
+      <AgentSettingsModal 
         isOpen={isAgentSettingsOpen}
         onOpenChange={handleOpenAgentSettings}
         negotiationMode={negotiationMode}
@@ -2525,12 +2593,10 @@ export default function OffersPage() {
         setNotifyOnRefusal={setNotifyOnRefusal}
         isAgentActive={isAgentActive}
         setIsAgentActive={setIsAgentActive}
-        // Pass new template props
         sendTemplateOnCreate={sendTemplateOnCreate}
         setSendTemplateOnCreate={setSendTemplateOnCreate}
         templateContent={templateContent}
         setTemplateContent={setTemplateContent}
-        // New props for email subject and cc
         emailSubject={emailSubject}
         setEmailSubject={setEmailSubject}
         emailCc={emailCc}

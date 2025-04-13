@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, ZoomControl } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -240,18 +240,22 @@ function FullscreenButton() {
   );
 }
 
-// Main component
-export default function TransportMap({ 
-  offers, 
-  selectedOfferId, 
-  onRouteSelect,
-  onOpenDetails
-}: { 
-  offers: TransportOffer[]; 
+interface TransportMapProps {
+  offers: TransportOffer[];
   selectedOfferId: string | null;
   onRouteSelect?: (offerId: string) => void;
   onOpenDetails?: (offerId: string) => void;
-}) {
+  interactionEnabled?: boolean; // Default to true
+}
+
+// Main component
+const TransportMap = ({ 
+  offers, 
+  selectedOfferId, 
+  onRouteSelect,
+  onOpenDetails,
+  interactionEnabled = true // Use the new prop
+}: TransportMapProps) => {
   const [markers, setMarkers] = useState<MapMarker[]>([]);
   const [routes, setRoutes] = useState<MapRoute[]>([]);
   const [processedRoutes, setProcessedRoutes] = useState<MapRoute[]>([]);
@@ -261,6 +265,39 @@ export default function TransportMap({
   const [isLoading, setIsLoading] = useState(true);
   const [processingRoutes, setProcessingRoutes] = useState<string[]>([]);
   const { resolvedTheme } = useTheme();
+  // Remove manual map ref and initialization state
+  // const mapRef = useRef<L.Map | null>(null);
+  // const [mapInitialized, setMapInitialized] = useState(false);
+
+  // Remove manual map initialization useEffect
+  /*
+  useEffect(() => {
+    if (mapRef.current === null && typeof window !== 'undefined') {
+      const map = L.map('map', {
+        center: [51.1657, 10.4515], // Center of Germany
+        zoom: 6,
+        scrollWheelZoom: interactionEnabled, // Use prop
+        dragging: interactionEnabled, // Use prop
+        zoomControl: interactionEnabled, // Use prop
+        doubleClickZoom: interactionEnabled, // Use prop
+        touchZoom: interactionEnabled, // Use prop
+        boxZoom: interactionEnabled, // Use prop
+        keyboard: interactionEnabled, // Use prop
+      });
+      mapRef.current = map;
+      setMapInitialized(true);
+    }
+  }, [interactionEnabled]);
+  */
+
+  // Remove the useEffect that tried to toggle interactions on the manual ref
+  /*
+  useEffect(() => {
+    if (mapRef.current) {
+      // ... logic to enable/disable based on interactionEnabled ...
+    }
+  }, [interactionEnabled]);
+  */
 
   useEffect(() => {
     // Process the offers to extract coordinates for markers and routes
@@ -471,10 +508,16 @@ export default function TransportMap({
           )}
           <MapContainer 
             style={{ height: "100%", width: "100%" }}
-            center={[51.505, -0.09]}
-            zoom={5}
-            scrollWheelZoom={true}
-            zoomControl={false}
+            center={[51.505, -0.09]} // Initial center, will be adjusted by MapBoundsAdjuster
+            zoom={5} // Initial zoom
+            // Pass interaction props directly to MapContainer
+            scrollWheelZoom={interactionEnabled}
+            dragging={interactionEnabled}
+            zoomControl={false} // Explicitly disable zoom controls
+            doubleClickZoom={interactionEnabled}
+            touchZoom={interactionEnabled}
+            boxZoom={interactionEnabled}
+            keyboard={interactionEnabled}
             className="z-0"
           >
             {/* Conditionally render TileLayer based on theme */}
@@ -573,8 +616,8 @@ export default function TransportMap({
               );
             })}
             
-            {/* Only show fullscreen button in the top right corner */}
-            <FullscreenButton />
+            {/* Only show fullscreen button */}
+            {interactionEnabled && <FullscreenButton />} // Only show if interactions are enabled
             
             {/* Adjust bounds to fit all markers */}
             {allPositions.length > 0 && <MapBoundsAdjuster markers={allPositions} />}
@@ -632,4 +675,6 @@ export default function TransportMap({
       )}
     </>
   );
-} 
+}
+
+export default TransportMap; 
