@@ -21,97 +21,180 @@ interface VerificationResult {
 }
 
 /**
- * Verifies the signature of an incoming Mailgun webhook request.
+ * Verifies a Mailgun webhook using their standard verification method
+ * https://documentation.mailgun.com/en/latest/user_manual.html#webhooks
  */
-function verifyMailgunSignature(timestamp: string, token: string, signature: string): VerificationResult {
-    const signingKey = getEnvVariable("MAILGUN_SIGNING_KEY");
-
-    // Check if timestamp is recent (e.g., within 5 minutes)
-    // Convert timestamp string to number for comparison
-    const timestampNum = parseInt(timestamp, 10);
-    if (isNaN(timestampNum)) {
-        return { success: false, status: 400, message: "Invalid timestamp format" };
+function verifyMailgunWebhook(formData: Record<string, string>): VerificationResult {
+    console.log("[MAILGUN VERIFY] Starting webhook verification");
+    
+    // Mailgun's verification requires these form fields
+    const timestamp = formData["timestamp"];
+    const token = formData["token"];
+    const signature = formData["signature"];
+    
+    console.log("[MAILGUN VERIFY] Extracted verification fields:", {
+        timestamp: timestamp || "MISSING",
+        token: token || "MISSING", 
+        signature: signature || "MISSING"
+    });
+    
+    if (!timestamp || !token || !signature) {
+        console.warn("[MAILGUN VERIFY] Missing verification fields in form data");
+        return { 
+            success: false, 
+            status: 400, 
+            message: "Missing required verification fields" 
+        };
     }
-    const fiveMinutesAgo = Math.floor(Date.now() / 1000) - (5 * 60); // Use seconds since epoch
-    if (timestampNum < fiveMinutesAgo) {
-        console.warn("Mailgun webhook timestamp is too old:", timestamp);
-        // In production, you might want to reject old timestamps uncommenting the line below
-        // return { success: false, status: 400, message: "Webhook timestamp too old" };
-    }
-
-    const encodedToken = crypto
-        .createHmac('sha256', signingKey)
-        .update(timestamp + token) // Concatenate timestamp string and token
-        .digest('hex');
-
-    // Use timing-safe comparison
+    
     try {
-        const expectedSignatureBuffer = Buffer.from(encodedToken);
-        const providedSignatureBuffer = Buffer.from(signature);
-
-        if (expectedSignatureBuffer.length !== providedSignatureBuffer.length ||
-            !crypto.timingSafeEqual(expectedSignatureBuffer, providedSignatureBuffer)) {
-            console.error("Mailgun webhook signature verification failed.");
-            return { success: false, status: 401, message: "Webhook signature verification failed" };
+        const signingKey = getEnvVariable("MAILGUN_SIGNING_KEY");
+        console.log("[MAILGUN VERIFY] Using signing key (first 4 chars):", signingKey.substring(0, 4) + "...");
+        
+        // Check if timestamp is recent (within 5 minutes)
+        const timestampNum = parseInt(timestamp, 10);
+        if (isNaN(timestampNum)) {
+            return { success: false, status: 400, message: "Invalid timestamp format" };
         }
-    } catch (error) {
-        console.error("Error during timingSafeEqual comparison:", error);
-        return { success: false, status: 500, message: "Error during signature comparison" };
+        
+        const fiveMinutesAgo = Math.floor(Date.now() / 1000) - (5 * 60);
+        if (timestampNum < fiveMinutesAgo) {
+            console.warn("[MAILGUN VERIFY] Webhook timestamp is too old:", timestamp);
+            // Uncomment in production if you want to enforce timestamp freshness
+            // return { success: false, status: 400, message: "Webhook timestamp too old" };
+        }
+        
+        // Calculate expected signature using HMAC
+        const encodedToken = crypto
+            .createHmac('sha256', signingKey)
+            .update(timestamp + token)
+            .digest('hex');
+        
+        console.log("[MAILGUN VERIFY] Calculated signature:", encodedToken);
+        console.log("[MAILGUN VERIFY] Provided signature:", signature);
+        
+        // Compare signatures
+        if (encodedToken !== signature) {
+            console.error("[MAILGUN VERIFY] Signature verification failed");
+            return { 
+                success: false, 
+                status: 401, 
+                message: "Invalid signature" 
+            };
+        }
+        
+        console.log("[MAILGUN VERIFY] Webhook signature verified successfully");
+        return { 
+            success: true, 
+            status: 200, 
+            message: "Signature verified" 
+        };
+    } catch (error: any) {
+        console.error("[MAILGUN VERIFY] Error during verification:", error);
+        return { 
+            success: false, 
+            status: 500, 
+            message: `Verification error: ${error.message}` 
+        };
     }
-
-
-    console.log("Mailgun webhook signature verified successfully.");
-    return { success: true, status: 200, message: "Signature verified" };
 }
 
-
 /**
- * Internal action to verify Mailgun webhook and process the email reply.
+ * Internal action to process and verify Mailgun webhooks
  */
 export const verifyAndProcessWebhook = internalAction({
     args: {
-        // Signature components
-        timestamp: v.string(),
-        token: v.string(),
-        signature: v.string(),
-        // Email data
-        recipient: v.string(),
-        sender: v.string(),
-        bodyPlain: v.string(),
-        messageId: v.string(),
+        formData: v.any(),
     },
     handler: async (ctx, args): Promise<VerificationResult> => {
-        // 1. Verify Signature
-        const verification = verifyMailgunSignature(args.timestamp, args.token, args.signature);
+        const formData = args.formData as Record<string, string>;
+        console.log("[MAILGUN ACTION] Processing webhook with form data keys:", Object.keys(formData));
+        
+        // 1. Verify Mailgun webhook authenticity
+        const verification = verifyMailgunWebhook(formData);
         if (!verification.success) {
-            return verification; // Return failure details
+            return verification;
         }
-
-        // 2. Parse Negotiation ID
-        const recipientMatch = args.recipient.match(/^reply\+([^@]+)@/);
-        if (!recipientMatch || !recipientMatch[1]) {
-            console.error("Could not parse negotiation ID from recipient:", args.recipient);
-            // Return 200 OK to Mailgun to prevent retries for unparseable addresses,
-            // but indicate logical failure in the message for internal tracking.
-            return { success: false, status: 200, message: "Could not parse negotiation ID" };
+        
+        // 2. Extract email data
+        const recipient = formData.recipient;
+        const sender = formData.sender;
+        const bodyPlain = formData["stripped-text"] || formData["body-plain"] || "";
+        const messageId = formData["Message-Id"] || "";
+        const subject = formData.subject || "";
+        
+        console.log("[MAILGUN ACTION] Extracted email fields:", {
+            recipient,
+            sender,
+            subject,
+            bodyLength: bodyPlain.length,
+            messageId
+        });
+        
+        // 3. Parse negotiation ID from recipient
+        console.log("[MAILGUN ACTION] Parsing negotiationId from recipient:", recipient);
+        // Trying multiple patterns for maximum compatibility
+        let negotiationId: string | null = null;
+        
+        // Pattern 1: standard format reply+ID@domain
+        const pattern1 = recipient.match(/^reply\+([^@]+)@/);
+        if (pattern1 && pattern1[1]) {
+            negotiationId = pattern1[1];
+            console.log("[MAILGUN ACTION] Found negotiationId using pattern 1:", negotiationId);
+        } 
+        // Pattern 2: reply@domain (ID might be in another field)
+        else if (recipient.match(/^reply@/) && subject.includes("Negotiation")) {
+            // Try to extract from subject line like "Re: Update on Negotiation #abc123"
+            const subjectMatch = subject.match(/Negotiation\s+#?([a-zA-Z0-9]+)/);
+            if (subjectMatch && subjectMatch[1]) {
+                negotiationId = subjectMatch[1];
+                console.log("[MAILGUN ACTION] Found negotiationId from subject:", negotiationId);
+            }
         }
-        const negotiationIdString = recipientMatch[1];
-        const negotiationId = negotiationIdString as Id<"negotiations">;
-
-        // 3. Add Message via Mutation
+        // Pattern 3: just try to find any ID-like string in the recipient
+        else {
+            const pattern3 = recipient.match(/[a-zA-Z0-9]{10,}/);
+            if (pattern3) {
+                negotiationId = pattern3[0];
+                console.log("[MAILGUN ACTION] Found possible negotiationId using fallback pattern:", negotiationId);
+            }
+        }
+        
+        if (!negotiationId) {
+            console.error("[MAILGUN ACTION] Failed to extract negotiationId from:", recipient);
+            return { 
+                success: false, 
+                status: 200, // Return 200 to avoid retries
+                message: "Could not determine negotiation ID" 
+            };
+        }
+        
+        // 4. Add the message to the negotiation
         try {
+            // Attempt to convert string ID to a Convex ID
+            const convexId = negotiationId as Id<"negotiations">;
+            
+            // Call the mutation to add the reply
             await ctx.runMutation(internal.negotiations.addReplyFromEmail, {
-                negotiationId: negotiationId,
-                senderEmail: args.sender,
-                content: args.bodyPlain,
-                incomingMessageId: args.messageId,
+                negotiationId: convexId,
+                senderEmail: sender,
+                content: bodyPlain,
+                incomingMessageId: messageId,
             });
-            console.log(`Successfully processed email reply for negotiation ${negotiationIdString}`);
-            return { success: true, status: 200, message: "Webhook processed successfully" };
+            
+            console.log(`[MAILGUN ACTION] Successfully processed email reply for negotiation ${negotiationId}`);
+            return { 
+                success: true, 
+                status: 200, 
+                message: "Email reply processed successfully" 
+            };
         } catch (error: any) {
-            console.error(`Error running addReplyFromEmail mutation for negotiation ${negotiationIdString}:`, error);
-            // Return 500 as it's an internal processing error
-            return { success: false, status: 500, message: "Internal Server Error processing message" };
+            console.error(`[MAILGUN ACTION] Error processing reply for negotiation ${negotiationId}:`, error);
+            return { 
+                success: false, 
+                status: 200, // Still return 200 to prevent retries
+                message: `Error processing: ${error.message}` 
+            };
         }
     },
 }); 

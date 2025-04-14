@@ -30,8 +30,17 @@ function getEnvVariable(varName: string): string {
 // Action to initiate the Google OAuth flow
 const startGoogleOAuth = httpAction(async (ctx, request) => {
     const clientId = getEnvVariable("GOOGLE_CLIENT_ID");
-    const convexSiteUrl = getEnvVariable("PUBLIC_CONVEX_HTTP_URL");
-    const redirectUri = `${convexSiteUrl}/handleGoogleCallback`;
+    console.log(`[DEBUG OAuth] GOOGLE_CLIENT_ID: ${clientId}`);
+    
+    const convexSiteUrl = getEnvVariable("PUBLIC_CONVEX_URL");
+    console.log(`[DEBUG OAuth] PUBLIC_CONVEX_URL raw value: "${convexSiteUrl}"`);
+    
+    // Ensure URL has no trailing slash before adding path
+    const baseUrl = convexSiteUrl.endsWith('/') ? convexSiteUrl.slice(0, -1) : convexSiteUrl;
+    console.log(`[DEBUG OAuth] Normalized base URL: "${baseUrl}"`);
+    
+    const redirectUri = `${baseUrl}/handleGoogleCallback`;
+    console.log(`[DEBUG OAuth] Constructed redirectUri: "${redirectUri}"`);
     
     // --- Generate and store state --- 
     // NOTE: HTTP actions don't have user auth context directly.
@@ -64,6 +73,12 @@ const startGoogleOAuth = httpAction(async (ctx, request) => {
     // Include the state parameter received from the frontend
     authUrl.searchParams.set("state", state);
 
+    console.log(`[DEBUG OAuth] Final auth URL params:`);
+    for (const [key, value] of authUrl.searchParams.entries()) {
+        console.log(`[DEBUG OAuth]   ${key}: ${value}`);
+    }
+    console.log(`[DEBUG OAuth] Full Google auth URL: ${authUrl.toString()}`);
+    
     console.log(`Redirecting user to Google OAuth URL with state: ${state}`);
     return new Response(null, { 
         status: 302,
@@ -76,13 +91,25 @@ const handleGoogleCallback = httpAction(async (ctx, request) => {
     const clientId = getEnvVariable("GOOGLE_CLIENT_ID");
     const clientSecret = getEnvVariable("GOOGLE_CLIENT_SECRET");
     const appUrl = getEnvVariable("APP_URL"); // Your frontend app URL
-    const convexSiteUrl = getEnvVariable("PUBLIC_CONVEX_HTTP_URL"); 
-    const redirectUri = `${convexSiteUrl}/handleGoogleCallback`;
+    const convexSiteUrl = getEnvVariable("PUBLIC_CONVEX_URL"); 
+    console.log(`[DEBUG Callback] PUBLIC_CONVEX_URL raw value: "${convexSiteUrl}"`);
+    
+    // Ensure URL has no trailing slash before adding path
+    const baseUrl = convexSiteUrl.endsWith('/') ? convexSiteUrl.slice(0, -1) : convexSiteUrl;
+    console.log(`[DEBUG Callback] Normalized base URL: "${baseUrl}"`);
+    
+    const redirectUri = `${baseUrl}/handleGoogleCallback`;
+    console.log(`[DEBUG Callback] Constructed redirectUri: "${redirectUri}"`);
 
     const url = new URL(request.url);
+    console.log(`[DEBUG Callback] Incoming callback URL: ${request.url}`);
+    console.log(`[DEBUG Callback] Request pathname: ${url.pathname}`);
+    
     const code = url.searchParams.get("code");
     const error = url.searchParams.get("error");
     const state = url.searchParams.get("state"); // Get state from Google's callback
+
+    console.log(`[DEBUG Callback] URL params: code=${code ? "present" : "missing"}, error=${error || "none"}, state=${state || "missing"}`);
 
     if (error) {
         console.error(`Google OAuth Error: ${error}`);
@@ -112,6 +139,9 @@ const handleGoogleCallback = httpAction(async (ctx, request) => {
 
         // --- Exchange Code for Tokens --- 
         const tokenUrl = "https://oauth2.googleapis.com/token";
+        console.log(`[DEBUG Callback] Preparing to exchange code for token`);
+        console.log(`[DEBUG Callback] Token request params: client_id=${clientId}, redirect_uri=${redirectUri}`);
+        
         const tokenResponse = await fetch(tokenUrl, {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -126,6 +156,7 @@ const handleGoogleCallback = httpAction(async (ctx, request) => {
 
         if (!tokenResponse.ok) {
             const errorBody = await tokenResponse.text();
+            console.error(`[DEBUG Callback] Token exchange error: Status ${tokenResponse.status}, Body: ${errorBody}`);
             throw new Error(`Failed to exchange code for token: ${tokenResponse.status} ${errorBody}`);
         }
 
@@ -213,65 +244,76 @@ http.route({
   path: "/emailReplyWebhook",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    // Get Mailgun signature header
-    const signatureHeader = request.headers.get('signature');
-    if (!signatureHeader) {
-      console.warn("Mailgun webhook request missing signature header.");
-      return new Response("Missing signature header", { status: 400 });
-    }
-
-    let signatureData;
-    try {
-      signatureData = JSON.parse(signatureHeader);
-      if (!signatureData.timestamp || !signatureData.token || !signatureData.signature) {
-        throw new Error("Invalid signature header format");
-      }
-    } catch (e) {
-      console.warn("Error parsing Mailgun signature header:", e);
-      return new Response("Invalid signature header", { status: 400 });
-    }
-
-    const { timestamp, token, signature } = signatureData;
-
-    // Get form data
+    console.log("[MAILGUN DEBUG] Received webhook request to /emailReplyWebhook");
+    
+    // Log request headers
+    const headers: Record<string, string> = {};
+    request.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+    console.log("[MAILGUN DEBUG] Request headers:", JSON.stringify(headers));
+    
+    // Get form data directly - Mailgun sends all verification info in the form data, not headers
     let formData;
+    let formDataObj: Record<string, string> = {};
+    
     try {
       formData = await request.formData();
+      
+      // Convert FormData to a plain object
+      formData.forEach((value, key) => {
+        // Convert all values to strings for simplicity
+        formDataObj[key] = typeof value === 'string' ? value : '[BINARY DATA]';
+      });
+      
+      const keysToLog = Object.keys(formDataObj).join(", ");
+      console.log(`[MAILGUN DEBUG] Received form data with keys: ${keysToLog}`);
+      
+      // Log some important values if they exist
+      console.log("[MAILGUN DEBUG] Important form fields:");
+      const importantFields = ["recipient", "sender", "subject", "body-plain", "stripped-text", "timestamp", "token", "signature"];
+      importantFields.forEach(field => {
+        if (formDataObj[field]) {
+          console.log(`[MAILGUN DEBUG] ${field}: ${field === "body-plain" || field === "stripped-text" 
+            ? formDataObj[field].substring(0, 50) + "..." 
+            : formDataObj[field]}`);
+        }
+      });
+      
     } catch (e) {
-      console.error("Error parsing form data from Mailgun webhook:", e);
+      console.error("[MAILGUN DEBUG] Error parsing form data from Mailgun webhook:", e);
+      
+      // Try to get the raw body as text as a fallback
+      try {
+        const clonedRequest = request.clone();
+        const bodyText = await clonedRequest.text();
+        console.log("[MAILGUN DEBUG] Raw request body (first 500 chars):", bodyText.substring(0, 500));
+      } catch (textError) {
+        console.error("[MAILGUN DEBUG] Failed to read raw body:", textError);
+      }
+      
       return new Response("Failed to parse form data", { status: 400 });
     }
-
-    // Extract required fields
-    const recipient = formData.get("recipient") as string | null;
-    const sender = formData.get("sender") as string | null;
-    const bodyPlain = formData.get("stripped-text") as string || formData.get("body-plain") as string | null;
-    const messageId = formData.get("Message-Id") as string | null;
-
-    // Basic validation of form fields
-    if (!recipient || !sender || !bodyPlain || !messageId) {
-      console.warn("Mailgun webhook missing required form fields", { recipient, sender, bodyExists: !!bodyPlain, messageId });
-      // Return 200 to prevent Mailgun retries for fundamentally invalid data
+    
+    // Basic validation - at minimum we need a recipient
+    if (!formDataObj.recipient) {
+      console.warn("[MAILGUN DEBUG] Missing recipient in form data");
       return new Response("Missing required email fields", { status: 200 });
     }
 
     try {
-      // Call the internal action to verify signature and process data
+      // Call the internal action with the full form data
+      console.log("[MAILGUN DEBUG] Calling internal action with form data");
       const result = await ctx.runAction(internal.mailgun.verifyAndProcessWebhook, {
-        timestamp,
-        token,
-        signature,
-        recipient,
-        sender,
-        bodyPlain,
-        messageId,
+        formData: formDataObj
       });
 
+      console.log("[MAILGUN DEBUG] Internal action result:", JSON.stringify(result));
       // Return response based on the action's outcome
       return new Response(result.message, { status: result.status });
 
     } catch (error: any) {
-      console.error("Error invoking verifyAndProcessWebhook action:", error);
+      console.error("[MAILGUN DEBUG] Error invoking verifyAndProcessWebhook action:", error);
       // Generic error if the action itself fails unexpectedly
       return new Response("Internal Server Error invoking action", { status: 500 });
     }
