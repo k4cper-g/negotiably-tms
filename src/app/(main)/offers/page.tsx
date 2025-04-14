@@ -1843,9 +1843,6 @@ export default function OffersPage() {
           <h1 className="text-2xl font-bold tracking-tight mb-1">Transport Offers</h1>
           <p className="text-muted-foreground">Manage and track all your freight offers from different marketplaces</p>
         </div>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -1862,12 +1859,6 @@ export default function OffersPage() {
                   </span>
                 )}
               </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Refresh the data with current filters</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
       </div>
 
       {/* Search and Filters */}
@@ -2163,8 +2154,22 @@ export default function OffersPage() {
                   {table.getHeaderGroups().map((headerGroup) => (
                     <TableRow key={headerGroup.id}>
                       {headerGroup.headers.map((header) => {
+                        // Map header IDs to appropriate width/min-width classes
+                        const headerClassMap: { [key: string]: string } = {
+                          select: "w-12",
+                          id: "w-[100px]",
+                          route: "min-w-[180px]",
+                          distance: "min-w-[120px]",
+                          price: "min-w-[100px]",
+                          vehicle: "min-w-[150px]",
+                          dates: "min-w-[180px]",
+                          status: "min-w-[100px]",
+                          platform: "min-w-[120px]",
+                          actions: "w-12",
+                        };
                         return (
-                          <TableHead key={header.id} colSpan={header.colSpan}>
+                          // Apply the mapped class to the TableHead
+                          <TableHead key={header.id} colSpan={header.colSpan} className={cn(headerClassMap[header.id])}>
                             {header.isPlaceholder
                               ? null
                               : flexRender(
@@ -2180,8 +2185,8 @@ export default function OffersPage() {
                 <TableBody>
                   {isLoading ? (
                     // Skeleton Loading Rows
-                    Array(10).fill(0).map((_, i) => (
-                      <TableRow key={`loading-${i}`} className="animate-pulse">
+                    Array(pageSize).fill(0).map((_, i) => (
+                      <TableRow key={`loading-${i}`} className="animate-pulse h-[60.7px]">
                         <TableCell><div className="h-4 w-4 bg-muted rounded"></div></TableCell>
                         <TableCell><div className="h-5 bg-muted rounded w-16"></div></TableCell>
                         <TableCell>
@@ -2350,7 +2355,7 @@ export default function OffersPage() {
              {isLoading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 p-1">
                  {/* Skeleton Cards */}
-                {Array(8).fill(0).map((_, i) => ( <Card key={`skeleton-${i}`} className="h-full flex flex-col overflow-hidden animate-pulse"> <div className="bg-muted px-3 py-2 border-b flex items-center justify-between"> <div className="h-5 bg-muted-foreground/20 rounded w-16"></div> <div className="h-4 bg-muted-foreground/20 rounded w-20"></div> </div> <CardHeader className="pb-1 pt-3"> <div className="space-y-2"> <div className="flex items-center gap-2"> <div className="h-2 w-2 rounded-full bg-muted-foreground/20"></div> <div className="h-4 bg-muted-foreground/20 rounded w-28"></div> </div> <div className="flex items-center gap-2"> <div className="h-2 w-2 rounded-full bg-muted-foreground/20"></div> <div className="h-4 bg-muted-foreground/20 rounded w-32"></div> </div> <div className="flex items-center justify-between pt-1"> <div className="h-4 bg-muted-foreground/20 rounded w-20"></div> <div className="h-5 bg-muted-foreground/20 rounded w-16"></div> </div> </div> </CardHeader> <CardContent className="flex-1 py-0"> <div className="grid grid-cols-2 gap-y-2 gap-x-4 mb-4"> <div> <div className="h-3 bg-muted-foreground/20 rounded w-8 mb-1"></div> <div className="h-5 bg-muted-foreground/20 rounded w-16"></div> </div> <div> <div className="h-3 bg-muted-foreground/20 rounded w-12 mb-1"></div> <div className="h-5 bg-muted-foreground/20 rounded w-14"></div> </div> <div> <div className="h-3 bg-muted-foreground/20 rounded w-10 mb-1"></div> <div className="h-5 bg-muted-foreground/20 rounded w-24"></div> </div> <div> <div className="h-3 bg-muted-foreground/20 rounded w-10 mb-1"></div> <div className="h-5 bg-muted-foreground/20 rounded w-24"></div> </div> </div> <div className="h-4 bg-muted-foreground/20 rounded w-full mb-2"></div> <div className="bg-muted/30 -mx-6 px-6 py-2 mt-auto border-t flex justify-between items-center"> <div className="flex flex-col gap-1"> <div className="h-3 bg-muted-foreground/20 rounded w-14"></div> <div className="h-4 bg-muted-foreground/20 rounded w-20"></div> </div> <div className="flex flex-col items-end gap-1"> <div className="h-3 bg-muted-foreground/20 rounded w-14"></div> <div className="h-4 bg-muted-foreground/20 rounded w-20"></div> </div> </div> </CardContent> <div className="p-3 border-t bg-background flex items-center justify-between gap-2"> <div className="h-8 bg-muted-foreground/20 rounded w-full"></div> </div> </Card> ))}
+                {Array(pageSize).fill(0).map((_, i) => ( <Card key={`skeleton-${i}`} className="h-full flex flex-col overflow-hidden animate-pulse"> <div className="bg-muted px-3 py-2 border-b flex items-center justify-between"> <div className="h-5 bg-muted-foreground/20 rounded w-16"></div> <div className="h-4 bg-muted-foreground/20 rounded w-20"></div> </div> <CardHeader className="pb-1 pt-3"> <div className="space-y-2"> <div className="flex items-center gap-2"> <div className="h-2 w-2 rounded-full bg-muted-foreground/20"></div> <div className="h-4 bg-muted-foreground/20 rounded w-28"></div> </div> <div className="flex items-center gap-2"> <div className="h-2 w-2 rounded-full bg-muted-foreground/20"></div> <div className="h-4 bg-muted-foreground/20 rounded w-32"></div> </div> <div className="flex items-center justify-between pt-1"> <div className="h-4 bg-muted-foreground/20 rounded w-20"></div> <div className="h-5 bg-muted-foreground/20 rounded w-16"></div> </div> </div> </CardHeader> <CardContent className="flex-1 py-0"> <div className="grid grid-cols-2 gap-y-2 gap-x-4 mb-4"> <div> <div className="h-3 bg-muted-foreground/20 rounded w-8 mb-1"></div> <div className="h-5 bg-muted-foreground/20 rounded w-16"></div> </div> <div> <div className="h-3 bg-muted-foreground/20 rounded w-12 mb-1"></div> <div className="h-5 bg-muted-foreground/20 rounded w-14"></div> </div> <div> <div className="h-3 bg-muted-foreground/20 rounded w-10 mb-1"></div> <div className="h-5 bg-muted-foreground/20 rounded w-24"></div> </div> <div> <div className="h-3 bg-muted-foreground/20 rounded w-10 mb-1"></div> <div className="h-5 bg-muted-foreground/20 rounded w-24"></div> </div> </div> <div className="h-4 bg-muted-foreground/20 rounded w-full mb-2"></div> <div className="bg-muted/30 -mx-6 px-6 py-2 mt-auto border-t flex justify-between items-center"> <div className="flex flex-col gap-1"> <div className="h-3 bg-muted-foreground/20 rounded w-14"></div> <div className="h-4 bg-muted-foreground/20 rounded w-20"></div> </div> <div className="flex flex-col items-end gap-1"> <div className="h-3 bg-muted-foreground/20 rounded w-14"></div> <div className="h-4 bg-muted-foreground/20 rounded w-20"></div> </div> </div> </CardContent> <div className="p-3 border-t bg-background flex items-center justify-between gap-2"> <div className="h-8 bg-muted-foreground/20 rounded w-full"></div> </div> </Card> ))}
               </div>
              ) : filteredOffers.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[600px]">
@@ -2446,7 +2451,7 @@ export default function OffersPage() {
               <div className="overflow-y-auto h-[calc(700px-48px-40px)]"> {/* Adjust height for pagination */}
                  {/* Loading/Empty/Data states for map list */}
                  {isLoading ? (
-                   <div className="space-y-0"> {Array(6).fill(0).map((_, i) => ( <div key={`map-skeleton-${i}`} className="p-3 border-b animate-pulse"> <div className="flex justify-between items-start mb-2"> <div className="h-5 bg-muted-foreground/20 rounded w-16"></div> <div className="h-5 bg-muted-foreground/20 rounded w-20"></div> </div> <div className="space-y-3"> <div className="grid grid-cols-[16px_1fr] gap-1.5"> <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/20 mt-1.5"></div> <div className="h-4 bg-muted-foreground/20 rounded w-28"></div> </div> <div className="grid grid-cols-[16px_1fr] gap-1.5"> <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/20 mt-1.5"></div> <div className="h-4 bg-muted-foreground/20 rounded w-32"></div> </div> </div> <div className="flex justify-between items-center mt-2 pt-2 border-t border-border/40"> <div className="h-5 bg-muted-foreground/20 rounded w-16"></div> <div className="h-4 bg-muted-foreground/20 rounded w-14"></div> </div> </div> ))} </div>
+                   <div className="space-y-0"> {Array(pageSize).fill(0).map((_, i) => ( <div key={`map-skeleton-${i}`} className="p-3 border-b animate-pulse"> <div className="flex justify-between items-start mb-2"> <div className="h-5 bg-muted-foreground/20 rounded w-16"></div> <div className="h-5 bg-muted-foreground/20 rounded w-20"></div> </div> <div className="space-y-3"> <div className="grid grid-cols-[16px_1fr] gap-1.5"> <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/20 mt-1.5"></div> <div className="h-4 bg-muted-foreground/20 rounded w-28"></div> </div> <div className="grid grid-cols-[16px_1fr] gap-1.5"> <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/20 mt-1.5"></div> <div className="h-4 bg-muted-foreground/20 rounded w-32"></div> </div> </div> <div className="flex justify-between items-center mt-2 pt-2 border-t border-border/40"> <div className="h-5 bg-muted-foreground/20 rounded w-16"></div> <div className="h-4 bg-muted-foreground/20 rounded w-14"></div> </div> </div> ))} </div>
                  ) : filteredOffers.length === 0 ? (
                    <div className="flex flex-col items-center justify-center h-full"> <p className="text-sm text-muted-foreground">No offers found</p> </div>
                  ) : (

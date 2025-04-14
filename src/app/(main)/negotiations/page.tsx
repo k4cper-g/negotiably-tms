@@ -144,11 +144,13 @@ const columns: ColumnDef<Negotiation>[] = [
     ),
     enableSorting: false,
     enableHiding: false,
+    size: 40, // Fixed width for checkbox column
   },
   {
     accessorKey: "id",
     header: "ID",
     cell: ({ row }) => <div className="text-sm">{row.original.id.substring(0, 8)}</div>,
+    size: 100, // Fixed width for ID column
   },
   {
     accessorKey: "route",
@@ -165,6 +167,7 @@ const columns: ColumnDef<Negotiation>[] = [
         </div>
       </div>
     ),
+    size: 200, // Fixed width for route column
     sortingFn: (rowA, rowB) => {
       // Sort by origin + destination
       const routeA = `${rowA.original.origin}-${rowA.original.destination}`.toLowerCase();
@@ -176,6 +179,7 @@ const columns: ColumnDef<Negotiation>[] = [
     accessorKey: "carrier",
     header: "Carrier",
     cell: ({ row }) => <div>{row.original.carrier || "Unknown"}</div>,
+    size: 150, // Fixed width for carrier column
   },
   {
     accessorKey: "initialPrice",
@@ -190,11 +194,13 @@ const columns: ColumnDef<Negotiation>[] = [
       </Button>
     ),
     cell: ({ row }) => <div>{row.original.initialPrice}</div>,
+    size: 120, // Fixed width for initialPrice column
   },
   {
     accessorKey: "currentPrice",
     header: "Current Price",
     cell: ({ row }) => <div>{row.original.currentPrice || row.original.initialPrice}</div>,
+    size: 120, // Fixed width for currentPrice column
   },
   {
     accessorKey: "profit",
@@ -259,6 +265,7 @@ const columns: ColumnDef<Negotiation>[] = [
       
       return profitA - profitB; // Sort ascending by numeric profit
     },
+    size: 120, // Fixed width for profit column
   },
   {
     accessorKey: "status",
@@ -280,11 +287,13 @@ const columns: ColumnDef<Negotiation>[] = [
         </Badge>
       );
     },
+    size: 120, // Fixed width for status column
   },
   {
     accessorKey: "lastActivity",
     header: "Last Activity",
     cell: ({ row }) => <div className="text-xs text-muted-foreground">{row.original.lastActivity}</div>,
+    size: 120, // Fixed width for lastActivity column
   },
   {
     accessorKey: "messages",
@@ -295,6 +304,7 @@ const columns: ColumnDef<Negotiation>[] = [
         <span>{row.original.messages}</span>
         </div>
     ),
+    size: 80, // Fixed width for messages column
   },
   {
     id: "actions",
@@ -470,6 +480,7 @@ const columns: ColumnDef<Negotiation>[] = [
         </>
       );
     },
+    size: 70, // Fixed width for actions column
     enableSorting: false,
     enableHiding: false,
   },
@@ -790,20 +801,26 @@ export default function NegotiationsPage() {
 
       <div className="rounded-md border overflow-hidden">
         <div className="overflow-x-auto">
-          <Table>
+          <Table style={{ tableLayout: 'fixed', width: '100%' }}>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} colSpan={header.colSpan}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  ))}
+                  {headerGroup.headers.map((header) => {
+                    // Get column width from size property
+                    const column = header.column.columnDef;
+                    const width = 'size' in column ? `${column.size}px` : 'auto';
+                    
+                    return (
+                      <TableHead key={header.id} colSpan={header.colSpan} style={{ width }}>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </TableHead>
+                    );
+                  })}
                 </TableRow>
               ))}
             </TableHeader>
@@ -812,41 +829,79 @@ export default function NegotiationsPage() {
                 // Skeleton Loading Rows - Render based on pageSize
                 Array(pageSize).fill(0).map((_, i) => (
                   <TableRow key={`loading-${i}`} className="animate-pulse">
-                    {/* Checkbox Skeleton */}
-                    <TableCell><div className="h-5 w-5 bg-muted rounded"></div></TableCell> 
-                    {/* ID Skeleton */}
-                    <TableCell><div className="h-4 bg-muted rounded w-16"></div></TableCell> 
-                    {/* Route Skeleton */}
-                    <TableCell>
-                      <div className="space-y-2">
-                        <div className="flex items-center">
-                          <div className="h-1.5 w-1.5 rounded-full bg-muted mr-1.5"></div>
-                          <div className="h-4 bg-muted rounded w-28"></div>
-                        </div>
-                        <div className="flex items-center">
-                          <div className="h-1.5 w-1.5 rounded-full bg-muted mr-1.5"></div>
-                          <div className="h-4 bg-muted rounded w-28"></div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    {/* Carrier Skeleton */}
-                    <TableCell><div className="h-4 bg-muted rounded w-20"></div></TableCell> 
-                    {/* Initial Price Skeleton */}
-                    <TableCell><div className="h-4 bg-muted rounded w-16"></div></TableCell> 
-                    {/* Current Price Skeleton */}
-                    <TableCell><div className="h-4 bg-muted rounded w-16"></div></TableCell> 
-                    {/* Savings Skeleton */}
-                    <TableCell><div className="h-4 bg-muted rounded w-20"></div></TableCell> 
-                    {/* Status Skeleton */}
-                    <TableCell><div className="h-6 bg-muted rounded w-20"></div></TableCell> 
-                    {/* Last Activity Skeleton */}
-                    <TableCell><div className="h-4 bg-muted rounded w-24"></div></TableCell> 
-                    {/* Actions Skeleton */}
-                    <TableCell><div className="h-7 bg-muted rounded w-16"></div></TableCell> 
+                    {/* We'll render the same number of columns as defined in the columns array */}
+                    {columns.map((column, colIndex) => {
+                      // Different skeleton content based on column type
+                      let skeletonContent;
+                      const columnId = column.id || '';
+                      const accessorKey = 'accessorKey' in column ? column.accessorKey as string : '';
+                      const key = accessorKey || columnId;
+                      
+                      switch(key) {
+                        case "select":
+                          skeletonContent = <div className="h-5 w-5 bg-muted rounded"></div>;
+                          break;
+                        case "id":
+                          skeletonContent = <div className="h-4 bg-muted rounded w-16"></div>;
+                          break;
+                        case "route":
+                          skeletonContent = (
+                            <div className="space-y-2">
+                              <div className="flex items-center">
+                                <div className="h-1.5 w-1.5 rounded-full bg-muted mr-1.5"></div>
+                                <div className="h-4 bg-muted rounded w-28"></div>
+                              </div>
+                              <div className="flex items-center">
+                                <div className="h-1.5 w-1.5 rounded-full bg-muted mr-1.5"></div>
+                                <div className="h-4 bg-muted rounded w-28"></div>
+                              </div>
+                            </div>
+                          );
+                          break;
+                        case "carrier":
+                          skeletonContent = <div className="h-4 bg-muted rounded w-20"></div>;
+                          break;
+                        case "initialPrice":
+                          skeletonContent = <div className="h-4 bg-muted rounded w-16"></div>;
+                          break;
+                        case "currentPrice":
+                          skeletonContent = <div className="h-4 bg-muted rounded w-16"></div>;
+                          break;
+                        case "profit":
+                          skeletonContent = <div className="h-4 bg-muted rounded w-20"></div>;
+                          break;
+                        case "status":
+                          skeletonContent = <div className="h-6 bg-muted rounded w-20"></div>;
+                          break;
+                        case "lastActivity":
+                          skeletonContent = <div className="h-4 bg-muted rounded w-24"></div>;
+                          break;
+                        case "messages":
+                          skeletonContent = <div className="flex items-center gap-1">
+                            <div className="h-3.5 w-3.5 rounded-full bg-muted"></div>
+                            <div className="h-4 bg-muted rounded w-4"></div>
+                          </div>;
+                          break;
+                        case "actions":
+                          skeletonContent = <div className="h-7 bg-muted rounded w-7"></div>;
+                          break;
+                        default:
+                          skeletonContent = <div className="h-4 bg-muted rounded w-16"></div>;
+                      }
+                      
+                      // Get column width from size property
+                      const width = 'size' in column ? `${column.size}px` : 'auto';
+                      
+                      return (
+                        <TableCell key={colIndex} style={{ width }}>
+                          {skeletonContent}
+                        </TableCell>
+                      );
+                    })}
                   </TableRow>
                 ))
               ) : table.getRowModel().rows?.length ? (
-                // Render actual rows (no change here)
+                // Render actual rows with consistent column widths
                 table.getRowModel().rows.map((row) => (
                   <TableRow 
                     key={row.id}
@@ -863,14 +918,20 @@ export default function NegotiationsPage() {
                       }
                     }}
                   >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
-                    ))}
+                    {row.getVisibleCells().map((cell) => {
+                      // Get column width from size property
+                      const column = cell.column.columnDef;
+                      const width = 'size' in column ? `${column.size}px` : 'auto';
+                      
+                      return (
+                        <TableCell key={cell.id} style={{ width }}>
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </TableCell>
+                      );
+                    })}
                   </TableRow>
                 ))
               ) : (

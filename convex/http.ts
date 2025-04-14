@@ -213,59 +213,67 @@ http.route({
   path: "/emailReplyWebhook",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    // TODO: Add Mailgun webhook signature verification for security
+    // Get Mailgun signature header
+    const signatureHeader = request.headers.get('signature');
+    if (!signatureHeader) {
+      console.warn("Mailgun webhook request missing signature header.");
+      return new Response("Missing signature header", { status: 400 });
+    }
+
+    let signatureData;
+    try {
+      signatureData = JSON.parse(signatureHeader);
+      if (!signatureData.timestamp || !signatureData.token || !signatureData.signature) {
+        throw new Error("Invalid signature header format");
+      }
+    } catch (e) {
+      console.warn("Error parsing Mailgun signature header:", e);
+      return new Response("Invalid signature header", { status: 400 });
+    }
+
+    const { timestamp, token, signature } = signatureData;
+
+    // Get form data
+    let formData;
+    try {
+      formData = await request.formData();
+    } catch (e) {
+      console.error("Error parsing form data from Mailgun webhook:", e);
+      return new Response("Failed to parse form data", { status: 400 });
+    }
+
+    // Extract required fields
+    const recipient = formData.get("recipient") as string | null;
+    const sender = formData.get("sender") as string | null;
+    const bodyPlain = formData.get("stripped-text") as string || formData.get("body-plain") as string | null;
+    const messageId = formData.get("Message-Id") as string | null;
+
+    // Basic validation of form fields
+    if (!recipient || !sender || !bodyPlain || !messageId) {
+      console.warn("Mailgun webhook missing required form fields", { recipient, sender, bodyExists: !!bodyPlain, messageId });
+      // Return 200 to prevent Mailgun retries for fundamentally invalid data
+      return new Response("Missing required email fields", { status: 200 });
+    }
 
     try {
-      // Mailgun sends data as form data
-      const formData = await request.formData();
-
-      // Extract relevant fields (Mailgun parameter names)
-      const recipient = formData.get("recipient") as string | null;
-      const sender = formData.get("sender") as string | null;
-      const subject = formData.get("subject") as string | null;
-      // Use stripped-text if available, otherwise fallback to body-plain
-      const bodyPlain = formData.get("stripped-text") as string || formData.get("body-plain") as string | null;
-      const messageId = formData.get("Message-Id") as string | null; // Mailgun often includes headers
-
-      // Basic validation
-      if (!recipient || !sender || !bodyPlain || !messageId) {
-        console.warn("Mailgun webhook missing required fields", { recipient, sender, bodyExists: !!bodyPlain, messageId });
-        return new Response("Missing required fields", { status: 400 });
-      }
-
-      // --- Parse Negotiation ID from Recipient ---
-      // Expected format: reply+<negotiationId>@replies.alterion.io
-      const recipientMatch = recipient.match(/^reply\+([^@]+)@/);
-      if (!recipientMatch || !recipientMatch[1]) {
-        console.error("Could not parse negotiation ID from recipient:", recipient);
-        // Return 200 OK to Mailgun to prevent retries for unparseable addresses
-        return new Response("Could not parse negotiation ID", { status: 200 }); 
-      }
-      const negotiationIdString = recipientMatch[1];
-      console.log(`Received email reply for negotiation ID: ${negotiationIdString}`);
-      
-      // Construct the Convex ID type
-      const negotiationId = negotiationIdString as Id<"negotiations">;
-      // ----------------------------------------
-
-      // --- Call internal mutation to add message ---
-      await ctx.runMutation(internal.negotiations.addReplyFromEmail, {
-        negotiationId: negotiationId,
-        senderEmail: sender,
-        content: bodyPlain,
-        incomingMessageId: messageId,
+      // Call the internal action to verify signature and process data
+      const result = await ctx.runAction(internal.mailgun.verifyAndProcessWebhook, {
+        timestamp,
+        token,
+        signature,
+        recipient,
+        sender,
+        bodyPlain,
+        messageId,
       });
-      // -------------------------------------------
 
-      console.log(`Successfully processed email reply for negotiation ${negotiationIdString}`);
-      // Return 200 OK to Mailgun to acknowledge receipt
-      return new Response(null, { status: 200 });
+      // Return response based on the action's outcome
+      return new Response(result.message, { status: result.status });
 
     } catch (error: any) {
-      console.error("Error processing Mailgun webhook:", error);
-      // Return 500 but Mailgun might retry, which might not be desired
-      // Consider returning 200 even on internal errors if retries are problematic
-      return new Response("Internal Server Error", { status: 500 });
+      console.error("Error invoking verifyAndProcessWebhook action:", error);
+      // Generic error if the action itself fails unexpectedly
+      return new Response("Internal Server Error invoking action", { status: 500 });
     }
   }),
 });
