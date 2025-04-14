@@ -1546,7 +1546,7 @@ export default function OffersPage() {
     if (Object.keys(pendingFilters).length === 0 && activeFilterKeys.length > 0) {
       const resetObj: OfferFilters = {};
       activeFilterKeys.forEach(key => {
-        // @ts-ignore - Dynamic key assignment
+        // @ts-expect-error - Dynamic key assignment
         resetObj[key] = undefined;
       });
       setFilters(resetObj);
@@ -1580,7 +1580,7 @@ export default function OffersPage() {
     // Explicitly set all filter values to undefined to ensure a complete reset
     const resetObj: OfferFilters = {};
     Object.keys(filters).forEach(key => {
-      // @ts-ignore - Dynamic key assignment
+      // @ts-expect-error - Dynamic key assignment
       resetObj[key] = undefined;
     });
     setFilters(resetObj);

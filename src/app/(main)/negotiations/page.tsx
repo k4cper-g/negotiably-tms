@@ -311,180 +311,185 @@ const columns: ColumnDef<Negotiation>[] = [
     header: "",
     cell: ({ row }) => {
       const neg = row.original;
-      const router = useRouter();
-      const { openNegotiation } = useNegotiationModal();
-      const deleteNegotiation = useMutation(api.negotiations.deleteNegotiation);
-      const updateNegotiationPrice = useMutation(api.negotiations.updateCurrentPrice);
-      const [isDeleting, setIsDeleting] = useState(false);
-      const [isUpdatingPrice, setIsUpdatingPrice] = useState(false);
-      const [newPrice, setNewPrice] = useState("");
-      const [editDialogOpen, setEditDialogOpen] = useState(false);
-      
-      const handleOpenModal = (e: React.MouseEvent) => {
-        e.stopPropagation(); // Prevent row click
-        openNegotiation(neg.id as unknown as Id<"negotiations">);
-      };
-
-      const handleDelete = async (e: React.MouseEvent) => {
-        e.stopPropagation(); // Prevent row click
-        
-        try {
-          setIsDeleting(true);
-          await deleteNegotiation({
-            negotiationId: neg.id as unknown as Id<"negotiations">
-          });
-        } catch (error) {
-          console.error("Error deleting negotiation:", error);
-        } finally {
-          setIsDeleting(false);
-        }
-      };
-      
-      const handleUpdatePrice = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newPrice.trim()) return;
-        
-        try {
-          setIsUpdatingPrice(true);
-          await updateNegotiationPrice({
-            negotiationId: neg.id as unknown as Id<"negotiations">,
-            newPrice: newPrice
-          });
-          setEditDialogOpen(false);
-        } catch (error) {
-          console.error("Error updating price:", error);
-        } finally {
-          setIsUpdatingPrice(false);
-        }
-      };
-      
-      return (
-        <>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="h-8 w-8 p-0"
-                onClick={(e) => e.stopPropagation()} // Prevent row click
-              >
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation();
-                router.push(`/negotiations/${neg.id}`);
-              }}>
-                View Details
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => handleOpenModal(e)}>
-                Open as Floating Chat
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setNewPrice(neg.currentPrice || neg.initialPrice);
-                  setEditDialogOpen(true);
-                }}
-              >
-                Edit Price
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                className="text-red-600 focus:text-red-600"
-                onClick={(e) => {
-                  e.stopPropagation();
-                }}
-                disabled={isDeleting}
-                asChild
-              >
-                <AlertDialog>
-                  <AlertDialogTrigger 
-                    className="w-full text-left px-2 py-1.5 text-sm text-red-600 focus:text-red-600 relative flex cursor-default select-none items-center rounded-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {isDeleting ? 'Deleting...' : 'Delete'}
-                  </AlertDialogTrigger>
-                  <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete negotiation?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the negotiation and remove it from our servers.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
-                      <AlertDialogAction 
-                        className="bg-red-600 hover:bg-red-700"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(e);
-                        }}
-                      >
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
-          <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-            <DialogContent className="sm:max-w-[425px]" onClick={(e) => e.stopPropagation()}>
-              <DialogHeader>
-                <DialogTitle>Edit Current Price</DialogTitle>
-                <DialogDescription>
-                  Update the current negotiated price. This will be recorded in the chat history.
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleUpdatePrice}>
-                <div className="grid gap-4 py-4">
-                  <div className="flex flex-col space-y-1.5">
-                    <label htmlFor="price" className="text-sm font-medium">
-                      Current Price
-                    </label>
-                    <Input
-                      id="price"
-                      placeholder="€1000.00"
-                      value={newPrice}
-                      onChange={(e) => setNewPrice(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      autoFocus
-                    />
-                  </div>
-        </div>
-                <DialogFooter>
-                  <Button 
-                    variant="outline" 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditDialogOpen(false);
-                    }}
-                    type="button"
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    disabled={isUpdatingPrice}
-                  >
-                    {isUpdatingPrice ? 'Updating...' : 'Update Price'}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </>
-      );
+      return <NegotiationActions negotiation={neg} />;
     },
     size: 70, // Fixed width for actions column
     enableSorting: false,
     enableHiding: false,
   },
 ];
+
+// NegotiationActions component to handle row actions
+function NegotiationActions({ negotiation: neg }: { negotiation: any }) {
+  const router = useRouter();
+  const { openNegotiation } = useNegotiationModal();
+  const deleteNegotiation = useMutation(api.negotiations.deleteNegotiation);
+  const updateNegotiationPrice = useMutation(api.negotiations.updateCurrentPrice);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isUpdatingPrice, setIsUpdatingPrice] = useState(false);
+  const [newPrice, setNewPrice] = useState("");
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  
+  const handleOpenModal = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click
+    openNegotiation(neg.id as unknown as Id<"negotiations">);
+  };
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click
+    
+    try {
+      setIsDeleting(true);
+      await deleteNegotiation({
+        negotiationId: neg.id as unknown as Id<"negotiations">
+      });
+    } catch (error) {
+      console.error("Error deleting negotiation:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  
+  const handleUpdatePrice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPrice.trim()) return;
+    
+    try {
+      setIsUpdatingPrice(true);
+      await updateNegotiationPrice({
+        negotiationId: neg.id as unknown as Id<"negotiations">,
+        newPrice: newPrice
+      });
+      setEditDialogOpen(false);
+    } catch (error) {
+      console.error("Error updating price:", error);
+    } finally {
+      setIsUpdatingPrice(false);
+    }
+  };
+  
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            className="h-8 w-8 p-0"
+            onClick={(e) => e.stopPropagation()} // Prevent row click
+          >
+            <span className="sr-only">Open menu</span>
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+          <DropdownMenuItem onClick={(e) => {
+            e.stopPropagation();
+            router.push(`/negotiations/${neg.id}`);
+          }}>
+            View Details
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={(e) => handleOpenModal(e)}>
+            Open as Floating Chat
+          </DropdownMenuItem>
+          <DropdownMenuItem 
+            onClick={(e) => {
+              e.stopPropagation();
+              setNewPrice(neg.currentPrice || neg.initialPrice);
+              setEditDialogOpen(true);
+            }}
+          >
+            Edit Price
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem 
+            className="text-red-600 focus:text-red-600"
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+            disabled={isDeleting}
+            asChild
+          >
+            <AlertDialog>
+              <AlertDialogTrigger 
+                className="w-full text-left px-2 py-1.5 text-sm text-red-600 relative flex cursor-default select-none items-center rounded-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </AlertDialogTrigger>
+              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete negotiation?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the negotiation and remove it from our servers.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction 
+                    className="bg-red-600 hover:bg-red-700"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(e);
+                    }}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]" onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>Edit Current Price</DialogTitle>
+            <DialogDescription>
+              Update the current negotiated price. This will be recorded in the chat history.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdatePrice}>
+            <div className="grid gap-4 py-4">
+              <div className="flex flex-col space-y-1.5">
+                <label htmlFor="price" className="text-sm font-medium">
+                  Current Price
+                </label>
+                <Input
+                  id="price"
+                  placeholder="€1000.00"
+                  value={newPrice}
+                  onChange={(e) => setNewPrice(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditDialogOpen(false);
+                }}
+                type="button"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={isUpdatingPrice}
+              >
+                {isUpdatingPrice ? 'Updating...' : 'Update Price'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 // --- Add Helper Function --- 
 const parseNumericValue = (str: string | null | undefined): number | null => {
