@@ -8,8 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Bot, Workflow, Zap, BarChart3, Shield, CheckCircle2, Menu, X, ChevronRight, Plus, Minus, Route, Cog, Rocket } from "lucide-react";
 import { ReactNode, useState, useEffect, useRef } from "react";
 
-
-import { useTheme } from "next-themes";
 import { Switch } from "@/components/ui/switch";
 import { motion, AnimatePresence } from "framer-motion";
 import { InfiniteMovingCards } from "@/components/ui/infinite-moving-cards";
@@ -72,10 +70,24 @@ const AuroraHeader = React.memo(({ delayAurora = 0 }: { delayAurora?: number }) 
 AuroraHeader.displayName = "AuroraHeader";
 
 export default function Home() {
+  // Force light/system theme when navigating to this page from any source
+  useEffect(() => {
+    // Remove any theme class from document
+    document.documentElement.classList.remove('dark');
+    
+    // Reset theme attribute that next-themes uses
+    document.documentElement.removeAttribute('data-theme');
+    
+    // If using localStorage for theme persistence (next-themes default), reset it
+    if (typeof window !== 'undefined') {
+      // Check for next-themes storage key (usually 'theme')
+      localStorage.removeItem('theme');
+    }
+  }, []);
+
   const [isYearly, setIsYearly] = useState(false);
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const answerRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const { theme, systemTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const clerk = useClerk();
@@ -279,11 +291,7 @@ export default function Home() {
 
   useEffect(() => {
     setMounted(true);
-  }, []);
-
-  const currentTheme = mounted ? (theme === 'system' ? systemTheme : theme) : 'light';
-
-  
+  }, []); 
 
   return (
     <div 
@@ -745,7 +753,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
             <Image 
-              src={currentTheme === 'dark' ? "/alterionlogo-light.png" : "/alterionlogo-dark.png"} 
+              src="/alterionlogo-light.png" 
               alt="Alterion Logo" 
               width={120} 
               height={50} 

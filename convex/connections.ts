@@ -6,19 +6,47 @@ import { QueryCtx, MutationCtx } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
 
 // Helper function to get user or throw error if not authenticated
-async function getUserOrThrow(ctx: QueryCtx | MutationCtx) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
-    throw new Error("User not authenticated.");
+// Includes retry logic for authentication to handle race conditions
+async function getUserOrThrow(ctx: QueryCtx | MutationCtx, retries = 2, delayMs = 150) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
+        if (attempt < retries) {
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+          continue;
+        }
+        throw new Error("User not authenticated.");
+      }
+      
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+        .unique();
+        
+      if (!user) {
+        if (attempt < retries) {
+          // Wait longer before retrying if we found identity but not user
+          await new Promise(resolve => setTimeout(resolve, delayMs * 2));
+          continue;
+        }
+        throw new Error("User not found in database.");
+      }
+      
+      return user;
+    } catch (error) {
+      if (attempt < retries) {
+        // Wait before retrying on other errors
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        continue;
+      }
+      throw error;
+    }
   }
-  const user = await ctx.db
-    .query("users")
-    .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
-    .unique();
-  if (!user) {
-    throw new Error("User not found in database.");
-  }
-  return user;
+  
+  // This line should be unreachable due to the final throw in the loop
+  throw new Error("Failed to authenticate user after retries.");
 }
 
 /**

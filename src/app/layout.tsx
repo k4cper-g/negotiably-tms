@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     images: [
       {
         url: "/alterion-meta.png",
-        width: 1000,
+        width: 2000,
         height: 1000,
         alt: "Alterion - Smart Transport Management with AI-Powered Solutions"
       }
