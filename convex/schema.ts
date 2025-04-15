@@ -7,6 +7,10 @@ export default defineSchema({
         email: v.string(),
         name: v.string(),
         imageUrl: v.string(),
+        topBarPreferences: v.optional(v.object({
+            cities: v.array(v.string()),
+            currencies: v.array(v.string()),
+        })),
     }).index("by_clerkId", ["clerkId"]),
     demoRequests: defineTable({
         email: v.string(),
