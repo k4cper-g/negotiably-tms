@@ -62,6 +62,8 @@ const WeatherInfo: React.FC<WeatherInfoProps> = ({ cities }) => {
   // Track loading state per city
   const [loadingCities, setLoadingCities] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
+  // Add a flag for initial loading
+  const [initialFetchDone, setInitialFetchDone] = useState(false);
   
   // For tracking data staleness - refresh cache after expiry time
   const lastFetchTimestamps = useRef<Record<string, number>>({});
@@ -71,6 +73,7 @@ const WeatherInfo: React.FC<WeatherInfoProps> = ({ cities }) => {
   useEffect(() => {
     // Only fetch if there are cities requested
     if (!cities || cities.length === 0) {
+      setInitialFetchDone(true);
       return;
     }
 
@@ -82,6 +85,7 @@ const WeatherInfo: React.FC<WeatherInfoProps> = ({ cities }) => {
     });
 
     if (citiesToFetch.length === 0) {
+      setInitialFetchDone(true);
       return; // All cities already cached with fresh data
     }
 
@@ -126,6 +130,7 @@ const WeatherInfo: React.FC<WeatherInfoProps> = ({ cities }) => {
           });
           return newState;
         });
+        setInitialFetchDone(true);
       }
     };
     
@@ -142,24 +147,21 @@ const WeatherInfo: React.FC<WeatherInfoProps> = ({ cities }) => {
     <TooltipProvider delayDuration={100}> 
       <div className="flex items-center gap-3 text-sm">
         {cities.map((cityName) => {
-          // Check if this city is currently loading
+          // Only show loading skeleton while fetching
           if (loadingCities[cityName]) {
             return (
               <div
                 key={cityName}
-                className="flex items-center gap-1.5 bg-muted text-muted-foreground rounded-full px-3 py-1 h-8 animate-pulse w-24"
-              >
-                <div className="w-5 h-5 bg-muted-foreground/30 rounded-full"></div>
-                <div className="w-12 h-4 bg-muted-foreground/30 rounded"></div>
-              </div>
+                className="h-8 w-24 bg-muted text-muted-foreground rounded-full animate-pulse"
+              />
             );
           }
           
           // Get data from cache
           const data = weatherCache[cityName];
           
-          // If no data for this city
-          if (!data) {
+          // If no data for this city and we've completed the initial fetch, show error
+          if (!data && initialFetchDone) {
             return (
               <div
                 key={`error-${cityName}`}
@@ -171,18 +173,28 @@ const WeatherInfo: React.FC<WeatherInfoProps> = ({ cities }) => {
             );
           }
           
+          // If data is undefined but we're still in initial loading, show loading skeleton
+          if (!data && !initialFetchDone) {
+            return (
+              <div
+                key={`loading-${cityName}`}
+                className="h-8 w-24 bg-muted text-muted-foreground rounded-full animate-pulse"
+              />
+            );
+          }
+          
           // Get the Lucide Icon Component Type
-          const IconComponent = getWeatherIconComponent(data.iconCode);
-          const tooltipText = `${data.city}: ${data.description}`;
+          const IconComponent = getWeatherIconComponent(data!.iconCode);
+          const tooltipText = `${data!.city}: ${data!.description}`;
 
           return (
-            <Tooltip key={data.city}> 
+            <Tooltip key={data!.city}> 
               <TooltipTrigger asChild>
                 <div
                   className="flex items-center gap-1.5 bg-muted text-muted-foreground rounded-full pl-2 pr-3 py-1 h-8 cursor-default"
                 >
                   <IconComponent className="w-4 h-4" /> 
-                  <span>{data.city}: <span className="font-semibold text-foreground">{data.temp}°C</span></span>
+                  <span>{data!.city}: <span className="font-semibold text-foreground">{data!.temp}°C</span></span>
                 </div>
               </TooltipTrigger>
               <TooltipContent>

@@ -1386,6 +1386,9 @@ const AgentSettingsModal = memo(({
   );
 });
 
+// Add display name
+AgentSettingsModal.displayName = 'AgentSettingsModal';
+
 // Add the custom drawer component after imports:
 // Custom drawer implementation to replace shadcn Drawer
 interface CustomDrawerProps {

@@ -58,6 +58,8 @@ const CurrencyInfo: React.FC<CurrencyInfoProps> = ({ currencies }) => {
   // Track loading state per currency
   const [loadingCurrencies, setLoadingCurrencies] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
+  // Add a flag for initial loading
+  const [initialFetchDone, setInitialFetchDone] = useState(false);
   
   // For tracking data staleness - refresh cache after expiry time
   const lastFetchTimestamps = useRef<Record<string, number>>({});
@@ -66,6 +68,7 @@ const CurrencyInfo: React.FC<CurrencyInfoProps> = ({ currencies }) => {
   useEffect(() => {
     // Only fetch if there are currencies requested
     if (!currencies || currencies.length === 0) {
+      setInitialFetchDone(true);
       return;
     }
 
@@ -77,6 +80,7 @@ const CurrencyInfo: React.FC<CurrencyInfoProps> = ({ currencies }) => {
     });
 
     if (currenciesToFetch.length === 0) {
+      setInitialFetchDone(true);
       return; // All currencies already cached with fresh data
     }
 
@@ -120,6 +124,7 @@ const CurrencyInfo: React.FC<CurrencyInfoProps> = ({ currencies }) => {
           });
           return newState;
         });
+        setInitialFetchDone(true);
       }
     };
     
@@ -136,24 +141,21 @@ const CurrencyInfo: React.FC<CurrencyInfoProps> = ({ currencies }) => {
     <TooltipProvider delayDuration={100}> 
       <div className="flex items-center gap-3 text-sm">
         {currencies.map((currencyCode) => {
-          // Check if this currency is currently loading
+          // Only show loading skeleton while fetching
           if (loadingCurrencies[currencyCode]) {
             return (
               <div
                 key={currencyCode}
-                className="flex items-center gap-1.5 bg-muted text-muted-foreground rounded-full px-3 py-1 h-8 animate-pulse w-24"
-              >
-                <div className="w-5 h-5 bg-muted-foreground/30 rounded-full"></div>
-                <div className="w-12 h-4 bg-muted-foreground/30 rounded"></div>
-              </div>
+                className="h-8 w-24 bg-muted text-muted-foreground rounded-full animate-pulse"
+              />
             );
           }
           
           // Get data from cache
           const rate = currencyCache[currencyCode];
           
-          // If no data for this currency
-          if (rate === undefined) {
+          // If no data for this currency and we've completed the initial fetch, show error
+          if (rate === undefined && initialFetchDone) {
             return (
               <div
                 key={`error-${currencyCode}`}
@@ -162,6 +164,16 @@ const CurrencyInfo: React.FC<CurrencyInfoProps> = ({ currencies }) => {
                 <AlertCircle className="w-4 h-4" />
                 <span>{currencyCode}: Error</span>
               </div>
+            );
+          }
+          
+          // If rate is undefined but we're still in initial loading, show loading skeleton
+          if (rate === undefined && !initialFetchDone) {
+            return (
+              <div
+                key={`loading-${currencyCode}`}
+                className="h-8 w-24 bg-muted text-muted-foreground rounded-full animate-pulse"
+              />
             );
           }
           
@@ -177,7 +189,7 @@ const CurrencyInfo: React.FC<CurrencyInfoProps> = ({ currencies }) => {
                   className="flex items-center gap-1.5 bg-muted text-muted-foreground rounded-full pl-2 pr-3 py-1 h-8 cursor-default"
                 >
                   <IconComponent className="w-4 h-4" />
-                  <span>{currencyCode}: <span className="font-semibold text-foreground">€{formattedRate}</span></span>
+                  <span>{currencyCode}: <span className="font-semibold text-foreground">{formattedRate}</span></span>
                 </div>
               </TooltipTrigger>
               <TooltipContent>

@@ -494,6 +494,9 @@ const AgentSettingsModal = memo(({
   );
 });
 
+// Add display name
+AgentSettingsModal.displayName = 'AgentSettingsModal';
+
 export default function NegotiationDetailClient({ 
   negotiationId 
 }: { 

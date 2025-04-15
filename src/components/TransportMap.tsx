@@ -617,7 +617,7 @@ const TransportMap = ({
             })}
             
             {/* Only show fullscreen button */}
-            {interactionEnabled && <FullscreenButton />} // Only show if interactions are enabled
+            {interactionEnabled && <FullscreenButton />} {/* Only show if interactions are enabled */}
             
             {/* Adjust bounds to fit all markers */}
             {allPositions.length > 0 && <MapBoundsAdjuster markers={allPositions} />}

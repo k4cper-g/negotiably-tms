@@ -2,6 +2,12 @@ import { query } from "./_generated/server";
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 
+// Define default preferences
+const defaultPreferences = {
+  cities: ['London', 'Berlin', 'Warsaw'],
+  currencies: ['USD', 'GBP', 'PLN']
+};
+
 export const syncUser = mutation(async ({ db, auth }, { clerkId, email, name, imageUrl }: { clerkId: string; email: string; name: string; imageUrl: string }) => {
     const existingUser = await db.query("users")
       .filter((q) => q.eq(q.field("clerkId"), clerkId))
@@ -11,7 +17,14 @@ export const syncUser = mutation(async ({ db, auth }, { clerkId, email, name, im
       await db.patch(existingUser._id, { email, name, imageUrl });
       return { status: "updated" };
     } else {
-      await db.insert("users", { clerkId, email, name, imageUrl });
+      // Create new user with default preferences
+      await db.insert("users", { 
+        clerkId, 
+        email, 
+        name, 
+        imageUrl,
+        topBarPreferences: defaultPreferences
+      });
       return { status: "created" };
     }
   });
@@ -45,35 +58,35 @@ export const syncUser = mutation(async ({ db, auth }, { clerkId, email, name, im
     },
   });
   
-  // Define default preferences
-  const defaultPreferences = {
-    cities: ['London', 'Berlin', 'Warsaw'],
-    currencies: ['USD', 'GBP', 'PLN']
-  };
-  
   // Query to get the current user's preferences, returning defaults if none exist
   export const getMyPreferences = query({
     args: {},
     handler: async (ctx) => {
-      const identity = await ctx.auth.getUserIdentity();
-      if (!identity) {
-        // Return defaults if not authenticated (or throw error if preferred)
+      try {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+          // Return defaults if not authenticated
+          return defaultPreferences;
+        }
+  
+        const user = await ctx.db
+          .query("users")
+          .withIndex("by_clerkId", q => q.eq("clerkId", identity.subject))
+          .unique();
+  
+        if (!user) {
+          // This shouldn't happen if user is synced, but handle defensively
+          console.error("User not found for authenticated identity");
+          return defaultPreferences; 
+        }
+  
+        // Return user's preferences or defaults if the field is missing/null
+        return user.topBarPreferences ?? defaultPreferences;
+      } catch (error) {
+        // Log the error and return defaults to prevent client crashes
+        console.error("Error in getMyPreferences:", error);
         return defaultPreferences;
       }
-  
-      const user = await ctx.db
-        .query("users")
-        .withIndex("by_clerkId", q => q.eq("clerkId", identity.subject))
-        .unique();
-  
-      if (!user) {
-        // This shouldn't happen if user is synced, but handle defensively
-        console.error("User not found for authenticated identity");
-        return defaultPreferences; 
-      }
-  
-      // Return user's preferences or defaults if the field is missing/null
-      return user.topBarPreferences ?? defaultPreferences;
     },
   });
   

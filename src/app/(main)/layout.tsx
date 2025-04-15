@@ -2,7 +2,7 @@
 
 import { ReactNode, useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
-import { Loader2, AlertTriangle, Truck, FileText, CloudSun, Plus, Settings } from "lucide-react";
+import { Loader2, AlertTriangle, Truck, FileText, CloudSun, Plus, Settings, InfoIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Button } from "@/components/ui/button";
@@ -12,13 +12,32 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import TopBarSettingsDialog from "@/components/TopBarSettingsDialog";
+import { toast } from "sonner";
+
+// Fallback preferences in case of API errors
+const fallbackPreferences = {
+  cities: [],
+  currencies: []
+};
 
 export default function MainLayout({ children }: { children: ReactNode }) {
   const [isMounted, setIsMounted] = useState(false);
   const [isContentLoading, setIsContentLoading] = useState(true);
   
-  // Fetch user preferences
+  // Fetch user preferences with error handling
   const preferences = useQuery(api.users.getMyPreferences);
+  
+  // Handle errors with preferences
+  useEffect(() => {
+    if (preferences === undefined) return;
+    
+    if ((preferences as any)?.message?.includes("Server Error")) {
+      console.error("Failed to load preferences:", preferences);
+      toast.error("Failed to load user preferences", {
+        description: "Using default settings instead"
+      });
+    }
+  }, [preferences]);
 
   // Handle initial render
   useEffect(() => {
@@ -60,19 +79,22 @@ export default function MainLayout({ children }: { children: ReactNode }) {
               {/* Check preferences is not undefined before accessing properties */}
               {preferences === undefined ? (
                 <div className="flex items-center gap-3">
-                  {/* Loading placeholders */}
-                  <div className="h-8 w-24 bg-muted rounded-full animate-pulse"></div>
-                  <div className="h-8 w-24 bg-muted rounded-full animate-pulse"></div>
-                  <div className="h-8 w-24 bg-muted rounded-full animate-pulse"></div>
+                  {/* Loading placeholders - 6 skeletons (3 currencies, 3 cities) */}
+                  {Array(6).fill(0).map((_, i) => (
+                    <div 
+                      key={`skeleton-${i}`} 
+                      className="h-8 w-24 bg-muted rounded-full animate-pulse"
+                    />
+                  ))}
                 </div>
-              ) : preferences && ( // Add check here to ensure preferences object exists
+              ) : (
                 <div className="flex items-center gap-3 text-sm relative group">
-                  {/* Pass fetched preferences as props */}
-                  <CurrencyInfo currencies={preferences.currencies} />
-                  <WeatherInfo cities={preferences.cities} />
+                  {/* Pass fetched preferences as props with optional chaining for safety */}
+                  <CurrencyInfo currencies={preferences?.currencies || []} />
+                  <WeatherInfo cities={preferences?.cities || []} />
                   
                   {/* No Widgets Indicator */}
-                  {(!preferences.currencies?.length && !preferences.cities?.length) && (
+                  {(!preferences?.currencies?.length && !preferences?.cities?.length) && (
                     <div className="flex items-center gap-2 text-muted-foreground bg-muted/50 rounded-full px-3 py-1 h-8">
                       <AlertTriangle className="w-4 h-4" />
                       <span>No widgets selected</span>
@@ -95,7 +117,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 
               {/* Right: User Menu Placeholder */}
               <div className="flex items-center gap-4">
-       
+        
               </div>
             </header>
 
