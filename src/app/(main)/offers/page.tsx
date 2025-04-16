@@ -1694,14 +1694,15 @@ export default function OffersPage() {
         return;
       }
       
+      // Find all selected offers across all pages by looking up from mockOffers
+      const selectedOffers: TransportOffer[] = mockOffers.filter(
+        (offer) => selectedOfferIds.includes(offer.id)
+      );
+      
       // Create negotiations for each selected offer
       const negotiationIds: Id<"negotiations">[] = [];
       
-      for (const offerId of selectedOfferIds) {
-        const offer = filteredOffers.find(o => o.id === offerId);
-        
-        if (!offer) continue;
-        
+      for (const offer of selectedOffers) {
         // Create a new negotiation
         const result = await createNegotiation({
           offerId: offer.id,

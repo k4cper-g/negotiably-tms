@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -592,7 +592,7 @@ export default function NegotiationsPage() {
     });
   };
   
-  const allNegotiations = formatNegotiations();
+  const allNegotiations = useMemo(() => formatNegotiations(), [convexNegotiations]);
   
   // Initialize the table
   const table = useReactTable({
