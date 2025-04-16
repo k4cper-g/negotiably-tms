@@ -26,6 +26,7 @@ import {
   Eraser,
   ChevronLeft,
   ChevronRight,
+  Plus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -35,6 +36,7 @@ import { api } from "../../../../convex/_generated/api";
 import { formatDistanceToNow } from "date-fns";
 import { useNegotiationModal } from "@/context/NegotiationModalContext";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
+import { CustomNegotiationModal } from "@/components/CustomNegotiationModal";
 import { 
   AlertDialog, 
   AlertDialogAction, 
@@ -512,6 +514,7 @@ export default function NegotiationsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
   
   // Tanstack Table state
   const [sorting, setSorting] = useState<SortingState>([{ id: "lastActivity", desc: true }]);
@@ -644,6 +647,10 @@ export default function NegotiationsPage() {
     }, 1000);
   };
   
+  // Functions to control the custom modal
+  const openCustomModal = () => setIsCustomModalOpen(true);
+  const closeCustomModal = () => setIsCustomModalOpen(false);
+
   const isLoading = convexNegotiations === undefined;
   
   return (
@@ -667,6 +674,15 @@ export default function NegotiationsPage() {
               <RefreshCw className="h-3.5 w-3.5" />
             )}
             <span>Refresh</span>
+          </Button>
+          <Button 
+            variant="default" 
+            size="sm" 
+            className="gap-1"
+            onClick={openCustomModal}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Custom Negotiation</span>
           </Button>
         </div>
       </div>
@@ -1012,6 +1028,10 @@ export default function NegotiationsPage() {
           </div>
         </div>
       )}
+      <CustomNegotiationModal 
+        isOpen={isCustomModalOpen}
+        onClose={closeCustomModal}
+      />
     </div>
   );
 } 
