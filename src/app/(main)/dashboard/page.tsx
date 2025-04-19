@@ -24,11 +24,39 @@ import {
 // Helper function to parse numeric value (assuming it exists or we redefine it)
 const parseNumericValue = (str: string | null | undefined): number | null => {
   if (str === null || str === undefined) return null;
+
   try {
-    // Improved cleaning: handle currency symbols, thousands separators (.), and decimal commas (,)
-    const cleaned = str.replace(/[^\d,-]/g, '').replace(/,/g, '.'); // Standardize decimal point
-    const value = parseFloat(cleaned);
+    let cleanedStr = String(str);
+
+    const lastDotIndex = cleanedStr.lastIndexOf('.');
+    const lastCommaIndex = cleanedStr.lastIndexOf(',');
+
+    // Determine if it's likely German format (comma decimal preceded by dots or no dots)
+    if (lastCommaIndex > lastDotIndex) {
+      // German format: 1.234,56 -> 1234.56 or 1234,56 -> 1234.56
+      cleanedStr = cleanedStr.replace(/\./g, ''); // Remove thousand dots
+      cleanedStr = cleanedStr.replace(/,/g, '.');  // Replace decimal comma with dot
+    } else {
+      // US/UK format: 1,234.56 -> 1234.56 or 1234.56 -> 1234.56
+      cleanedStr = cleanedStr.replace(/,/g, ''); // Remove thousand commas
+      // Keep the dot as the decimal separator (if present)
+    }
+
+    // Remove any remaining non-numeric characters except the decimal point and minus sign
+    cleanedStr = cleanedStr.replace(/[^\d.-]/g, '');
+
+    const value = parseFloat(cleanedStr);
+    
+    // Final check: if the result is still huge unexpectedly (e.g., parsing '1200' as 120000 somehow)
+    // This is a fallback, the above logic should handle it.
+    if (Math.abs(value) > 1000000 && String(str).indexOf('.') === -1 && String(str).indexOf(',') === -1 && String(str).length < 8) {
+        // Heuristic: If original string had no separators and result is huge, maybe it was misinterpreted cents?
+        // console.warn(`Potential misparse? Input: ${str}, Parsed: ${value}`);
+        // return value / 100; // Uncomment cautiously if cents issue persists unexpectedly
+    }
+
     return isNaN(value) ? null : value;
+
   } catch (error) {
     console.warn(`Could not parse numeric value from: "${str}"`, error);
     return null;
@@ -82,8 +110,12 @@ const processMonthlyProfitData = (negotiations: any[]) => {
           profit = negotiation.profit;
         } else {
           // Calculate profit from initial and current prices
-          const initialPrice = parseNumericValue(negotiation.initialRequest.price) || 0;
-          const currentPrice = parseNumericValue(negotiation.currentPrice || negotiation.initialRequest.price) || 0;
+          const initialPriceRaw = parseNumericValue(negotiation.initialRequest.price) || 0;
+          const currentPriceRaw = parseNumericValue(negotiation.currentPrice || negotiation.initialRequest.price) || 0;
+          
+          // Assume prices might be in cents, divide by 100
+          const initialPrice = initialPriceRaw / 100;
+          const currentPrice = currentPriceRaw / 100;
           profit = currentPrice - initialPrice; // Using the new profit calculation
         }
         
@@ -136,7 +168,14 @@ export default function DashboardPage() {
   }, [convexNegotiations, isLoadingNegotiations]);
 
   const formatCurrency = (value: number): string => {
-    return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(value);
+    // Use en-US locale for dot decimal and disable grouping
+    return new Intl.NumberFormat('en-US', { 
+      style: 'currency', 
+      currency: 'EUR', 
+      useGrouping: false, // Disable thousands separators
+      minimumFractionDigits: 2, // Ensure two decimal places
+      maximumFractionDigits: 2 // Ensure two decimal places
+    }).format(value);
   };
   
   const getStatusBadgeVariant = (status: NegotiationStatus): "secondary" | "success" | "destructive" | "outline" | "default" => {
@@ -404,7 +443,10 @@ export default function DashboardPage() {
                   // Calculate profit from negotiation
                   const initialPrice = parseNumericValue(neg.initialRequest.price) || 0;
                   const currentPrice = parseNumericValue(neg.currentPrice || neg.initialRequest.price) || 0;
-                  const profit = neg.profit !== undefined ? neg.profit : (initialPrice - currentPrice);
+                  
+                  const priceChange = currentPrice - initialPrice;
+                  const changePercentage = initialPrice !== 0 ? (priceChange / initialPrice) * 100 : 0;
+
                   const route = `${neg.initialRequest.origin} → ${neg.initialRequest.destination}`;
                   
                   return (
@@ -418,8 +460,26 @@ export default function DashboardPage() {
                           <div className="text-sm text-muted-foreground">{neg.initialRequest.carrier || 'No carrier'}</div>
                         </div>
                       </div>
-                      <div className={profit > 0 ? 'text-green-500 font-medium' : profit < 0 ? 'text-red-500 font-medium' : 'text-muted-foreground'}>
-                        {profit !== 0 ? (profit > 0 ? '+' : '') + formatCurrency(profit) : '€0.00'}
+                      <div>
+                        {currentPrice === initialPrice ? (
+                          <span className="text-muted-foreground">
+                            {formatCurrency(initialPrice)}
+                          </span>
+                        ) : (
+                          <>
+                            <span className="text-muted-foreground">
+                              {formatCurrency(initialPrice)} →{' '}
+                            </span>
+                            <span className='text-green-500 font-medium'>
+                              {formatCurrency(currentPrice)}
+                              {initialPrice !== 0 && (
+                                <span className="ml-1 text-xs opacity-80">
+                                  ({priceChange >= 0 ? '+' : '-'}{Math.abs(changePercentage).toFixed(1)}%)
+                                </span>
+                              )}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   );

@@ -1716,7 +1716,7 @@ export default function OffersPage() {
             dimensions: offer.dimensions,
             carrier: offer.carrier,
             offerContactEmail: offer.offerContactEmail, // Pass the email
-            notes: `Request for transport from ${offer.origin} to ${offer.destination}`,
+            notes: `Request for freight from ${offer.origin} to ${offer.destination}`,
           },
         });
         
@@ -1844,7 +1844,7 @@ export default function OffersPage() {
     <div className="space-y-6 py-6 px-4 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight mb-1">Transport Offers</h1>
+          <h1 className="text-2xl font-bold tracking-tight mb-1">Freight Offers</h1>
           <p className="text-muted-foreground">Manage and track all your freight offers from different marketplaces</p>
         </div>
               <Button 
@@ -2565,7 +2565,7 @@ export default function OffersPage() {
       <CustomDrawer
         isOpen={!!selectedOfferForModal}
         onClose={() => setSelectedOfferForModal(null)}
-        title="Transport Offer Details"
+        title="Freight Offer Details"
       >
         {selectedOfferForModal && (
           <TransportOfferDetails

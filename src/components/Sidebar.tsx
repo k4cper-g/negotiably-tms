@@ -152,7 +152,7 @@ export default function Sidebar() {
             )}
           >
             <Package className="h-4 w-4 mr-3" />
-            Transport Offers
+            Freight Offers
           </Button>
         </Link>
 

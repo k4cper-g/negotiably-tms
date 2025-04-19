@@ -311,11 +311,12 @@ export default function Home() {
         {/* <div 
           className="absolute inset-0 -z-10" 
           style={{
-            backgroundImage: "url('/bg.png')",
+            backgroundImage: "url('/londonbg.png')",
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
-            opacity: 0.15
+            filter: "blur(3px)",
+            opacity: 0.3
           }} 
         /> */}
         <motion.div

@@ -39,7 +39,7 @@ export const generateChatCompletion = internalAction({
                     Authorization: `Bearer ${apiKey}`,
                 },
                 body: JSON.stringify({
-                    model: "gpt-4o-mini", 
+                    model: "gpt-4.1", 
                     messages: args.messages, // Pass the structured messages array directly
                     response_format: { type: "json_object" }, 
                     // Add other parameters as needed 

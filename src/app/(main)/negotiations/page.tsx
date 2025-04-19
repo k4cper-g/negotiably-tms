@@ -113,8 +113,16 @@ interface Negotiation {
 }
 
 // Helper function to format currency
-const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(value);
+const formatCurrency = (value: number | null | undefined): string => {
+  if (value === null || value === undefined || isNaN(value)) return '-'; // Handle invalid input
+  // Use en-US locale for dot decimal and disable grouping
+  return new Intl.NumberFormat('en-US', { 
+    style: 'currency', 
+    currency: 'EUR', 
+    useGrouping: false, // Disable thousands separators
+    minimumFractionDigits: 2, // Ensure two decimal places
+    maximumFractionDigits: 2 // Ensure two decimal places
+  }).format(value);
 };
 
 // Define the NegotiationStatus type
@@ -558,13 +566,20 @@ export default function NegotiationsPage() {
         profit = 0;
       }
       
-      // Format the profit and percentage values
-      if (initialPriceNum !== 0) {
-        profitPercentageStr = `${profit > 0 ? '+' : ''}${profitPercentage.toFixed(1)}%`;
-      } else if (profit !== 0) {
-        profitPercentageStr = profit > 0 ? "+∞%" : "-∞%";
+      // Calculate percentage *after* profit is determined
+      if (initialPriceNum && initialPriceNum !== 0) {
+          profitPercentage = (profit / initialPriceNum) * 100;
       } else {
-        profitPercentageStr = "0.0%";
+          profitPercentage = (profit === 0) ? 0 : Infinity * Math.sign(profit);
+      }
+
+      // Format the profit and percentage values
+      if (isFinite(profitPercentage)) { 
+        profitPercentageStr = `${profit >= 0 ? '+' : ''}${profitPercentage.toFixed(1)}%`;
+      } else if (profitPercentage > 0) {
+        profitPercentageStr = "+∞%";
+      } else {
+        profitPercentageStr = "-∞%";
       }
       
       profitStr = formatCurrency(profit);
