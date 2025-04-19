@@ -1,4 +1,4 @@
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { action } from "./_generated/server";
@@ -50,9 +50,9 @@ async function getUserOrThrow(ctx: QueryCtx | MutationCtx, retries = 2, delayMs 
 }
 
 /**
- * List all active connections for the current user.
+ * List NON-SENSITIVE connection details for the current user.
  */
-export const listConnections = query({
+export const listUserConnections = query({
   args: {},
   handler: async (ctx) => {
     try {
@@ -62,10 +62,16 @@ export const listConnections = query({
         .filter((q) => q.eq(q.field("userId"), user._id))
         .order("desc") // Optional: Show most recent first
         .collect();
-      return connections;
+
+      // Map to return only safe fields
+      return connections.map(conn => ({
+        _id: conn._id,
+        provider: conn.provider,
+        email: conn.email,
+        label: conn.label,
+      }));
     } catch (error: any) {
       console.error("Error fetching connections:", error.message);
-      // Depending on requirements, either return empty array or re-throw
       return []; 
     }
   },
@@ -73,28 +79,47 @@ export const listConnections = query({
 
 /**
  * Delete a specific connection.
+ * If the connection is used by any negotiations, it sets their connectionId to null instead of deleting.
  */
 export const deleteConnection = mutation({
   args: { connectionId: v.id("connections") },
   handler: async (ctx, args) => {
     try {
       const user = await getUserOrThrow(ctx);
-      
-      // Optional: Verify the connection belongs to the user before deleting
-      const connection = await ctx.db.get(args.connectionId);
+      const connectionId = args.connectionId;
+
+      // Verify the connection belongs to the user before proceeding
+      const connection = await ctx.db.get(connectionId);
       if (!connection) {
-        throw new Error("Connection not found.");
+        // Already deleted or invalid ID
+        console.warn(`Connection ${connectionId} not found for deletion.`);
+        return { success: true, message: "Connection not found." };
       }
       if (connection.userId !== user._id) {
         throw new Error("User not authorized to delete this connection.");
       }
-      
-      await ctx.db.delete(args.connectionId);
-      console.log(`Connection ${args.connectionId} deleted successfully for user ${user._id}.`);
+
+      // Find negotiations using this connection
+      const negotiationsUsingConnection = await ctx.db
+        .query("negotiations")
+        .withIndex("by_connectionId", (q) => q.eq("connectionId", connectionId))
+        .collect();
+
+      if (negotiationsUsingConnection.length > 0) {
+        // If used, update negotiations to remove the link
+        console.log(`Connection ${connectionId} is used by ${negotiationsUsingConnection.length} negotiations. Unlinking them.`);
+        for (const neg of negotiationsUsingConnection) {
+          await ctx.db.patch(neg._id, { connectionId: undefined }); // Use undefined to clear optional field
+        }
+      }
+
+      // Now delete the connection itself
+      await ctx.db.delete(connectionId);
+      console.log(`Connection ${connectionId} deleted successfully for user ${user._id}.`);
       return { success: true };
+
     } catch (error: any) {
-      console.error("Error deleting connection:", error);
-      // Return a failure status or throw the error based on frontend needs
+      console.error(`Error deleting connection ${args.connectionId}:`, error);
       return { success: false, error: error.message }; 
     }
   },
@@ -107,7 +132,7 @@ export const deleteConnection = mutation({
 export const storeOrUpdateGoogleConnection = internalMutation({
   args: {
     userId: v.id("users"),
-    accountEmail: v.string(),
+    email: v.string(),
     scopes: v.array(v.string()),
     // --- UNSAFE - FOR DEVELOPMENT ONLY --- 
     accessToken: v.optional(v.string()), 
@@ -120,32 +145,50 @@ export const storeOrUpdateGoogleConnection = internalMutation({
       .withIndex("by_userId_provider", q => 
         q.eq("userId", args.userId).eq("provider", "google")
       )
-      .first();
+      // Since multiple Google accounts are now possible, we should check by email too.
+      // However, let's first find *any* google connection for the user and then decide.
+      // For simplicity now, we might just update the first one found or create new if none.
+      // A better approach might involve checking args.email against existing connection emails.
+      .first(); 
 
-    const updateData: Partial<Doc<"connections">> = {
-      accountEmail: args.accountEmail,
+    // Data to be inserted or patched
+    const connectionData: Partial<Doc<"connections">> & { email: string; provider: string; userId: Id<"users"> } = {
+      userId: args.userId,
+      provider: "google",
+      email: args.email,
       scope: args.scopes.join(' '),
       accessToken: args.accessToken,
       // Only include refreshToken if it's provided 
       ...(args.refreshToken !== undefined && { refreshToken: args.refreshToken }),
     };
 
-    if (existingConnection) {
-      // Update existing connection
-      await ctx.db.patch(existingConnection._id, updateData);
-      console.log(`Google connection updated for user ${args.userId} (Tokens stored UNSAFELY)`);
-      return { connectionId: existingConnection._id };
+    // Check if an existing connection *with the same email* exists
+    const connectionWithSameEmail = await ctx.db
+      .query("connections")
+      .withIndex("by_userId_email", q => q.eq("userId", args.userId).eq("email", args.email))
+      .first();
+
+    if (connectionWithSameEmail) {
+      // Update the existing connection with this specific email
+      await ctx.db.patch(connectionWithSameEmail._id, {
+          scope: args.scopes.join(' '),
+          accessToken: args.accessToken,
+          ...(args.refreshToken !== undefined && { refreshToken: args.refreshToken }),
+      });
+      console.log(`Google connection updated for user ${args.userId}, email ${args.email} (Tokens stored UNSAFELY)`);
+      return { connectionId: connectionWithSameEmail._id };
     } else {
-      // Create new connection - Ensure all required fields are explicitly provided
+      // Create new connection if no connection with this email exists for the user
       const connectionId = await ctx.db.insert("connections", {
         userId: args.userId,
-        provider: "google", // Explicitly set provider
-        accountEmail: args.accountEmail, // Required
+        provider: "google",
+        email: args.email,
         scope: args.scopes.join(' '),
-        accessToken: args.accessToken, // Optional field from args
-        refreshToken: args.refreshToken, // Optional field from args (will be undefined if not sent)
+        accessToken: args.accessToken,
+        refreshToken: args.refreshToken,
+        // label will be undefined initially
       });
-      console.log(`New Google connection created for user ${args.userId} (Tokens stored UNSAFELY)`);
+      console.log(`New Google connection created for user ${args.userId}, email ${args.email} (Tokens stored UNSAFELY)`);
       return { connectionId };
     }
   },
@@ -195,6 +238,15 @@ export const consumeOAuthState = internalMutation({
         console.log(`Consumed OAuth state ${args.stateValue} for user ${stateRecord.userId}`);
         return stateRecord.userId; // Return the linked user ID
     },
+});
+
+// --- Internal query to get connection by ID ---
+// Needed because actions cannot access db directly sometimes
+export const getConnectionByIdInternal = internalQuery({
+    args: { connectionId: v.id("connections") },
+    handler: async (ctx, args) => {
+        return await ctx.db.get(args.connectionId);
+    }
 });
 
 // NOTE: Mutations/Actions for CREATING connections (OAuth handling)

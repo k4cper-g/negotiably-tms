@@ -249,7 +249,6 @@ export const runAgentNegotiation = internalAction({
             await ctx.scheduler.runAfter(0, api.email.sendNegotiationUpdateEmail, { 
                 negotiationId: args.negotiationId,
                 messageContent: agentMessage,
-                senderUserId: negotiation.userId, 
             });
             console.log(`[Agent] Added message and scheduled email for ${args.negotiationId}`);
 

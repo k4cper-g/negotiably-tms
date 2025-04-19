@@ -25,7 +25,9 @@ import {
   UserIcon,
   MailWarning,
   MessageCircleWarning,
-  User
+  User,
+  Mail,
+  Settings
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -172,7 +174,7 @@ const AgentSettingsModal = memo(({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden bg-card">
         <DialogHeader className="px-6 pt-6 pb-2 border-b">
-          <DialogTitle className="flex items-center text-xl text-card-foreground">
+          <DialogTitle className="flex items-center mb-3">
             <Bot className="mr-2 h-5 w-5 text-primary" />
             AI Agent Settings
           </DialogTitle>
@@ -464,7 +466,7 @@ const AgentSettingsModal = memo(({
           </div>
         </div>
         
-        <DialogFooter className="bg-muted px-6 py-4 border-t">
+        <DialogFooter className="bg-muted/40 px-6 py-4 border-t">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
@@ -520,6 +522,12 @@ export default function NegotiationDetailClient({
   const [subjectInput, setSubjectInput] = useState('');
   const [ccInput, setCcInput] = useState('');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  // Add state for email connection
+  const [selectedConnectionId, setSelectedConnectionId] = useState<Id<"connections"> | undefined>(undefined);
+  
+  // Fetch available email connections
+  const connections = useQuery(api.connections.listUserConnections);
+  const connectionsLoading = connections === undefined;
   
   // AI Agent States
   const [targetPricePerKm, setTargetPricePerKm] = useState<string>('');
@@ -547,6 +555,7 @@ export default function NegotiationDetailClient({
   const updateEmailSettings = useMutation(api.negotiations.updateEmailSettings);
   const configureAgent = useMutation(api.negotiations.configureAgent);
   const resumeAgentMutation = useMutation(api.negotiations.resumeAgent);
+  const updateNegotiationConnection = useMutation(api.negotiations.updateNegotiationConnection);
   
   // HELPER FUNCTION DEFINITION
   const getTargetPriceNumber = (): number | null => {
@@ -652,20 +661,31 @@ export default function NegotiationDetailClient({
         .map(e => e.trim())
         .filter(e => e && e.includes('@')); // Basic filter for non-empty and containing @
 
+      // First update email subject and CC
       await updateEmailSettings({
         negotiationId: negotiation._id,
         subject: subjectInput.trim() === '' ? undefined : subjectInput.trim(), // Send undefined if empty
         ccRecipients: parsedCcArray,
       });
+      
+      // Then update the connection if changed
+      if (selectedConnectionId !== negotiation.connectionId) {
+        await updateNegotiationConnection({
+          negotiationId: negotiation._id,
+          newConnectionId: selectedConnectionId,
+        });
+      }
+      
       // Optionally add toast notification for success
+      toast.success("Email settings saved");
       setIsSettingsOpen(false); // Close dialog on success
     } catch (error) {
       console.error("Failed to save email settings:", error);
-      // Optionally add toast notification for error
+      toast.error("Failed to save email settings");
     } finally {
       setIsSavingSettings(false);
     }
-  }, [negotiation, ccInput, subjectInput, updateEmailSettings]);
+  }, [negotiation, ccInput, subjectInput, selectedConnectionId, updateEmailSettings, updateNegotiationConnection]);
   
   // Handle toggling the AI agent
   const handleToggleAgent = useCallback(async (enabled: boolean) => {
@@ -920,6 +940,7 @@ export default function NegotiationDetailClient({
       // Initialize Email settings
       setSubjectInput(negotiation.emailSubject || '');
       setCcInput(negotiation.emailCcRecipients?.join(', ') || '');
+      setSelectedConnectionId(negotiation.connectionId);
       
       // Initialize AI Agent settings 
       const agentSettings = (negotiation as any).agentSettings;
@@ -966,6 +987,15 @@ export default function NegotiationDetailClient({
       setMaxAutoReplies(3);
     }
   }, [negotiation]); // Re-run only when negotiation data changes
+
+  // Effect to initialize email settings form with current values
+  useEffect(() => {
+    if (negotiation) {
+      setSubjectInput(negotiation.emailSubject || '');
+      setCcInput(negotiation.emailCcRecipients?.join(', ') || '');
+      setSelectedConnectionId(negotiation.connectionId);
+    }
+  }, [negotiation]);
 
   // Find the background class based on the stored value
   const selectedBackground = AVAILABLE_BACKGROUNDS.find(bg => bg.value === chatBackgroundValue) || AVAILABLE_BACKGROUNDS[0]; 
@@ -1023,14 +1053,16 @@ export default function NegotiationDetailClient({
                   className="h-8 w-8 text-muted-foreground hover:text-foreground"
                   title="Email Settings"
                 >
-                  <Settings2 className="h-4 w-4" />
+                  <Settings className="h-4 w-4" />
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>Email Settings</DialogTitle>
+              <DialogContent className="sm:max-w-[425px] p-0 bg-card">
+                <DialogHeader className="px-6 pt-6 pb-2 border-b">
+                  <DialogTitle className="flex items-center mb-3">
+                    <Mail className="h-4 w-4 mr-2" />
+                    Email Settings</DialogTitle>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
+                <div className="grid gap-4 py-4 px-6">
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="subject" className="text-right col-span-1">
                       Subject
@@ -1055,8 +1087,37 @@ export default function NegotiationDetailClient({
                       className="col-span-3"
                     />
                   </div>
+                  {/* Add Connection Selection */}
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="connection-select" className="text-right col-span-1">
+                      Send/Receive Via<span className="text-destructive ml-1">*</span>
+                    </Label>
+                    <div className="col-span-3">
+                      <Select
+                        value={selectedConnectionId}
+                        onValueChange={(value) => setSelectedConnectionId(value as Id<"connections">)}
+                        disabled={connectionsLoading}
+                      >
+                        <SelectTrigger id="connection-select" className="w-full">
+                          <SelectValue placeholder={connectionsLoading ? "Loading connections..." : "Select an email account..."} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {connections?.map((conn) => (
+                            <SelectItem key={conn._id} value={conn._id}>
+                              {conn.label || conn.email} ({conn.provider})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {connections?.length === 0 && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          No email accounts connected. Add one in Settings.
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <DialogFooter>
+                <DialogFooter className="bg-muted/40 px-6 py-4 border-t">
                    <DialogClose asChild>
                       <Button type="button" variant="outline">
                         Cancel
@@ -1065,7 +1126,7 @@ export default function NegotiationDetailClient({
                   <Button 
                     type="button" 
                     onClick={handleSaveSettings}
-                    disabled={isSavingSettings}
+                    disabled={isSavingSettings || !selectedConnectionId}
                   >
                     {isSavingSettings && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Save Changes

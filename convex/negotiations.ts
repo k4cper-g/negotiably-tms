@@ -40,7 +40,8 @@ export const createNegotiation = mutation({
       carrier: v.optional(v.string()),
       notes: v.optional(v.string()),
       offerContactEmail: v.optional(v.string()),
-    })
+    }),
+    connectionId: v.optional(v.id("connections")),
   },
   handler: async (ctx, args) => {
     // Get current user
@@ -64,12 +65,13 @@ export const createNegotiation = mutation({
       userId: user._id,
       offerId: args.offerId,
       status: "pending", // initial status
-      initialRequest: args.initialRequest, // Use the object directly from args
-      currentPrice: args.initialRequest.price, // Initialize currentPrice
+      initialRequest: args.initialRequest,
+      currentPrice: args.initialRequest.price,
       messages: [],
       counterOffers: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      connectionId: args.connectionId,
     });
 
     return { negotiationId };
@@ -922,3 +924,61 @@ export const updateCurrentPriceInternal = internalMutation({
 
 // NOTE: Ensure that any existing getNegotiationById query handles authentication/authorization checks,
 // as this internal query bypasses those by default. 
+
+/**
+ * Update the email connection associated with a negotiation.
+ */
+export const updateNegotiationConnection = mutation({
+  args: {
+    negotiationId: v.id("negotiations"),
+    newConnectionId: v.optional(v.id("connections")),
+  },
+  handler: async (ctx, args) => {
+    const { negotiationId, newConnectionId } = args;
+
+    // 1. Authenticate and get user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // 2. Get the negotiation and verify ownership
+    const negotiation = await ctx.db.get(negotiationId);
+    if (!negotiation) {
+      throw new Error("Negotiation not found");
+    }
+    if (negotiation.userId !== user._id) {
+      throw new Error("Unauthorized: Negotiation does not belong to this user.");
+    }
+
+    // 3. If a new connection ID is provided, verify it exists and belongs to the user
+    if (newConnectionId) {
+      const connection = await ctx.db.get(newConnectionId);
+      if (!connection) {
+        throw new Error("Selected connection not found.");
+      }
+      if (connection.userId !== user._id) {
+        throw new Error("Unauthorized: Selected connection does not belong to this user.");
+      }
+    }
+
+    // 4. Update the negotiation
+    await ctx.db.patch(negotiationId, {
+      connectionId: newConnectionId ?? undefined, // Use undefined to clear optional field if null
+      updatedAt: Date.now(), // Update timestamp
+    });
+
+    console.log(`Updated connection for negotiation ${negotiationId} to ${newConnectionId || 'none'}`);
+    return { success: true };
+  },
+});
+
+// Function to update agent status
+// ... updateAgentStatus definition ... 

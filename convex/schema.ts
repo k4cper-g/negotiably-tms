@@ -60,16 +60,18 @@ export default defineSchema({
         agentMessage: v.optional(v.string()),
         agentReplyCount: v.optional(v.number()),
         profit: v.optional(v.number()),
-    }).index("by_userId", ["userId"]).index("by_offerId", ["offerId"]),
+        connectionId: v.optional(v.id("connections")),
+    }).index("by_userId", ["userId"]).index("by_offerId", ["offerId"]).index("by_connectionId", ["connectionId"]),
     connections: defineTable({
         userId: v.id("users"),
         provider: v.string(),
-        accountEmail: v.string(),
+        email: v.string(),
+        label: v.optional(v.string()),
         accessToken: v.optional(v.string()),
         refreshToken: v.optional(v.string()),
         expiresAt: v.optional(v.number()),
         scope: v.optional(v.string()),
-    }).index("by_userId_provider", ["userId", "provider"]),
+    }).index("by_userId_provider", ["userId", "provider"]).index("by_userId_email", ["userId", "email"]),
     oauthStates: defineTable({
         userId: v.id("users"), // User who initiated the flow
         stateValue: v.string(),   // The unique random state string

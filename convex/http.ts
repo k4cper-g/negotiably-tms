@@ -32,8 +32,9 @@ const startGoogleOAuth = httpAction(async (ctx, request) => {
     const clientId = getEnvVariable("GOOGLE_CLIENT_ID");
     console.log(`[DEBUG OAuth] GOOGLE_CLIENT_ID: ${clientId}`);
     
-    const convexSiteUrl = getEnvVariable("PUBLIC_CONVEX_URL");
-    console.log(`[DEBUG OAuth] PUBLIC_CONVEX_URL raw value: "${convexSiteUrl}"`);
+    // Use CONVEX_SITE_URL provided by the backend environment
+    const convexSiteUrl = getEnvVariable("CONVEX_SITE_URL");
+    console.log(`[DEBUG OAuth] CONVEX_SITE_URL value: "${convexSiteUrl}"`);
     
     // Ensure URL has no trailing slash before adding path
     const baseUrl = convexSiteUrl.endsWith('/') ? convexSiteUrl.slice(0, -1) : convexSiteUrl;
@@ -91,8 +92,9 @@ const handleGoogleCallback = httpAction(async (ctx, request) => {
     const clientId = getEnvVariable("GOOGLE_CLIENT_ID");
     const clientSecret = getEnvVariable("GOOGLE_CLIENT_SECRET");
     const appUrl = getEnvVariable("APP_URL"); // Your frontend app URL
-    const convexSiteUrl = getEnvVariable("PUBLIC_CONVEX_URL"); 
-    console.log(`[DEBUG Callback] PUBLIC_CONVEX_URL raw value: "${convexSiteUrl}"`);
+    // Use CONVEX_SITE_URL provided by the backend environment
+    const convexSiteUrl = getEnvVariable("CONVEX_SITE_URL"); 
+    console.log(`[DEBUG Callback] CONVEX_SITE_URL value: "${convexSiteUrl}"`);
     
     // Ensure URL has no trailing slash before adding path
     const baseUrl = convexSiteUrl.endsWith('/') ? convexSiteUrl.slice(0, -1) : convexSiteUrl;
@@ -195,7 +197,7 @@ const handleGoogleCallback = httpAction(async (ctx, request) => {
         console.log(`Storing connection for user ${userId}, email ${userEmail} (Tokens stored UNSAFELY)`);
         await ctx.runMutation(internal.connections.storeOrUpdateGoogleConnection, {
             userId: userId,
-            accountEmail: userEmail,
+            email: userEmail,
             scopes: grantedScopes,
             // Pass the raw tokens 
             accessToken: accessToken, 

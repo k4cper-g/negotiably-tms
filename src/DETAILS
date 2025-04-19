@@ -1,0 +1,202 @@
+Alterion: Technical Documentation
+1. Introduction
+Alterion is an AI-powered web application designed to streamline transport logistics by connecting shippers with carriers. It features a marketplace for transport offers, an AI-assisted negotiation system, real-time chat, multi-view offer Browse (list, grid, map), and an analytics dashboard. The goal is to automate and optimize the process of finding and negotiating transport services, ultimately reducing costs and improving efficiency.
+
+2. Technology Stack
+The project utilizes a modern web development stack:
+
+Frontend:
+Framework: Next.js v15.2.4 (using App Router and Turbopack for development)
+Language: TypeScript
+UI Library: React v19.0.0
+Styling: Tailwind CSS v4.0.17, PostCSS, CSS Modules (.module.css)
+Component Toolkit: shadcn/ui, Radix UI components (@radix-ui/*) 
+Icons: Lucide Icons (lucide-react), React Feather 
+Animation: Framer Motion, tailwindcss-animate
+Mapping: Leaflet, React Leaflet, Leaflet Routing Machine
+Charting: Recharts
+State/Data Fetching: TanStack React Query (@tanstack/react-query)
+Form Handling: React Hook Form, Zod (for validation)
+Drag & Drop: @dnd-kit
+Utilities: clsx, tailwind-merge, date-fns, lodash.debounce 
+Video: next-video
+Theming: next-themes
+Analytics: Vercel Analytics (@vercel/analytics)
+Backend:
+Platform: Convex v1.21.0
+Language: TypeScript
+Authentication: Clerk (@clerk/nextjs)
+AI & Machine Learning:
+Orchestration: Langchain (@langchain/core, @langchain/langgraph)
+LLM Provider: OpenAI (openai, @langchain/openai)
+External APIs & Services:
+Email Sending: Gmail API
+Incoming Email: Mailgun Webhooks
+Weather: OpenWeatherMap
+Currency Exchange: https://www.google.com/search?q=fxrates.com
+Routing: Google Maps Directions API
+Tolls: TollGuru API
+File Storage: Vercel Blob (@vercel/blob)
+Development Tools:
+Linting: ESLint (eslint-config-next) 
+Package Management: npm (implied by package-lock.json)
+PDF Handling: pdf-parse, pdfjs-dist
+3. Project Structure
+The project follows a standard Next.js App Router structure with a dedicated convex directory for backend code:
+
+alterion-tms-demobranch/: Project root.
+convex/: Contains all backend logic deployed to Convex.
+_generated/: Automatically generated Convex files (API types, data model, server utilities).
+*.ts: Convex functions (queries, mutations, actions) grouped by feature (e.g., negotiations.ts, offers.ts, users.ts, agent.ts, email.ts).
+schema.ts: Defines the Convex database schema.
+auth.config.ts: Configures Clerk authentication for Convex.
+http.ts: Defines HTTP endpoints for OAuth callbacks and webhooks.
+tsconfig.json: TypeScript configuration specific to the Convex environment.
+README.md: Basic Convex README.
+public/: Static assets (images, logos).
+src/: Frontend application code.
+app/: Next.js App Router directory.
+(auth)/: Routes related to authentication (sign-in, sign-up).
+(main)/: Main application routes requiring authentication (offers, negotiations, dashboard, etc.). Contains RoutePlanner.module.css.
+layout.tsx: Root layout component.
+globals.css: Global CSS styles and Tailwind directives.
+Other route groups and page files.
+components/: Reusable React components.
+ui/: Components based on shadcn/ui.
+layout/: Components specific to page layouts.
+Custom components (e.g., TransportMap.tsx).
+context/: React context providers.
+hooks/: Custom React hooks (e.g., useDebounce, useLocalStorage, useMediaQuery, useIsMobile).
+lib/: Utility functions (cn, PDF parsing, etc.) and data fetching hooks (useOffers).
+types/: TypeScript type definitions (e.g., offers.ts).
+data/: Mock data (e.g., mockOffers.ts).
+middleware.ts: Next.js middleware for Clerk authentication.
+Configuration Files:
+next.config.js, next.config.ts: Next.js configuration.
+tailwind.config.js: Tailwind CSS configuration.
+postcss.config.mjs: PostCSS configuration.
+tsconfig.json: Main TypeScript configuration for the frontend.
+components.json: shadcn/ui configuration.
+eslint.config.mjs: ESLint configuration.
+package.json, package-lock.json: Project dependencies and scripts.
+README.md: Project overview and setup instructions.
+video.d.ts: Type declarations for next-video.
+4. Core Features & Modules
+Authentication:
+Uses Clerk for user sign-up, sign-in, and session management.
+Clerk middleware (src/middleware.ts) protects routes.
+User data (Clerk ID, email, name, image URL) is synced to the Convex users table via the syncUser mutation.
+Convex backend authentication configured in convex/auth.config.ts.
+Offers Module:
+Displays transport offers fetched from various sources (currently mocked in src/data/mockOffers.ts).
+Provides filtering (search term, origin, destination, platform, status, price range, load type) and sorting capabilities, managed by the useOffers hook.
+Includes different views: list, grid, and an interactive map view using Leaflet (src/components/TransportMap.tsx).
+Features AI-powered evaluation of offers (convex/offers.ts), potentially using external tools (Weather, Route, Tolls) based on configuration.
+Negotiations Module:
+Allows users to initiate negotiations from transport offers.
+Stores negotiation state, initial request details, messages, counter-offers, and status in the negotiations table.
+Facilitates communication via a chat interface (addMessage mutation).
+Supports submitting and tracking counter-offers (submitCounterOffer, updateCounterOfferStatus mutations).
+Manages negotiation lifecycle statuses (pending, active, accepted, rejected, etc.) via updateNegotiationStatus.
+Calculates and stores profit upon acceptance.
+AI Negotiation Agent:
+An automated agent that can negotiate on behalf of the user.
+Configurable per negotiation via the agentConfigurations table (style, notification rules, max replies) and the configureAgent mutation.
+Agent logic is implemented using Langchain LangGraph (convex/langGraphAgent.ts) and OpenAI (convex/openai.ts, convex/agent.ts).
+The agent analyzes messages, determines intent, checks against rules (price changes, new terms, target price), generates responses based on configured style, and decides whether to respond automatically or flag for user review.
+User review state (needs_review, error) is managed in the negotiations table (agentState, agentMessage fields).
+Users can resume the agent or take over manually after review (resumeAgent mutation).
+Email Integration:
+Connects to user's Google account via OAuth (convex/http.ts, convex/connections.ts) for sending emails. Uses state parameters for security. Note: Tokens are currently stored directly in the DB, marked as unsafe.
+Sends negotiation updates and messages via the Gmail API (convex/email.ts).
+Handles incoming email replies via a Mailgun webhook (convex/http.ts, convex/mailgun.ts). Verifies webhook signature and parses replies to add them to the negotiation chat.
+Manages email threading using emailThreadId and lastEmailMessageId fields in the negotiations table.
+Allows configuration of email subject and CC recipients per negotiation.
+Supports user-defined email templates (convex/emailTemplates.ts).
+Dashboard Module:
+Provides an overview of negotiation activities (convex/dashboard.ts).
+Calculates and displays key statistics: total/active/completed/rejected negotiations, total/average savings, success rate.
+Shows a list of recently updated negotiations.
+External Service Integrations:
+Fetches real-time weather data from OpenWeatherMap (convex/weather.ts).
+Retrieves currency exchange rates from https://www.google.com/search?q=fxrates.com (convex/currency.ts).
+Calculates route distance, estimated duration (with traffic), and toll costs using Google Maps API and TollGuru API (convex/offers.ts -> _getRouteAndTollsForOffer).
+Notifications System:
+Creates and manages user notifications (convex/notifications.ts) related to agent actions, negotiation updates, etc..
+Stores notifications in the notifications table, tracking read status.
+Allows users to view, filter (all, unread, agent), mark as read, and clear notifications.
+User Profile & Preferences:
+Manages user profile information synced from Clerk.
+Allows users to configure preferences for the top bar display (favorite cities, currencies) stored in users.topBarPreferences.
+Route Planner Module:
+Provides a UI for planning multi-stop routes (src/app/(main)/routes/RoutePlanner.module.css).
+Uses Leaflet for map display and routing visualization (leaflet-routing-machine).
+Features address input with autocomplete suggestions and reverse geocoding on map click.
+Allows adding, deleting, and reordering stops, likely using @dnd-kit.
+5. Backend (Convex)
+Schema (convex/schema.ts):
+users: Stores user profile data synced from Clerk, including preferences. Indexed by clerkId.
+negotiations: Core table storing all negotiation details, including initial request, messages, offers, status, AI agent state, email threading info, and calculated profit. Indexed by userId and offerId.
+connections: Stores OAuth connection details (currently Google), including tokens (marked as unsafe). Indexed by userId and provider.
+agentConfigurations: Stores AI agent settings per negotiation. Indexed by negotiationId and userId.
+notifications: Stores user notifications with read status and links to source negotiations. Indexed by userId, userId/isRead, and createdAt.
+emailTemplates: Stores user-created email templates. Indexed by userId.
+demoRequests: Stores demo requests submitted via the public website.
+oauthStates: Temporarily stores OAuth state parameters for security during the auth flow. Indexed by stateValue.
+Key Functions:
+Organized by feature files (e.g., negotiations.ts, email.ts).
+Uses Convex query, mutation, action, internalQuery, internalMutation, internalAction decorators.
+Handles database interactions, business logic, external API calls (via actions), and authentication checks.
+HTTP Endpoints (convex/http.ts):
+/startGoogleOAuth: Initiates the Google OAuth2 flow.
+/handleGoogleCallback: Handles the redirect from Google, exchanges code for tokens, fetches user info, and stores the connection.
+/emailReplyWebhook: Receives incoming email replies from Mailgun, verifies the webhook, parses the email, and adds the reply to the corresponding negotiation.
+Scheduled Tasks: Uses ctx.scheduler.runAfter to trigger actions asynchronously (e.g., sending emails immediately after a message is added, running the AI agent).
+6. Frontend (Next.js)
+Routing: Uses the Next.js App Router conventions with route groups ((auth), (main)) for layout and organization.
+Components: Leverages shadcn/ui and Radix UI primitives for building the UI. Includes custom components for specific features like the map (TransportMap) and potentially offer cards, negotiation chat, etc..
+State Management: Likely uses TanStack React Query for server state management (fetching offers, negotiations) and React Context/useState/useReducer for local/global UI state. useLocalStorage hook used for persisting simple state.
+Styling: Primarily uses Tailwind CSS utility classes. cn utility merges classes (clsx + tailwind-merge). CSS Modules are used for component-specific styles (RoutePlanner.module.css). Global styles and Tailwind directives are in globals.css.
+Hooks: Includes custom hooks for responsive design (useMediaQuery, useIsMobile), debouncing input (useDebounce), and local storage (useLocalStorage).
+Type Definitions: Centralized type definitions, like TransportOffer in src/types/offers.ts.
+7. Configuration & Environment
+Environment Variables: Requires numerous API keys and URLs stored in environment variables (likely via .env.local for development and Convex dashboard environment variables for deployment). Key variables include:
+NEXT_PUBLIC_CONVEX_URL
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+CLERK_SECRET_KEY
+OPENAI_API_KEY
+GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+MAILGUN_SIGNING_KEY
+OPENWEATHER_API_KEY
+FXRATES_API_KEY
+TOLLGURU_API_KEY
+GOOGLEMAPS_API_KEY
+APP_URL (Frontend URL for redirects)
+Configuration Files:
+next.config.js/.ts: Configures Next.js features (e.g., image domains, build options).
+tailwind.config.js: Customizes Tailwind CSS theme and plugins.
+postcss.config.mjs: Configures PostCSS plugins (Tailwind).
+tsconfig.json: Configures TypeScript compiler options for frontend and backend.
+components.json: Configures shadcn/ui component library settings.
+eslint.config.mjs: Configures ESLint rules.
+8. Setup & Running
+Prerequisites: Node.js (v18+), npm/yarn, Convex account, Clerk account, necessary API keys.
+Installation:
+Clone repository.
+Install dependencies: npm install or yarn install.
+Create .env.local with frontend-accessible variables (NEXT_PUBLIC_*).
+Configure backend environment variables in the Convex dashboard.
+Running Development:
+Start the frontend: npm run dev (uses Turbopack).
+Start the Convex backend development process: npx convex dev.
+Access the application at http://localhost:3000.
+9. Deployment
+The Next.js frontend is likely deployed to a platform like Vercel.
+The backend functions and database are hosted on Convex.
+Environment variables must be configured in both the frontend hosting provider (for NEXT_PUBLIC_* variables) and the Convex dashboard (for backend keys).
+10. Security Considerations
+OAuth Tokens: The current implementation stores Google OAuth access and refresh tokens directly in the connections table. This is marked as UNSAFE in the code comments. In a production environment, sensitive tokens should be stored securely, potentially using Convex's secrets management or a dedicated secrets vault, and access tokens should be refreshed on demand rather than stored long-term if possible.
+API Keys: All external API keys should be stored securely as environment variables within the Convex dashboard and never committed to the repository or exposed client-side.
+Webhook Verification: The Mailgun webhook verifies signatures using the MAILGUN_SIGNING_KEY to ensure authenticity. Timestamp checks are also included but noted as potentially relaxed during development.
+Authorization: Convex functions consistently check user authentication using ctx.auth.getUserIdentity() and verify that the authenticated user owns the data they are trying to access or modify (e.g., checking negotiation.userId === user._id).
+OAuth State Parameter: Used to mitigate CSRF attacks during the OAuth flow.

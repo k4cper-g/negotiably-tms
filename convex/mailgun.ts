@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { internalAction, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
+import { Id, Doc } from "./_generated/dataModel";
 
 // Helper function to get environment variables or throw
 function getEnvVariable(varName: string): string {
@@ -169,14 +169,51 @@ export const verifyAndProcessWebhook = internalAction({
             };
         }
         
-        // 4. Add the message to the negotiation
+        // 4. Verify recipient email matches negotiation's configured connection
+        let negotiation: Doc<"negotiations"> | null = null;
+        let connection: Doc<"connections"> | null = null;
         try {
-            // Attempt to convert string ID to a Convex ID
-            const convexId = negotiationId as Id<"negotiations">;
+            negotiation = await ctx.runQuery(internal.negotiations.getNegotiationByIdInternal, { 
+                negotiationId: negotiationId as Id<"negotiations"> 
+            });
+
+            if (!negotiation) {
+                throw new Error("Negotiation not found");
+            }
+            if (!negotiation.connectionId) {
+                throw new Error("Email connection not configured for this negotiation");
+            }
+
+            connection = await ctx.runQuery(internal.connections.getConnectionByIdInternal, { 
+                connectionId: negotiation.connectionId 
+            });
             
+            if (!connection) {
+                 throw new Error("Configured connection not found");
+            }
+            
+            // THE CRUCIAL CHECK:
+            if (connection.email.toLowerCase() !== recipient.toLowerCase()) {
+                console.error(`[MAILGUN ACTION] Recipient mismatch! Email to ${recipient} but negotiation ${negotiationId} expects replies via ${connection.email}`);
+                throw new Error("Recipient email does not match configured connection for this negotiation.");
+            }
+            
+            console.log(`[MAILGUN ACTION] Recipient ${recipient} verified against connection ${connection._id} for negotiation ${negotiationId}`);
+
+        } catch (verificationError: any) {
+            console.error(`[MAILGUN ACTION] Verification failed for negotiation ${negotiationId}, recipient ${recipient}:`, verificationError);
+            return { 
+                success: false, 
+                status: 200, // Prevent retries for verification errors
+                message: `Verification failed: ${verificationError.message}` 
+            };
+        }
+
+        // 5. Add the message to the negotiation (only if verification passed)
+        try {
             // Call the mutation to add the reply
             await ctx.runMutation(internal.negotiations.addReplyFromEmail, {
-                negotiationId: convexId,
+                negotiationId: negotiationId as Id<"negotiations">,
                 senderEmail: sender,
                 content: bodyPlain,
                 incomingMessageId: messageId,

@@ -4,7 +4,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { X, Loader2, UserRoundCog } from "lucide-react";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { X, Loader2, UserRoundCog, Mail } from "lucide-react";
 import { 
   Dialog, 
   DialogContent, 
@@ -25,9 +32,10 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useRouter } from "next/navigation";
+import { Id } from "../../convex/_generated/dataModel";
 
 // Define the form schema
 const formSchema = z.object({
@@ -41,6 +49,7 @@ const formSchema = z.object({
   carrier: z.string().min(1, "Carrier/Company is required"),
   notes: z.string().optional(),
   offerContactEmail: z.string().email("Invalid email address").min(1, "Contact email is required"),
+  connectionId: z.union([z.custom<Id<"connections">>(), z.null()]).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -56,6 +65,9 @@ export function CustomNegotiationModal({
 }: CustomNegotiationModalProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Fetch available connections
+  const connections = useQuery(api.connections.listUserConnections);
   
   // Get the mutation to create a negotiation
   const createNegotiation = useMutation(api.negotiations.createNegotiation);
@@ -74,6 +86,7 @@ export function CustomNegotiationModal({
       carrier: "",
       notes: "",
       offerContactEmail: "",
+      connectionId: undefined,
     }
   });
 
@@ -87,7 +100,7 @@ export function CustomNegotiationModal({
       
       // Create the negotiation with the provided details
       const result = await createNegotiation({
-        offerId: externalOfferId, // Use the generated external ID
+        offerId: externalOfferId,
         initialRequest: {
           origin: values.origin,
           destination: values.destination,
@@ -99,17 +112,16 @@ export function CustomNegotiationModal({
           carrier: values.carrier || undefined,
           notes: values.notes || undefined,
           offerContactEmail: values.offerContactEmail || undefined,
-        }
+        },
+        connectionId: values.connectionId === null ? undefined : values.connectionId,
       });
       
       // Close the modal
       onClose();
       
-      // Navigate to the newly created negotiation if needed
+      // Navigate or refresh
       if (result?.negotiationId) {
-        // Option: navigate to negotiation detail page
-        // router.push(`/negotiations/${result.negotiationId}`);
-        router.refresh(); // Refresh to show the new negotiation in the list
+        router.refresh();
       }
     } catch (error) {
       console.error("Error creating negotiation:", error);
@@ -321,6 +333,46 @@ export function CustomNegotiationModal({
                       {...field} 
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="connectionId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-neutral-700 dark:text-neutral-300">Send/Receive Emails Via</FormLabel>
+                   <Select 
+                     onValueChange={(value) => field.onChange(value === 'none' ? null : value as Id<"connections">)}
+                     defaultValue={field.value ?? undefined}
+                     disabled={connections === undefined}
+                   >
+                    <FormControl>
+                      <SelectTrigger className="bg-white border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-offset-white focus-visible:ring-blue-500 dark:bg-neutral-800 dark:border-neutral-600 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:focus-visible:ring-offset-neutral-900">
+                        <SelectValue placeholder="Select an email account..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Do not use email</SelectItem>
+                      {connections === undefined ? (
+                        <SelectItem value="loading" disabled>Loading...</SelectItem>
+                      ) : (
+                        connections?.map((conn) => (
+                          <SelectItem key={conn._id} value={conn._id}>
+                            <div className="flex items-center gap-2">
+                               <Mail className="h-4 w-4 text-muted-foreground" /> 
+                               <span>{conn.label || conn.email} ({conn.provider})</span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription className="text-neutral-500">
+                    Select the email account to use for this negotiation.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

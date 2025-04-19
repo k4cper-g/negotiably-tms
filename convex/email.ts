@@ -187,100 +187,127 @@ export const sendNegotiationUpdateEmail = action({
     args: {
         negotiationId: v.id("negotiations"),
         messageContent: v.string(),
-        senderUserId: v.id("users"), 
+        // senderUserId: v.id("users"), // No longer needed directly, derived from negotiation
     },
     handler: async (ctx: ActionCtx, args): Promise<SendUpdateResult> => {
         console.log(`Attempting to send email update for negotiation ${args.negotiationId}`);
         
-        // 1. Get Negotiation Details (including thread info)
+        // 1. Get Negotiation Details, including the connectionId
         const negotiation: Doc<"negotiations"> | null = await ctx.runQuery(internal.negotiations.getNegotiationByIdInternal, { negotiationId: args.negotiationId });
         if (!negotiation) {
             throw new Error(`Negotiation ${args.negotiationId} not found.`);
         }
+        
+        // 2. Check if email is configured for this negotiation
+        if (!negotiation.connectionId) {
+            console.warn(`Negotiation ${args.negotiationId} has no connectionId configured. Skipping email send.`);
+            return { success: false, reason: "Email connection not configured for this negotiation." };
+        }
+        
         const recipientEmail = negotiation.initialRequest.offerContactEmail;
         if (!recipientEmail) {
             console.warn(`Negotiation ${args.negotiationId} missing offerContactEmail. Cannot send email.`);
             return { success: false, reason: "Missing recipient email in negotiation." };
         }
 
-        // 2. Get Sender's Connection Info
-        const senderConnection: Doc<"connections"> | null = await ctx.runQuery(internal.email.getConnectionInternal, { 
-            userId: args.senderUserId, 
-            provider: "google" 
-        });
+        // 3. Get the specific Connection Info using negotiation.connectionId
+        const senderConnection = await ctx.runQuery(internal.connections.getConnectionByIdInternal, { connectionId: negotiation.connectionId });
+
         if (!senderConnection) {
-            console.warn(`Sender ${args.senderUserId} has no Google connection. Cannot send email.`);
-            return { success: false, reason: "Sender not connected to Google." };
+            console.error(`Connection ${negotiation.connectionId} not found for negotiation ${args.negotiationId}. Cannot send email.`);
+            // Optionally update negotiation status to reflect error?
+            return { success: false, reason: "Configured email connection not found." };
         }
-        const senderEmail = senderConnection.accountEmail;
+        
+        // Verify the connection belongs to the user who owns the negotiation (sanity check)
+        if (senderConnection.userId !== negotiation.userId) {
+             console.error(`Security Alert: Connection ${negotiation.connectionId} owner (${senderConnection.userId}) does not match negotiation owner (${negotiation.userId}).`);
+             return { success: false, reason: "Connection owner mismatch." };
+        }
+        
+        const senderEmail = senderConnection.email;
+        const provider = senderConnection.provider;
 
-        // 3. Get a fresh Access Token
-        const accessToken: string = await ctx.runAction(internal.email.getGoogleAccessToken, { userId: args.senderUserId });
+        // 4. Get a fresh Access Token (Provider-specific)
+        let accessToken: string | null = null;
+        if (provider === "google") {
+             // Assuming getGoogleAccessToken needs userId
+             // Removed connectionId from args as it's likely not accepted by getGoogleAccessToken yet
+            accessToken = await ctx.runAction(internal.email.getGoogleAccessToken, { userId: senderConnection.userId }); 
+        } else if (provider === "outlook") {
+            // TODO: Implement getOutlookAccessToken
+             console.warn(`Outlook provider for connection ${senderConnection._id} not yet implemented.`);
+             return { success: false, reason: "Outlook sending not implemented." };
+        } else {
+            console.error(`Unsupported provider '${provider}' for connection ${senderConnection._id}.`);
+            return { success: false, reason: `Unsupported email provider: ${provider}` };
+        }
+        
+        if (!accessToken) {
+             console.error(`Failed to get access token for connection ${senderConnection._id} (Provider: ${provider}).`);
+             return { success: false, reason: "Failed to refresh access token." };
+        }
 
-        // 4. Construct Email Content & Headers
+        // 5. Construct Email Content & Headers (Same as before)
         const subject = negotiation.emailSubject || `Update on Negotiation #${negotiation._id.substring(0, 6)}...`;
         const body = `${args.messageContent}\n\n---\nView negotiation: ${getEnvVariable("APP_URL")}/negotiations/${args.negotiationId}`;
-
-        const replyToAddress = `reply+${negotiation._id}@replies.alterion.io`;
-        const headers: any = {
-            replyTo: replyToAddress,
-        };
-        // --- Add Cc header if recipients exist --- 
+        const replyToAddress = `reply+${negotiation._id}@replies.alterion.io`; // Assuming this is Mailgun address
+        const headers: any = { replyTo: replyToAddress };
         if (negotiation.emailCcRecipients && negotiation.emailCcRecipients.length > 0) {
-            headers.Cc = negotiation.emailCcRecipients.join(", "); // Comma-separate emails
+            headers.Cc = negotiation.emailCcRecipients.join(", ");
         }
-        // -----------------------------------------
-        // Add threading headers if continuing a thread
         if (negotiation.lastEmailMessageId) {
-            console.log(`[sendNegotiationUpdateEmail] Found lastEmailMessageId: ${negotiation.lastEmailMessageId} for negotiation ${args.negotiationId}`); // DEBUG LOG
             headers.inReplyTo = `<${negotiation.lastEmailMessageId}>`;
-            headers.References = `<${negotiation.lastEmailMessageId}>`; // Simple References for now
-        } else {
-            console.log(`[sendNegotiationUpdateEmail] No lastEmailMessageId found for negotiation ${args.negotiationId}. Sending new thread.`); // DEBUG LOG
+            headers.References = `<${negotiation.lastEmailMessageId}>`;
         }
-        // ----------------------
 
-        // --- DEBUG LOG --- 
-        console.log(`[sendNegotiationUpdateEmail] Calling sendGmail for negotiation ${args.negotiationId} with:`, {
-          threadId: negotiation.emailThreadId,
-          subject: subject, // Log the subject being used
-          headers: headers
-        });
-        // -----------------
-
-        // 5. Send the Email via Internal Action
+        // 6. Send the Email (Provider-specific)
         try {
-            const sendResult = await ctx.runAction(internal.email.sendGmail, {
-                accessToken: accessToken,
-                to: recipientEmail,
-                from: senderEmail,
-                subject: subject,
-                body: body,
-                headers: headers,
-                threadId: negotiation.emailThreadId, 
-            });
-            
-            // --- Store thread info if successful --- 
-            if (sendResult.success && sendResult.messageId && sendResult.threadId) {
+            let sendResult;
+            if (provider === "google") {
+                sendResult = await ctx.runAction(internal.email.sendGmail, {
+                    accessToken: accessToken,
+                    to: recipientEmail,
+                    from: senderEmail, // Use email from the specific connection
+                    subject: subject,
+                    body: body,
+                    headers: headers,
+                    threadId: negotiation.emailThreadId,
+                });
+            } else if (provider === "outlook") {
+                // TODO: Implement sendOutlookMail action
+                throw new Error("Outlook sending not implemented.");
+            }
+
+            // 7. Store thread info if successful (Same as before)
+            if (sendResult && sendResult.success && sendResult.messageId && sendResult.threadId) {
               await ctx.runMutation(internal.email.updateEmailThreadInfo, {
                 negotiationId: args.negotiationId,
                 threadId: sendResult.threadId,
                 lastMessageId: sendResult.messageId,
               });
-              console.log(`Successfully sent and updated thread info for negotiation ${args.negotiationId}`);
-            } else if (!sendResult.success) {
-              console.error(`sendGmail action failed for negotiation ${args.negotiationId}`);
+              console.log(`Successfully sent (${provider}) and updated thread info for negotiation ${args.negotiationId}`);
+            } else if (!sendResult || !sendResult.success) {
+              console.error(`Email sending action (${provider}) failed for negotiation ${args.negotiationId}`);
               return { success: false, reason: "Email sending failed internally." };
             }
-            // ---------------------------------------
             
             return { success: true };
         } catch (error: any) {
-            console.error(`Failed to send negotiation email for ${args.negotiationId}:`, error);
-            return { success: false, reason: "Email sending failed." };
+            console.error(`Failed to send negotiation email for ${args.negotiationId} (Provider: ${provider}):`, error);
+            return { success: false, reason: `Email sending failed: ${error.message}` };
         }
     }
-}); 
+});
+
+// --- Internal query to get connection by ID ---
+// Needed because actions cannot access db directly
+export const getConnectionByIdInternal = internalQuery({
+    args: { connectionId: v.id("connections") },
+    handler: async (ctx, args) => {
+        return await ctx.db.get(args.connectionId);
+    }
+});
 
 // --- Mutation to store thread info --- 
 export const updateEmailThreadInfo = internalMutation({

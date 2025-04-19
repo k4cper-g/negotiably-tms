@@ -742,6 +742,11 @@ interface AgentSettingsModalProps {
   setEmailSubject: (value: string) => void;
   emailCc: string;
   setEmailCc: (value: string) => void;
+  // New props for connection selection
+  connections: { _id: Id<"connections">; provider: string; email: string; label: string | undefined; }[] | undefined;
+  connectionsLoading: boolean;
+  selectedConnectionId: Id<"connections"> | null | undefined;
+  setSelectedConnectionId: (value: Id<"connections"> | null | undefined) => void;
 }
 
 // Extract the AgentSettingsModal component
@@ -781,7 +786,12 @@ const AgentSettingsModal = memo(({
   emailSubject,
   setEmailSubject,
   emailCc,
-  setEmailCc
+  setEmailCc,
+  // New props for connection selection
+  connections,
+  connectionsLoading,
+  selectedConnectionId,
+  setSelectedConnectionId
 }: AgentSettingsModalProps) => {
   const calculateTargetPrice = (offer: any) => {
     if (negotiationMode === "percentage" && targetPercentage) {
@@ -911,7 +921,7 @@ const AgentSettingsModal = memo(({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden bg-card">
         <DialogHeader className="px-6 pt-6 pb-2 border-b">
-          <DialogTitle className="flex items-center text-xl text-card-foreground">
+          <DialogTitle className="flex items-center text-xl text-card-foreground mb-3">
             <Settings className="mr-2 h-5 w-5 text-primary" />
             Settings
           </DialogTitle>
@@ -1365,6 +1375,35 @@ const AgentSettingsModal = memo(({
                     />
                     <p className="text-xs text-muted-foreground">Separate multiple emails with commas</p>
                   </div>
+
+                  {/* Connection Selection */}
+                  <div className="space-y-1.5">
+                     <Label htmlFor="connection-select">Send/Receive Emails Via<span className="text-destructive ml-1">*</span></Label>
+                     <Select
+                       // Pass the selected ID directly, or undefined if null/undefined
+                       value={selectedConnectionId ?? undefined}
+                       onValueChange={(value) => {
+                         // Set state directly with the selected value (which will be an Id or undefined)
+                         setSelectedConnectionId(value as Id<"connections"> | undefined);
+                       }}
+                       disabled={connectionsLoading}
+                     >
+                       <SelectTrigger id="connection-select" className="w-full">
+                         <SelectValue placeholder={connectionsLoading ? "Loading connections..." : "Select an email account..."} />
+                       </SelectTrigger>
+                       <SelectContent>
+                         {/* "Do not use email" option removed */}
+                         {connections?.map((conn) => (
+                           <SelectItem key={conn._id} value={conn._id}>
+                             {conn.label || conn.email} ({conn.provider})
+                           </SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
+                     <p className="text-xs text-muted-foreground">
+                       Select the connected email account to send messages from. If not selected, emails might not be sent.
+                     </p>
+                  </div>
                 </div>
               </div>
             </div> 
@@ -1377,7 +1416,12 @@ const AgentSettingsModal = memo(({
             <Button variant="ghost">Cancel</Button>
           </DialogClose>
           {/* Add a primary save/apply button here if needed for the overall settings */}
-          <Button onClick={() => onOpenChange(false)}>Apply Settings</Button> 
+          <Button 
+            onClick={() => onOpenChange(false)} 
+            disabled={!selectedConnectionId} // Disable if no connection is selected
+          >
+            Apply Settings
+          </Button> 
         </DialogFooter>
 
       </DialogContent>
@@ -1718,6 +1762,7 @@ export default function OffersPage() {
             offerContactEmail: offer.offerContactEmail, // Pass the email
             notes: `Request for freight from ${offer.origin} to ${offer.destination}`,
           },
+          connectionId: selectedConnectionId ?? undefined, // Pass selected connection ID
         });
         
         const negotiationId = result.negotiationId as Id<"negotiations">;
@@ -1839,6 +1884,11 @@ export default function OffersPage() {
   const handleOpenAgentSettings = (open: boolean) => {
     setIsAgentSettingsOpen(open);
   };
+
+  // Fetch connections for account selection
+  const connections = useQuery(api.connections.listUserConnections);
+  const connectionsLoading = connections === undefined;
+  const [selectedConnectionId, setSelectedConnectionId] = useState<Id<"connections"> | null | undefined>(undefined);
 
   return (
     <div className="space-y-6 py-6 px-4 sm:px-6 lg:px-8">
@@ -2610,6 +2660,10 @@ export default function OffersPage() {
         setEmailSubject={setEmailSubject}
         emailCc={emailCc}
         setEmailCc={setEmailCc}
+        connections={connections}
+        connectionsLoading={connectionsLoading}
+        selectedConnectionId={selectedConnectionId}
+        setSelectedConnectionId={setSelectedConnectionId}
       />
     </div>
   );
