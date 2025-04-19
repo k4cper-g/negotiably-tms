@@ -186,6 +186,7 @@ function TransportOfferDetails({ offer }: { offer: TransportOffer }) {
       const result = await createNegotiation({
         offerId: offer.id,
         initialRequest: {
+          platform: offer.platform, // Added platform
           origin: offer.origin,
           destination: offer.destination,
           price: offer.price,
@@ -379,6 +380,7 @@ function OfferCard({
       const result = await createNegotiation({
         offerId: offer.id,
         initialRequest: {
+          platform: offer.platform, // Added platform
           origin: offer.origin,
           destination: offer.destination,
           price: offer.price,
@@ -1751,6 +1753,7 @@ export default function OffersPage() {
         const result = await createNegotiation({
           offerId: offer.id,
           initialRequest: {
+            platform: offer.platform, // Added platform
             origin: offer.origin,
             destination: offer.destination,
             price: offer.price,

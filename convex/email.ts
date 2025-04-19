@@ -2,6 +2,7 @@ import { action, internalAction, internalQuery, ActionCtx, QueryCtx, internalMut
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id, Doc } from "./_generated/dataModel";
+import { GoogleAuth } from "google-auth-library";
 
 // Helper function to get environment variables or throw
 function getEnvVariable(varName: string): string {
@@ -10,6 +11,15 @@ function getEnvVariable(varName: string): string {
         throw new Error(`Required environment variable "${varName}" is not set.`);
     }
     return value;
+}
+
+// Helper function to format timestamp to DD.MM.YYYY
+function formatTimestamp(timestamp: number): string {
+    const date = new Date(timestamp);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
 }
 
 // --- Helper Query to Get Connection Details ---
@@ -248,8 +258,25 @@ export const sendNegotiationUpdateEmail = action({
              return { success: false, reason: "Failed to refresh access token." };
         }
 
-        // 5. Construct Email Content & Headers (Same as before)
-        const subject = negotiation.emailSubject || `Update on Negotiation #${negotiation._id.substring(0, 6)}...`;
+        // 5. Construct Email Content & Headers 
+        
+        // --- Default Subject Line Logic ---
+        let defaultSubject: string;
+        try {
+            const platform = negotiation.initialRequest?.platform?.toUpperCase() || "OFFER"; // Use platform from initialRequest or default
+            const date = formatTimestamp(negotiation._creationTime); // Format creation time
+            const origin = negotiation.initialRequest?.origin || "Unknown Origin"; // Use direct origin string
+            const destination = negotiation.initialRequest?.destination || "Unknown Destination"; // Use direct destination string
+            defaultSubject = `${platform}-OFFER: (${date}) ${origin} ---> ${destination}`; // Updated format string
+        } catch (e) {
+            console.error("Error constructing default subject:", e);
+            // Fallback if data is missing or formatting fails
+            defaultSubject = `Update on Negotiation #${negotiation._id.substring(0, 6)}...`; 
+        }
+
+        const subject = negotiation.emailSubject || defaultSubject; // Use custom subject or the new default
+        // --- End Default Subject Line Logic ---
+
         const body = `${args.messageContent}\n\n---\nView negotiation: ${getEnvVariable("APP_URL")}/negotiations/${args.negotiationId}`;
         const replyToAddress = `reply+${negotiation._id}@replies.alterion.io`; // Assuming this is Mailgun address
         const headers: any = { replyTo: replyToAddress };

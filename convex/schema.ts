@@ -24,6 +24,7 @@ export default defineSchema({
         status: v.string(),
         currentPrice: v.optional(v.string()),
         initialRequest: v.object({
+            platform: v.optional(v.string()),
             origin: v.string(),
             destination: v.string(),
             price: v.string(),

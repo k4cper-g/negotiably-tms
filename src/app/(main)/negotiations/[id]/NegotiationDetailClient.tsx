@@ -1522,7 +1522,7 @@ export default function NegotiationDetailClient({
                                 )}>
                                 {negotiation.agentState === "needs_review" ? "Needs Your Review"
                                 : negotiation.agentState === "error" ? "Agent Error"
-                                : "Seeking Higher Offer"}
+                                : "Negotiation in Progress"}
                                 </p>
                                 <p className="text-xs mt-0.5 text-muted-foreground line-clamp-2">
                                 {negotiation.agentState === "needs_review" ? (negotiation.agentMessage || "Agent has paused. Please review the current offer or take over.")
@@ -1584,7 +1584,7 @@ export default function NegotiationDetailClient({
                         {!negotiation.isAgentActive && (
                         <div className="p-3 space-y-3">
                             <p className="text-sm text-muted-foreground">
-                            Let AI negotiate <span className="font-medium">upwards</span> on your behalf to meet or exceed your minimum target price.
+                            Let AI negotiate on your behalf to meet or exceed your minimum target price.
                             </p>
                             <Button 
                             variant="outline" 
