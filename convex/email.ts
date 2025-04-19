@@ -277,7 +277,7 @@ export const sendNegotiationUpdateEmail = action({
         const subject = negotiation.emailSubject || defaultSubject; // Use custom subject or the new default
         // --- End Default Subject Line Logic ---
 
-        const body = `${args.messageContent}\n\n---\nView negotiation: ${getEnvVariable("APP_URL")}/negotiations/${args.negotiationId}`;
+        const body = args.messageContent; // Removed the appended footer
         const replyToAddress = `reply+${negotiation._id}@replies.alterion.io`; // Assuming this is Mailgun address
         const headers: any = { replyTo: replyToAddress };
         if (negotiation.emailCcRecipients && negotiation.emailCcRecipients.length > 0) {
