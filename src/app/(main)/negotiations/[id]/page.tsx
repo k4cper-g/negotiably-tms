@@ -1,14 +1,29 @@
 // SERVER COMPONENT
+// import { Metadata, ResolvingMetadata } from 'next';
+// import { ConvexHttpClient } from "convex/browser";
+import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import NegotiationDetailClient from "./NegotiationDetailClient";
 
-// Make the function async and update the params type
+// Remove Props type
+// type Props = {
+//   params: { id: string };
+//   searchParams: { [key: string]: string | string[] | undefined };
+// };
+
+// Remove ConvexHttpClient instance
+// const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+
+// Remove generateMetadata function
+// export async function generateMetadata(...) { ... }
+
+// Page component (explicitly await params to address warning)
 export default async function NegotiationDetail({
-  params: paramsPromise, // Rename for clarity
+  params: paramsPromise, // Rename back if needed
 }: {
-  params: Promise<{ id: string }>; // Indicate params is a Promise
+  params: Promise<{ id: string }>; // Revert if needed, or keep as {id: string}
 }) {
-  const params = await paramsPromise; // Await the promise
+  const params = await paramsPromise; // Await the params promise
   const negotiationId = params.id as unknown as Id<"negotiations">;
   
   return <NegotiationDetailClient negotiationId={negotiationId} />;

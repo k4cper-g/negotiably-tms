@@ -1001,6 +1001,18 @@ export default function NegotiationDetailClient({
   const selectedBackground = AVAILABLE_BACKGROUNDS.find(bg => bg.value === chatBackgroundValue) || AVAILABLE_BACKGROUNDS[0]; 
   const chatBackgroundClass = selectedBackground.className;
 
+  // Effect to update document title when negotiation data loads
+  useEffect(() => {
+    if (negotiation && negotiation.initialRequest) {
+      const origin = negotiation.initialRequest.origin || 'Unknown Origin';
+      const destination = negotiation.initialRequest.destination || 'Unknown Destination';
+      const title = `${origin} to ${destination} | Alterion`;
+      document.title = title;
+    }
+    // Optional: Reset title if negotiation is null/undefined or when component unmounts?
+    // return () => { document.title = "Alterion"; } // Example cleanup
+  }, [negotiation]); // Dependency array: run when negotiation data changes
+
   // --- CONDITIONAL RETURN (Now safe, after all hooks) --- 
   if (!negotiation) {
     return (

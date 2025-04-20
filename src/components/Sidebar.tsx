@@ -156,6 +156,19 @@ export default function Sidebar() {
           </Button>
         </Link>
 
+        {/* <Link href="/contacts" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/contacts")}>
+          <Button
+            variant={isActive("/contacts") ? "secondary" : "ghost"}
+            className={cn(
+              "w-full justify-start transition-none",
+              isActive("/contacts") ? "font-medium" : "font-normal text-muted-foreground"
+            )}
+          >
+            <Users className="h-4 w-4 mr-3" />
+            Contacts
+          </Button>
+        </Link> */}
+
         
         {/* <Link href="/routes" prefetch={true} className="block w-full" onClick={() => handleLinkClick("/routes")}>
           <Button 

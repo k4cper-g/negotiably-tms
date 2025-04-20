@@ -27,6 +27,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
+  Eye,
+  Pencil
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -397,9 +399,11 @@ function NegotiationActions({ negotiation: neg }: { negotiation: any }) {
             e.stopPropagation();
             router.push(`/negotiations/${neg.id}`);
           }}>
+            <Eye className="mr-2 h-4 w-4" />
             View Details
           </DropdownMenuItem>
           <DropdownMenuItem onClick={(e) => handleOpenModal(e)}>
+            <MessageSquare className="mr-2 h-4 w-4" />
             Open as Floating Chat
           </DropdownMenuItem>
           <DropdownMenuItem 
@@ -409,6 +413,7 @@ function NegotiationActions({ negotiation: neg }: { negotiation: any }) {
               setEditDialogOpen(true);
             }}
           >
+            <Pencil className="mr-2 h-4 w-4" />
             Edit Price
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -425,6 +430,7 @@ function NegotiationActions({ negotiation: neg }: { negotiation: any }) {
                 className="w-full text-left px-2 py-1.5 text-sm text-red-600 relative flex cursor-default select-none items-center rounded-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
                 onClick={(e) => e.stopPropagation()}
               >
+                <Trash2 className="mr-2 h-4 w-4" />
                 {isDeleting ? 'Deleting...' : 'Delete'}
               </AlertDialogTrigger>
               <AlertDialogContent onClick={(e) => e.stopPropagation()}>
@@ -529,6 +535,11 @@ export default function NegotiationsPage() {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  
+  // Effect to set the page title
+  useEffect(() => {
+    document.title = "Negotiations | Alterion";
+  }, []); // Empty dependency array ensures this runs only once on mount
   
   // Fetch negotiations from Convex
   const convexNegotiations = useQuery(api.negotiations.getUserNegotiations);
